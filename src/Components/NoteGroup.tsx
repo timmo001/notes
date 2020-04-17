@@ -5,7 +5,7 @@ import Typography from '@material-ui/core/Typography';
 
 import Icon from './Icon';
 import NoteComponent from './Note';
-import type { BaseProps, NoteGroup, Note } from './Types';
+import type { NoteGroup, Note, NoteGroupProps } from './Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
   title: {
@@ -18,10 +18,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: '100%',
   },
 }));
-
-interface NoteGroupProps extends BaseProps {
-  noteGroup: NoteGroup;
-}
 
 export default function NoteGroupComponent(
   props: NoteGroupProps

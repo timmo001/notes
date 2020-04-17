@@ -32,8 +32,8 @@ export default function Main(props: BaseProps): ReactElement {
   const [editingConfiguration, setEditingConfiguration] = useState<boolean>(
     false
   );
-  const [notesId, setNotesId] = useState<number>();
-  const [notes, setNotes] = useState<NoteGroup[]>();
+  const [notesId, setNotesId] = useState<string>();
+  const [noteGroups, setNotes] = useState<NoteGroup[]>();
 
   function handleEditConfiguration(): void {
     setEditingConfiguration(!editingConfiguration);
@@ -53,7 +53,7 @@ export default function Main(props: BaseProps): ReactElement {
       console.log('Notes:', response.data[0]);
 
     const notes: NoteGroup[] = response.data[0].notes;
-    const notesId: number = response.data[0]._id;
+    const notesId: string = response.data[0]._id;
     setNotesId(notesId);
     setNotes(notes);
 
@@ -61,7 +61,7 @@ export default function Main(props: BaseProps): ReactElement {
       'patched',
       (message: { userId: string; notes: NoteGroup[] }) => {
         if (message.userId === userId && notes !== message.notes) {
-          console.log('Update Config:', message.notes);
+          console.log('Update Notes:', message.notes);
           setNotes(message.notes);
         }
       }
@@ -79,12 +79,12 @@ export default function Main(props: BaseProps): ReactElement {
       <Header {...props} handleEditConfiguration={handleEditConfiguration} />
       <Grid className={classes.root} container direction="column">
         {notesId &&
-          notes &&
-          notes.map((noteGroup: NoteGroup, key: number) => (
+          noteGroups &&
+          noteGroups.map((noteGroup: NoteGroup, key: number) => (
             <Grid key={key} item>
               <NoteGroupComponent
                 {...props}
-                notes={notes}
+                noteGroups={noteGroups}
                 notesId={notesId}
                 editingConfiguration={editingConfiguration}
                 noteGroup={noteGroup}

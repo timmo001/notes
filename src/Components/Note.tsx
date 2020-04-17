@@ -1,42 +1,21 @@
 import React, { ReactElement, ChangeEvent } from 'react';
 
+import { moveNote, updateNote } from './Data/Notes';
 import NoteList from './Note/List';
 import NoteTask from './Note/Task';
-import type { BaseProps, NoteGroup, Note } from './Types';
-import clone from 'utils/clone';
-
-interface NoteProps extends BaseProps {
-  noteGroupKey: string;
-  note: Note;
-}
+import type { NoteProps, Note } from './Types';
 
 export default function NoteComponent(props: NoteProps): ReactElement | null {
-  const { notesId, noteGroupKey } = props;
+  const { notesId, noteGroupKey, noteGroups } = props;
   const { client } = props.api;
   const { key, type, icon, content, checked } = props.note;
 
-  const handleNoteChange = (itemKey: string) => async (
+  const handleNoteChange = (itemKey: keyof Note) => async (
     event: ChangeEvent<HTMLInputElement>
   ): Promise<void> => {
     console.log('handleNoteChange:', itemKey, event.target.checked);
     console.log('note:', key, type);
-
-    const noteGroups = clone(props.notes);
-    const noteGroup =
-      noteGroups[
-        noteGroups.findIndex(
-          (noteGroup: NoteGroup) => noteGroup.key === noteGroupKey
-        )
-      ];
-    const item =
-      noteGroup.notes[
-        noteGroup.notes.findIndex((note: Note) => note.key === key)
-      ];
-    item[itemKey] =
-      itemKey === 'checked' ? event.target.checked : String(event.target.value);
-
-    const notesService = await client.service('notes');
-    notesService.patch(notesId, { notes: noteGroups });
+    updateNote(client, notesId, noteGroups, noteGroupKey, key, itemKey, event);
   };
 
   async function handleNoteDelete(): Promise<void> {
@@ -47,6 +26,7 @@ export default function NoteComponent(props: NoteProps): ReactElement | null {
   const handleNoteMove = (position: number) => async (): Promise<void> => {
     console.log('handleNoteMove:', position);
     console.log('note:', key, type);
+    moveNote(client, notesId, noteGroups, noteGroupKey, key, position);
   };
 
   switch (type) {

@@ -47,16 +47,25 @@ export interface BaseProps {
   configuration: Configuration;
   editingConfiguration: boolean;
   loggedIn: boolean;
-  notes: NoteGroup[];
-  notesId: number;
   handleLogin: () => void;
   handleLogout: () => void;
   handleUpdateConfiguration: (config: Configuration) => void;
 }
 
-export interface NoteProps {
+export interface NoteGroupProps extends BaseProps {
+  noteGroup: NoteGroup;
+  noteGroups: NoteGroup[];
+  notesId: string;
+}
+
+export interface NoteProps extends NoteGroupProps {
+  note: Note;
+  noteGroupKey: string;
+}
+
+export interface NoteBaseProps {
   handleNoteChange: (
-    key: string
+    key: keyof Note
   ) => (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleNoteDelete: () => Promise<void>;
   handleNoteMove: (position: number) => () => Promise<void>;

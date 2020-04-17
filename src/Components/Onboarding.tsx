@@ -163,8 +163,6 @@ function Onboarding(): ReactElement {
           configuration={configuration}
           editingConfiguration={false}
           loggedIn={loggedIn}
-          notes={[]}
-          notesId={-1}
           handleUpdateConfiguration={handleUpdateConfiguration}
           handleLogin={handleLogin}
           handleLogout={handleLogout}
