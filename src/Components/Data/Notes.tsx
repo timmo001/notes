@@ -26,6 +26,22 @@ export async function updateNotes(
   notesService.patch(notesId, { notes: noteGroups });
 }
 
+export async function deleteNote(
+  client: Application,
+  notesId: string,
+  noteGroups: NoteGroup[],
+  noteGroupKey: string,
+  noteKey: string
+): Promise<void> {
+  const noteGroupIndex: number = getNoteGroupIndex(noteGroups, noteGroupKey);
+  const noteIndex: number = getNoteIndex(
+    noteGroups[noteGroupIndex].notes,
+    noteKey
+  );
+  noteGroups[noteGroupIndex].notes.splice(noteIndex, 1);
+  updateNotes(client, notesId, noteGroups);
+}
+
 export async function moveNote(
   client: Application,
   notesId: string,

@@ -9,7 +9,7 @@ import type { NoteGroup, Note, NoteGroupProps } from './Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
   title: {
-    padding: theme.spacing(1, 2),
+    padding: theme.spacing(1),
   },
   notes: {
     paddingBottom: theme.spacing(4),

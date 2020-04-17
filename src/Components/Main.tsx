@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
-import { makeStyles } from '@material-ui/core/styles';
+import { makeStyles, Theme } from '@material-ui/core/styles';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import Grid from '@material-ui/core/Grid';
 
@@ -14,11 +14,12 @@ import NoteGroupComponent from './NoteGroup';
 import placeholderNoteGroups from './Placeholders/Notes';
 import type { BaseProps, NoteGroup } from './Types';
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles((theme: Theme) => ({
   root: {
     position: 'absolute',
-    height: `calc(100% - 48px)`,
+    height: 'calc(100% - 48px)',
     top: 48,
+    padding: theme.spacing(1, 2),
   },
   degree: {
     verticalAlign: 'top',
