@@ -1382,10 +1382,10 @@
   resolved "https://registry.yarnpkg.com/@mdi/react/-/react-1.4.0.tgz#7f6bad1bd8801226d0e5bad91659b215ce68a93f"
   integrity sha512-OUH9RhfDJPhybQL3owwrSDIXz2yVKXg5lYeOZjyRCiT9wqywNK0FeYyDByOwNIZnnIQoQYmuSrMv+pOX0Uqkmw==
 
-"@mdi/svg@5.0.45":
-  version "5.0.45"
-  resolved "https://registry.yarnpkg.com/@mdi/svg/-/svg-5.0.45.tgz#4544b114419effd5e1373bf1f07d567c27f44818"
-  integrity sha512-JAsxPV2Um/AxZluJxNnxqgrByQT3wj7f0V0YJI632qUwiU6EDmG1D43FMHlLS5oEPjYB4meiyF4/mPDXqfICSw==
+"@mdi/svg@5.1.45":
+  version "5.1.45"
+  resolved "https://registry.yarnpkg.com/@mdi/svg/-/svg-5.1.45.tgz#31b6df5547e8ec166bf80747143e0cfe9a4d4928"
+  integrity sha512-NJ1AmjJ454uRUm3QgNFNyW0aYoaZcYKqUS4yjlEMvnQi540/VPNOsXX46O33ZeYWsJzvfB4gJD+iMAx0y1sgrA==
 
 "@mrmlnc/readdir-enhanced@^2.2.1":
   version "2.2.1"
