@@ -9,7 +9,7 @@ import type { NoteBaseProps, Note } from '../Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
   icon: {
-    margin: theme.spacing(0, 1, 0, 0.5),
+    margin: theme.spacing(0, 1),
   },
   text: {
     margin: theme.spacing(0, 1),

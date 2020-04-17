@@ -24,7 +24,7 @@ export default function placeholderNoteGroups(): NoteGroup[] {
     },
     {
       key: makeKey(16),
-      title: 'TODO',
+      title: 'Todo',
       notes: [
         {
           key: makeKey(32),
