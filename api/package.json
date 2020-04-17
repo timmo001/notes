@@ -35,6 +35,8 @@
     "@feathersjs/express": "4.5.2",
     "@feathersjs/feathers": "4.5.2",
     "@feathersjs/socketio": "4.5.2",
+    "@mdi/svg": "5.1.45",
+    "@mdi/util": "0.3.2",
     "compression": "1.7.4",
     "cors": "2.8.5",
     "feathers-nedb": "5.1.0",

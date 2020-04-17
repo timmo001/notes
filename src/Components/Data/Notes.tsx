@@ -55,7 +55,7 @@ export async function updateNoteGroup(
   noteGroups: NoteGroup[],
   noteGroupKey: string,
   itemKey: keyof NoteGroup,
-  event: ChangeEvent<HTMLInputElement>
+  event: string | ChangeEvent<HTMLInputElement>
 ): Promise<void> {
   const noteGroupIndex: number = noteGroups.findIndex(
     (noteGroup: NoteGroup) => noteGroup.key === noteGroupKey
@@ -63,7 +63,7 @@ export async function updateNoteGroup(
   const noteGroup: NoteGroup = noteGroups[noteGroupIndex];
   noteGroups[noteGroupIndex] = {
     ...noteGroup,
-    [itemKey]: event.target.value,
+    [itemKey]: typeof event === 'string' ? event : event.target.value,
   };
   updateNotes(client, notesId, noteGroups);
 }

@@ -8,7 +8,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: {
     height: '100%',
     width: '100%',
-    background: theme.palette.background.default,
   },
   text: {
     marginTop: theme.spacing(1),

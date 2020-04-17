@@ -10,6 +10,7 @@ import { mdiCheck, mdiDelete, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 
 import { deleteNoteGroup, moveNoteGroup, updateNoteGroup } from './Data/Notes';
 import Icon from './Icon';
+import IconPicker from './IconPicker';
 import NoteComponent from './Note';
 import type { NoteGroup, Note, NoteGroupProps } from './Types';
 
@@ -43,25 +44,28 @@ export default function NoteGroupComponent(
   const { key, title, icon, notes } = props.noteGroup;
 
   const [editing, setEditing] = useState<boolean>(false);
-  const [iconPicker, setIconPicker] = useState<string>();
+  const [iconPicker, setIconPicker] = useState<string | boolean>();
 
   function handleToggleEditing(): void {
     setEditing(!editing);
   }
 
   function handleShowIconPicker(): void {
-    setIconPicker(icon);
+    setIconPicker(icon || true);
   }
 
-  function handleIconPickerFinished(): void {
+  function handleIconPickerFinished(icon?: string): void {
+    updateNoteGroup(client, notesId, noteGroups, key, 'icon', icon || '');
     setIconPicker(undefined);
   }
 
   async function handleNoteGroupDelete(): Promise<void> {
+    setEditing(false);
     deleteNoteGroup(client, notesId, noteGroups, key);
   }
 
   const handleNoteGroupMove = (position: number) => async (): Promise<void> => {
+    setEditing(false);
     moveNoteGroup(client, notesId, noteGroups, key, position);
   };
 
@@ -159,6 +163,15 @@ export default function NoteGroupComponent(
           </Grid>
         ))}
       </Grid>
+      {iconPicker && (
+        <IconPicker
+          {...props}
+          currentIcon={
+            (typeof iconPicker === 'string' && iconPicker) || undefined
+          }
+          handleIconPickerFinished={handleIconPickerFinished}
+        />
+      )}
     </Fragment>
   );
 }

@@ -562,6 +562,16 @@
     "@types/yargs" "^15.0.0"
     chalk "^3.0.0"
 
+"@mdi/svg@5.1.45":
+  version "5.1.45"
+  resolved "https://registry.yarnpkg.com/@mdi/svg/-/svg-5.1.45.tgz#31b6df5547e8ec166bf80747143e0cfe9a4d4928"
+  integrity sha512-NJ1AmjJ454uRUm3QgNFNyW0aYoaZcYKqUS4yjlEMvnQi540/VPNOsXX46O33ZeYWsJzvfB4gJD+iMAx0y1sgrA==
+
+"@mdi/util@0.3.2":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@mdi/util/-/util-0.3.2.tgz#8964f14ad86f9a355042824553958cc01a94886f"
+  integrity sha512-0ICbKIcsI+OYSqz6SWsYVJA6+kM+irQQiwYGBtJlq0a0sI0JrB2bCrc4S/xVfexqwa1EG8dlSY/ohsQllEXnyQ==
+
 "@sindresorhus/is@^0.14.0":
   version "0.14.0"
   resolved "https://registry.yarnpkg.com/@sindresorhus/is/-/is-0.14.0.tgz#9fb3a3cf3132328151f353de4632e01e52102bea"
