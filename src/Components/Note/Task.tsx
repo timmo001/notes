@@ -1,4 +1,5 @@
 import React, { Fragment, ReactElement } from 'react';
+import clsx from 'clsx';
 import { makeStyles, Theme, useTheme } from '@material-ui/core/styles';
 import Checkbox from '@material-ui/core/Checkbox';
 import Grid from '@material-ui/core/Grid';
@@ -15,6 +16,9 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: {
     minHeight: 42,
     padding: theme.spacing(0.5, 2),
+  },
+  checkedText: {
+    textDecoration: 'line-through',
   },
 }));
 
@@ -41,7 +45,10 @@ export default function NoteTaskComponent(props: NoteTaskProps): ReactElement {
           </Grid>
           <Grid item>{icon && <Icon icon={icon} />}</Grid>
           <Grid item xs>
-            <Typography component="span" variant="body1">
+            <Typography
+              className={clsx(checked && classes.checkedText)}
+              component="span"
+              variant="body1">
               {content}
             </Typography>
           </Grid>
