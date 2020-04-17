@@ -5,24 +5,28 @@ import Typography from '@material-ui/core/Typography';
 
 import Icon from './Icon';
 import NoteComponent from './Note';
-import type { MainProps, NoteGroup, Note } from './Types';
+import type { BaseProps, NoteGroup, Note } from './Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
   title: {
-    margin: theme.spacing(1, 2),
+    padding: theme.spacing(1, 2),
   },
   notes: {
-    padding: theme.spacing(0, 4, 4),
+    paddingBottom: theme.spacing(4),
+  },
+  note: {
+    width: '100%',
   },
 }));
 
-interface NoteGroupProps extends MainProps {
+interface NoteGroupProps extends BaseProps {
   noteGroup: NoteGroup;
 }
 
 export default function NoteGroupComponent(
   props: NoteGroupProps
 ): ReactElement {
+  const { notesId } = props;
   const { client, userId } = props.api;
   const { key, title, icon, notes } = props.noteGroup;
 
@@ -50,9 +54,9 @@ export default function NoteGroupComponent(
         container
         direction="column"
         alignItems="center">
-        {notes.map((note: Note, key: number) => (
-          <Grid key={key} item>
-            <NoteComponent {...props} note={note} />
+        {notes.map((note: Note, mapKey: number) => (
+          <Grid key={mapKey} className={classes.note} item>
+            <NoteComponent {...props} noteGroupKey={key} note={note} />
           </Grid>
         ))}
       </Grid>

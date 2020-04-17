@@ -1,26 +1,53 @@
-import React, { ReactElement } from 'react';
+import React, { ReactElement, ChangeEvent } from 'react';
 
 import NoteList from './Note/List';
 import NoteTask from './Note/Task';
-import type { MainProps, Note } from './Types';
+import type { BaseProps, NoteGroup, Note } from './Types';
+import clone from 'utils/clone';
 
-interface NoteProps extends MainProps {
+interface NoteProps extends BaseProps {
+  noteGroupKey: string;
   note: Note;
 }
 
 export default function NoteComponent(props: NoteProps): ReactElement | null {
-  const { client, userId } = props.api;
+  const { notesId, noteGroupKey } = props;
+  const { client } = props.api;
   const { key, type, icon, content, checked } = props.note;
+
+  const handleNoteChange = (itemKey: string) => async (
+    event: ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
+    console.log('handleNoteChange:', itemKey, event.target.checked);
+    console.log('note:', key, type);
+
+    const noteGroups = clone(props.notes);
+    const noteGroup =
+      noteGroups[
+        noteGroups.findIndex(
+          (noteGroup: NoteGroup) => noteGroup.key === noteGroupKey
+        )
+      ];
+    const item =
+      noteGroup.notes[
+        noteGroup.notes.findIndex((note: Note) => note.key === key)
+      ];
+    item[itemKey] =
+      itemKey === 'checked' ? event.target.checked : String(event.target.value);
+
+    const notesService = await client.service('notes');
+    notesService.patch(notesId, { notes: noteGroups });
+  };
 
   async function handleNoteDelete(): Promise<void> {
     console.log('handleNoteDelete');
     console.log('note:', key, type);
   }
 
-  async function handleNoteMove(position: number): Promise<void> {
+  const handleNoteMove = (position: number) => async (): Promise<void> => {
     console.log('handleNoteMove:', position);
     console.log('note:', key, type);
-  }
+  };
 
   switch (type) {
     default:
@@ -29,6 +56,7 @@ export default function NoteComponent(props: NoteProps): ReactElement | null {
       return (
         <NoteList
           note={{ key, type, icon, content: content || '' }}
+          handleNoteChange={handleNoteChange}
           handleNoteDelete={handleNoteDelete}
           handleNoteMove={handleNoteMove}
         />
@@ -43,6 +71,7 @@ export default function NoteComponent(props: NoteProps): ReactElement | null {
             content: content || '',
             checked: checked || false,
           }}
+          handleNoteChange={handleNoteChange}
           handleNoteDelete={handleNoteDelete}
           handleNoteMove={handleNoteMove}
         />

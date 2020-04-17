@@ -161,7 +161,10 @@ function Onboarding(): ReactElement {
         <Main
           api={{ client, url, userId }}
           configuration={configuration}
+          editingConfiguration={false}
           loggedIn={loggedIn}
+          notes={[]}
+          notesId={-1}
           handleUpdateConfiguration={handleUpdateConfiguration}
           handleLogin={handleLogin}
           handleLogout={handleLogout}

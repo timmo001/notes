@@ -1,3 +1,4 @@
+import { ChangeEvent } from 'react';
 import { Application } from '@feathersjs/feathers';
 
 export interface Api {
@@ -42,16 +43,21 @@ export interface ConfigurationGeneral {
 }
 
 export interface BaseProps {
+  api: Api;
   configuration: Configuration;
   editingConfiguration: boolean;
+  loggedIn: boolean;
+  notes: NoteGroup[];
+  notesId: number;
+  handleLogin: () => void;
+  handleLogout: () => void;
   handleUpdateConfiguration: (config: Configuration) => void;
 }
 
-export interface MainProps extends BaseProps {
-  api: Api;
-}
-
 export interface NoteProps {
+  handleNoteChange: (
+    key: string
+  ) => (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleNoteDelete: () => Promise<void>;
-  handleNoteMove: (position: number) => Promise<void>;
+  handleNoteMove: (position: number) => () => Promise<void>;
 }

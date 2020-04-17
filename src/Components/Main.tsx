@@ -12,7 +12,7 @@ import Grid from '@material-ui/core/Grid';
 import Header from './Header';
 import NoteGroupComponent from './NoteGroup';
 import placeholderNoteGroups from './Placeholders/Notes';
-import type { Api, Configuration, NoteGroup } from './Types';
+import type { BaseProps, NoteGroup } from './Types';
 
 const useStyles = makeStyles(() => ({
   root: {
@@ -25,23 +25,15 @@ const useStyles = makeStyles(() => ({
   },
 }));
 
-interface MainProps {
-  api: Api;
-  configuration: Configuration;
-  loggedIn: boolean;
-  handleLogin: () => void;
-  handleLogout: () => void;
-  handleUpdateConfiguration: (config: Configuration) => void;
-}
-
-export default function Main(props: MainProps): ReactElement {
-  const { api, loggedIn, handleLogin, handleLogout } = props;
+export default function Main(props: BaseProps): ReactElement {
+  const { api } = props;
   const { client, userId } = api;
 
   const [editingConfiguration, setEditingConfiguration] = useState<boolean>(
     false
   );
-  const [noteGroups, setNotes] = useState<NoteGroup[]>();
+  const [notesId, setNotesId] = useState<number>();
+  const [notes, setNotes] = useState<NoteGroup[]>();
 
   function handleEditConfiguration(): void {
     setEditingConfiguration(!editingConfiguration);
@@ -61,6 +53,8 @@ export default function Main(props: MainProps): ReactElement {
       console.log('Notes:', response.data[0]);
 
     const notes: NoteGroup[] = response.data[0].notes;
+    const notesId: number = response.data[0]._id;
+    setNotesId(notesId);
     setNotes(notes);
 
     notesService.on(
@@ -82,19 +76,16 @@ export default function Main(props: MainProps): ReactElement {
   return (
     <Fragment>
       <CssBaseline />
-      <Header
-        editingConfiguration={editingConfiguration}
-        loggedIn={loggedIn}
-        handleEditConfiguration={handleEditConfiguration}
-        handleLogin={handleLogin}
-        handleLogout={handleLogout}
-      />
+      <Header {...props} handleEditConfiguration={handleEditConfiguration} />
       <Grid className={classes.root} container direction="column">
-        {noteGroups &&
-          noteGroups.map((noteGroup: NoteGroup, key: number) => (
+        {notesId &&
+          notes &&
+          notes.map((noteGroup: NoteGroup, key: number) => (
             <Grid key={key} item>
               <NoteGroupComponent
                 {...props}
+                notes={notes}
+                notesId={notesId}
                 editingConfiguration={editingConfiguration}
                 noteGroup={noteGroup}
               />
