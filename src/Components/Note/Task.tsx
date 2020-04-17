@@ -11,11 +11,9 @@ import type { NoteBaseProps, NoteTask } from '../Types';
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
     minHeight: 42,
-    padding: theme.spacing(0.5, 2),
+    padding: theme.spacing(0.5, 1.5),
   },
-  checkbox: {
-    margin: theme.spacing(0, 1, 0, 0.5),
-  },
+  checkbox: {},
 }));
 
 interface NoteTaskProps extends NoteBaseProps {

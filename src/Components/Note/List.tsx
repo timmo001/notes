@@ -10,7 +10,7 @@ import type { NoteBaseProps, NoteList } from '../Types';
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
     minHeight: 42,
-    padding: theme.spacing(0.5, 2),
+    padding: theme.spacing(0.5, 1.5),
   },
 }));
 

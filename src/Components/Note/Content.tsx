@@ -9,10 +9,10 @@ import type { NoteBaseProps, Note } from '../Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
   icon: {
-    margin: theme.spacing(0, 1, 0, 2),
+    margin: theme.spacing(0, 1, 0, 0.5),
   },
   text: {
-    margin: theme.spacing(0, 2),
+    margin: theme.spacing(0, 1),
   },
   checkedText: {
     textDecoration: 'line-through',
