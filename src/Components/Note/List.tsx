@@ -22,8 +22,8 @@ export default function NoteListComponent(props: NoteListProps): ReactElement {
   const classes = useStyles();
   return (
     <Fragment>
-      <Paper className={classes.root} square variant="outlined">
-        <Grid container direction="row" alignItems="center" spacing={1}>
+      <Paper className={classes.root} square>
+        <Grid container direction="row" alignItems="center">
           <Content {...props} />
           <Actions {...props} />
         </Grid>

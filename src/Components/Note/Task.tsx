@@ -13,6 +13,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     minHeight: 42,
     padding: theme.spacing(0.5, 2),
   },
+  checkbox: {
+    margin: theme.spacing(0, 1, 0, 0.5),
+  },
 }));
 
 interface NoteTaskProps extends NoteBaseProps {
@@ -26,10 +29,11 @@ export default function NoteTaskComponent(props: NoteTaskProps): ReactElement {
   const classes = useStyles();
   return (
     <Fragment>
-      <Paper className={classes.root} square variant="outlined">
-        <Grid container direction="row" alignItems="center" spacing={1}>
+      <Paper className={classes.root} square>
+        <Grid container direction="row" alignItems="center">
           <Grid item>
             <Checkbox
+              className={classes.checkbox}
               checked={checked}
               onChange={handleNoteChange('checked')}
               inputProps={{ 'aria-label': 'primary checkbox' }}
