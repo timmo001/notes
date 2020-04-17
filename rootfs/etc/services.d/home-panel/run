@@ -1,0 +1,20 @@
+#!/usr/bin/with-contenv bash
+# ==============================================================================
+# Starts server to serve the app
+# ==============================================================================
+echo 'Run Notes..'
+
+# shellcheck disable=SC2164
+cd /opt/panel
+
+if [ -n "$SSL_CERTFILE" ]; then
+  SSL_PATH_CERT="/data/ssl/$SSL_CERTFILE"
+  export SSL_PATH_CERT
+fi
+
+if [ -n "$SSL_KEYFILE" ]; then
+  SSL_PATH_KEY="/data/ssl/$SSL_KEYFILE"
+  export SSL_PATH_KEY
+fi
+
+exec node lib/

@@ -1,0 +1,13 @@
+---
+version: "3"
+
+volumes:
+  simple_dashboard_data: {}
+
+services:
+  notes:
+    build: .
+    volumes:
+      - simple_dashboard_data:/data
+    ports:
+      - 8234:8234

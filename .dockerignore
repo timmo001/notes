@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+Dockerfile*
+docker-compose*
+.dockerignore
+.git*
+README.md
+LICENSE.md
+.vscode
+config.template.json
+docs/
+.yamllint
+.mdlrc
+.eslintrc.json
+hugo/
+src/
+test/
