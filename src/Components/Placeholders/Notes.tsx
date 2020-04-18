@@ -1,5 +1,5 @@
-import { NoteGroup } from 'Components/Types';
-import makeKey from 'utils/makeKey';
+import type { NoteGroup } from '../Types';
+import makeKey from '../../utils/makeKey';
 
 export default function placeholderNoteGroups(): NoteGroup[] {
   return [

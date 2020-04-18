@@ -7,7 +7,10 @@ import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
 import useScrollTrigger from '@material-ui/core/useScrollTrigger';
 import Icon from '@mdi/react';
-import { mdiAccountCircle, mdiCheck, mdiPencil } from '@mdi/js';
+import { mdiAccountCircle, mdiPlus } from '@mdi/js';
+
+import { addNoteGroup } from './Data/Notes';
+import type { MainProps } from './Types';
 
 const useStyles = makeStyles({
   list: {
@@ -22,14 +25,6 @@ const useStyles = makeStyles({
     flex: 1,
   },
 });
-
-interface HeaderProps {
-  editingConfiguration: boolean;
-  loggedIn: boolean;
-  handleEditConfiguration: () => void;
-  handleLogin: () => void;
-  handleLogout: () => void;
-}
 
 interface HideOnScrollProps {
   children: React.ReactElement;
@@ -46,14 +41,13 @@ function HideOnScroll(props: HideOnScrollProps): ReactElement {
   );
 }
 
-export default function Header(props: HeaderProps): ReactElement {
-  const {
-    editingConfiguration,
-    loggedIn,
-    handleEditConfiguration,
-    handleLogin,
-    handleLogout,
-  } = props;
+export default function Header(props: MainProps): ReactElement {
+  const { noteGroups, notesId, loggedIn, handleLogin, handleLogout } = props;
+  const { client } = props.api;
+
+  async function handleAddNoteGroup(): Promise<void> {
+    addNoteGroup(client, notesId, noteGroups);
+  }
 
   const classes = useStyles();
   const theme = useTheme();
@@ -68,11 +62,11 @@ export default function Header(props: HeaderProps): ReactElement {
             <div className={classes.spacer} />
             <IconButton
               color="inherit"
-              aria-label="Edit"
-              onClick={handleEditConfiguration}>
+              aria-label="Add Group"
+              onClick={handleAddNoteGroup}>
               <Icon
-                title="Edit"
-                path={editingConfiguration ? mdiCheck : mdiPencil}
+                title="Add Group"
+                path={mdiPlus}
                 color={theme.palette.text.primary}
                 size={1}
               />

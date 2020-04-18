@@ -52,10 +52,13 @@ export interface BaseProps {
   handleUpdateConfiguration: (config: Configuration) => void;
 }
 
-export interface NoteGroupProps extends BaseProps {
-  noteGroup: NoteGroup;
+export interface MainProps extends BaseProps {
   noteGroups: NoteGroup[];
   notesId: string;
+}
+
+export interface NoteGroupProps extends MainProps {
+  noteGroup: NoteGroup;
 }
 
 export interface NoteProps extends NoteGroupProps {

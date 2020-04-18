@@ -6,15 +6,29 @@ import IconButton from '@material-ui/core/IconButton';
 import InputBase from '@material-ui/core/InputBase';
 import Typography from '@material-ui/core/Typography';
 import MdiIcon from '@mdi/react';
-import { mdiCheck, mdiDelete, mdiChevronUp, mdiChevronDown } from '@mdi/js';
+import {
+  mdiCheck,
+  mdiChevronDown,
+  mdiChevronUp,
+  mdiDelete,
+  mdiPlus,
+} from '@mdi/js';
 
-import { deleteNoteGroup, moveNoteGroup, updateNoteGroup } from './Data/Notes';
+import {
+  addNote,
+  deleteNoteGroup,
+  moveNoteGroup,
+  updateNoteGroup,
+} from './Data/Notes';
 import Icon from './Icon';
 import IconPicker from './IconPicker';
 import NoteComponent from './Note';
 import type { NoteGroup, Note, NoteGroupProps } from './Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
+  add: {
+    marginTop: theme.spacing(1),
+  },
   title: {
     padding: theme.spacing(1),
   },
@@ -29,7 +43,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     },
   },
   notes: {
-    paddingBottom: theme.spacing(4),
+    paddingBottom: theme.spacing(2),
   },
   note: {
     width: '100%',
@@ -57,6 +71,11 @@ export default function NoteGroupComponent(
   function handleIconPickerFinished(icon?: string): void {
     updateNoteGroup(client, notesId, noteGroups, key, 'icon', icon || '');
     setIconPicker(undefined);
+  }
+
+  async function handleAddNote(): Promise<void> {
+    setEditing(false);
+    addNote(client, notesId, noteGroups, key);
   }
 
   async function handleNoteGroupDelete(): Promise<void> {
@@ -162,6 +181,15 @@ export default function NoteGroupComponent(
             <NoteComponent {...props} noteGroupKey={key} note={note} />
           </Grid>
         ))}
+        <Grid item>
+          <IconButton className={classes.add} onClick={handleAddNote}>
+            <MdiIcon
+              color={theme.palette.primary.light}
+              size={1}
+              path={mdiPlus}
+            />
+          </IconButton>
+        </Grid>
       </Grid>
       {iconPicker && (
         <IconPicker

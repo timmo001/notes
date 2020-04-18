@@ -10,6 +10,7 @@ import CssBaseline from '@material-ui/core/CssBaseline';
 import Grid from '@material-ui/core/Grid';
 
 import Header from './Header';
+import Loading from './Loading';
 import NoteGroupComponent from './NoteGroup';
 import placeholderNoteGroups from './Placeholders/Notes';
 import type { BaseProps, NoteGroup } from './Types';
@@ -30,15 +31,8 @@ export default function Main(props: BaseProps): ReactElement {
   const { api } = props;
   const { client, userId } = api;
 
-  const [editingConfiguration, setEditingConfiguration] = useState<boolean>(
-    false
-  );
   const [notesId, setNotesId] = useState<string>();
   const [noteGroups, setNotes] = useState<NoteGroup[]>();
-
-  function handleEditConfiguration(): void {
-    setEditingConfiguration(!editingConfiguration);
-  }
 
   const getNotes = useCallback(async (): Promise<void> => {
     const notesService = await client.service('notes');
@@ -77,22 +71,25 @@ export default function Main(props: BaseProps): ReactElement {
   return (
     <Fragment>
       <CssBaseline />
-      <Header {...props} handleEditConfiguration={handleEditConfiguration} />
-      <Grid className={classes.root} container direction="column">
-        {notesId &&
-          noteGroups &&
-          noteGroups.map((noteGroup: NoteGroup, key: number) => (
-            <Grid key={key} item>
-              <NoteGroupComponent
-                {...props}
-                noteGroups={noteGroups}
-                notesId={notesId}
-                editingConfiguration={editingConfiguration}
-                noteGroup={noteGroup}
-              />
-            </Grid>
-          ))}
-      </Grid>
+      {notesId && noteGroups ? (
+        <Fragment>
+          <Header {...props} noteGroups={noteGroups} notesId={notesId} />
+          <Grid className={classes.root} container direction="column">
+            {noteGroups.map((noteGroup: NoteGroup, key: number) => (
+              <Grid key={key} item>
+                <NoteGroupComponent
+                  {...props}
+                  noteGroups={noteGroups}
+                  notesId={notesId}
+                  noteGroup={noteGroup}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Fragment>
+      ) : (
+        <Loading text="Loading data" />
+      )}
     </Fragment>
   );
 }

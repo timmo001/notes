@@ -2,7 +2,9 @@ import { ChangeEvent } from 'react';
 import { Application } from '@feathersjs/feathers';
 import arrayMove from 'array-move';
 
-import { NoteGroup, Note } from '../Types';
+import placeholderNote from '../Placeholders/Note';
+import placeholderNoteGroup from '../Placeholders/NoteGroup';
+import type { NoteGroup, Note } from '../Types';
 
 export async function updateNotes(
   client: Application,
@@ -24,6 +26,15 @@ export function getNoteGroupIndex(
 
 export function getNoteIndex(notes: Note[], noteKey: string): number {
   return notes.findIndex((note: Note) => note.key === noteKey);
+}
+
+export async function addNoteGroup(
+  client: Application,
+  notesId: string,
+  noteGroups: NoteGroup[]
+): Promise<void> {
+  noteGroups.push(placeholderNoteGroup());
+  updateNotes(client, notesId, noteGroups);
 }
 
 export async function deleteNoteGroup(
@@ -65,6 +76,17 @@ export async function updateNoteGroup(
     ...noteGroup,
     [itemKey]: typeof event === 'string' ? event : event.target.value,
   };
+  updateNotes(client, notesId, noteGroups);
+}
+
+export async function addNote(
+  client: Application,
+  notesId: string,
+  noteGroups: NoteGroup[],
+  noteGroupKey: string
+): Promise<void> {
+  const noteGroupIndex: number = getNoteGroupIndex(noteGroups, noteGroupKey);
+  noteGroups[noteGroupIndex].notes.push(placeholderNote());
   updateNotes(client, notesId, noteGroups);
 }
 
