@@ -80,5 +80,4 @@ export interface NoteBaseProps extends NoteProps {
   ) => (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleNoteDelete: () => Promise<void>;
   handleNoteMove: (position: number) => () => Promise<void>;
-  handleToggleEditing: () => void;
 }

@@ -15,13 +15,7 @@ import { NoteBaseProps } from 'Components/Types';
 import ConfirmDialog from 'Components/ConfirmDialog';
 
 export default function Actions(props: NoteBaseProps): ReactElement | null {
-  const {
-    editing,
-    mouseOver,
-    handleNoteDelete,
-    handleNoteMove,
-    handleToggleEditing,
-  } = props;
+  const { mouseOver, handleNoteDelete, handleNoteMove } = props;
 
   const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
 
@@ -30,7 +24,7 @@ export default function Actions(props: NoteBaseProps): ReactElement | null {
   }
 
   const theme = useTheme();
-  if (!editing && !mouseOver) return null;
+  if (!mouseOver) return null;
   return (
     <Fragment>
       <Grid item>

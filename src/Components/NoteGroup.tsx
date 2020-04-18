@@ -3,16 +3,8 @@ import { makeStyles, Theme, useTheme } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
 import InputBase from '@material-ui/core/InputBase';
-import Typography from '@material-ui/core/Typography';
 import MdiIcon from '@mdi/react';
-import {
-  mdiCheck,
-  mdiChevronDown,
-  mdiChevronUp,
-  mdiDelete,
-  mdiPencil,
-  mdiPlus,
-} from '@mdi/js';
+import { mdiChevronDown, mdiChevronUp, mdiDelete, mdiPlus } from '@mdi/js';
 
 import {
   addNote,
@@ -35,6 +27,15 @@ const useStyles = makeStyles((theme: Theme) => ({
   add: {
     marginTop: theme.spacing(1),
   },
+  icon: {
+    margin: theme.spacing(0, -1),
+  },
+  notes: {
+    paddingBottom: theme.spacing(2),
+  },
+  note: {
+    width: '100%',
+  },
   titleEdit: {
     height: 41,
     fontSize: '2.125rem',
@@ -44,12 +45,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     '& input': {
       padding: 0,
     },
-  },
-  notes: {
-    paddingBottom: theme.spacing(2),
-  },
-  note: {
-    width: '100%',
   },
 }));
 
@@ -61,7 +56,6 @@ export default function NoteGroupComponent(
   const { key, title, icon, notes } = props.noteGroup;
 
   const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
-  const [editing, setEditing] = useState<boolean>(false);
   const [iconPicker, setIconPicker] = useState<string | boolean>(false);
   const [mouseOver, setMouseOver] = useState<boolean>(false);
 
@@ -77,10 +71,6 @@ export default function NoteGroupComponent(
     setDeleteConfirm(!deleteConfirm);
   }
 
-  function handleToggleEditing(): void {
-    setEditing(!editing);
-  }
-
   function handleShowIconPicker(): void {
     setIconPicker(icon || true);
   }
@@ -91,17 +81,14 @@ export default function NoteGroupComponent(
   }
 
   async function handleAddNote(): Promise<void> {
-    setEditing(false);
     addNote(client, notesId, noteGroups, key);
   }
 
   async function handleNoteGroupDelete(): Promise<void> {
-    setEditing(false);
     deleteNoteGroup(client, notesId, noteGroups, key);
   }
 
   const handleNoteGroupMove = (position: number) => async (): Promise<void> => {
-    setEditing(false);
     moveNoteGroup(client, notesId, noteGroups, key, position);
   };
 
@@ -122,46 +109,23 @@ export default function NoteGroupComponent(
         spacing={1}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}>
-        {editing ? (
-          <Grid item>
+        {(icon || mouseOver) && (
+          <Grid className={classes.icon} item>
             <IconButton onClick={handleShowIconPicker}>
               <Icon icon={icon || 'mdi:pencil-outline'} />
             </IconButton>
           </Grid>
-        ) : (
-          icon && (
-            <Grid item>
-              <Icon icon={icon} />
-            </Grid>
-          )
         )}
         <Grid item xs>
-          {editing ? (
-            <InputBase
-              className={classes.titleEdit}
-              value={title}
-              onChange={handleNoteGroupChange('title')}
-              fullWidth
-            />
-          ) : (
-            <Typography component="h4" variant="h4">
-              {title}
-            </Typography>
-          )}
+          <InputBase
+            className={classes.titleEdit}
+            value={title}
+            onChange={handleNoteGroupChange('title')}
+            fullWidth
+          />
         </Grid>
-        {(editing || mouseOver) && (
-          <Grid item>
-            <IconButton onClick={handleToggleEditing}>
-              <MdiIcon
-                color={theme.palette.primary.light}
-                size={1}
-                path={editing ? mdiCheck : mdiPencil}
-              />
-            </IconButton>
-          </Grid>
-        )}
 
-        {editing && (
+        {mouseOver && (
           <Fragment>
             <Grid item>
               <IconButton onClick={handleNoteGroupMove(-1)}>

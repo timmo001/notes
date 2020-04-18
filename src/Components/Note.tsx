@@ -10,7 +10,6 @@ export default function NoteComponent(props: NoteProps): ReactElement {
   const { client } = props.api;
   const { key, type, icon, content, checked } = props.note;
 
-  const [editing, setEditing] = useState<boolean>(false);
   const [mouseOver, setMouseOver] = useState<boolean>(false);
 
   function handleMouseEnter(): void {
@@ -35,28 +34,21 @@ export default function NoteComponent(props: NoteProps): ReactElement {
     updateNote(client, notesId, noteGroups, noteGroupKey, key, itemKey, event);
   };
 
-  function handleToggleEditing(): void {
-    setEditing(!editing);
-  }
-
   return (
     <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       {type === 'list' ? (
         <NoteList
           {...props}
-          editing={editing}
           mouseOver={mouseOver}
           note={{ key, type, icon, content: content || '' }}
           handleNoteChange={handleNoteChange}
           handleNoteDelete={handleNoteDelete}
           handleNoteMove={handleNoteMove}
-          handleToggleEditing={handleToggleEditing}
         />
       ) : (
         type === 'task' && (
           <NoteTask
             {...props}
-            editing={editing}
             mouseOver={mouseOver}
             note={{
               key,
@@ -68,7 +60,6 @@ export default function NoteComponent(props: NoteProps): ReactElement {
             handleNoteChange={handleNoteChange}
             handleNoteDelete={handleNoteDelete}
             handleNoteMove={handleNoteMove}
-            handleToggleEditing={handleToggleEditing}
           />
         )
       )}
