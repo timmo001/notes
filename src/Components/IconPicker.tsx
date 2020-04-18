@@ -46,7 +46,7 @@ export default function IconPicker(props: IconPickerProps): ReactElement {
       setIcon(response.find((icon: Icon) => icon.key === currentIcon));
     }
     setIcons(response);
-  }, [client]);
+  }, [client, currentIcon]);
 
   useEffect(() => {
     getIcons();
