@@ -74,9 +74,12 @@ export interface NoteGroupBaseProps {
 }
 
 export interface NoteBaseProps {
+  editing: boolean;
+  mouseOver: boolean;
   handleNoteChange: (
     key: keyof Note
   ) => (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleNoteDelete: () => Promise<void>;
   handleNoteMove: (position: number) => () => Promise<void>;
+  handleToggleEditing: () => void;
 }

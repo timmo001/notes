@@ -1,6 +1,5 @@
 import React, { Fragment, ReactElement, ChangeEvent, useState } from 'react';
 import { makeStyles, Theme, useTheme } from '@material-ui/core/styles';
-import ButtonBase from '@material-ui/core/ButtonBase';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
 import InputBase from '@material-ui/core/InputBase';
@@ -11,6 +10,7 @@ import {
   mdiChevronDown,
   mdiChevronUp,
   mdiDelete,
+  mdiPencil,
   mdiPlus,
 } from '@mdi/js';
 
@@ -24,13 +24,16 @@ import Icon from './Icon';
 import IconPicker from './IconPicker';
 import NoteComponent from './Note';
 import type { NoteGroup, Note, NoteGroupProps } from './Types';
+import ConfirmDialog from './ConfirmDialog';
 
 const useStyles = makeStyles((theme: Theme) => ({
+  root: {
+    minHeight: 56,
+    alignItems: 'center',
+    margin: theme.spacing(1, 4, 1, 1),
+  },
   add: {
     marginTop: theme.spacing(1),
-  },
-  title: {
-    padding: theme.spacing(1),
   },
   titleEdit: {
     height: 41,
@@ -57,8 +60,22 @@ export default function NoteGroupComponent(
   const { client } = props.api;
   const { key, title, icon, notes } = props.noteGroup;
 
+  const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
   const [editing, setEditing] = useState<boolean>(false);
   const [iconPicker, setIconPicker] = useState<string | boolean>();
+  const [mouseOver, setMouseOver] = useState<boolean>(false);
+
+  function handleMouseEnter(): void {
+    setMouseOver(true);
+  }
+
+  function handleMouseLeave(): void {
+    setMouseOver(false);
+  }
+
+  function handleToggleDeleteConfirm(): void {
+    setDeleteConfirm(!deleteConfirm);
+  }
 
   function handleToggleEditing(): void {
     setEditing(!editing);
@@ -98,7 +115,13 @@ export default function NoteGroupComponent(
   const theme = useTheme();
   return (
     <Fragment>
-      <Grid className={classes.title} container alignItems="center" spacing={1}>
+      <Grid
+        className={classes.root}
+        container
+        alignItems="center"
+        spacing={1}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}>
         {editing ? (
           <Grid item>
             <IconButton onClick={handleShowIconPicker}>
@@ -112,64 +135,63 @@ export default function NoteGroupComponent(
             </Grid>
           )
         )}
-        <Grid item xs container direction="row">
-          <Grid item xs>
-            {editing ? (
-              <InputBase
-                className={classes.titleEdit}
-                value={title}
-                onChange={handleNoteGroupChange('title')}
-                fullWidth
-              />
-            ) : (
-              <ButtonBase onClick={handleToggleEditing}>
-                <Typography component="h4" variant="h4">
-                  {title}
-                </Typography>
-              </ButtonBase>
-            )}
-          </Grid>
-          {editing && (
-            <Fragment>
-              <Grid item>
-                <IconButton onClick={handleToggleEditing}>
-                  <MdiIcon
-                    color={theme.palette.primary.light}
-                    size={1}
-                    path={mdiCheck}
-                  />
-                </IconButton>
-              </Grid>
-              <Grid item>
-                <IconButton onClick={handleNoteGroupMove(-1)}>
-                  <MdiIcon
-                    color={theme.palette.primary.light}
-                    size={1}
-                    path={mdiChevronUp}
-                  />
-                </IconButton>
-              </Grid>
-              <Grid item>
-                <IconButton onClick={handleNoteGroupMove(+1)}>
-                  <MdiIcon
-                    color={theme.palette.primary.light}
-                    size={1}
-                    path={mdiChevronDown}
-                  />
-                </IconButton>
-              </Grid>
-              <Grid item>
-                <IconButton onClick={handleNoteGroupDelete}>
-                  <MdiIcon
-                    color={theme.palette.primary.light}
-                    size={1}
-                    path={mdiDelete}
-                  />
-                </IconButton>
-              </Grid>
-            </Fragment>
+        <Grid item xs>
+          {editing ? (
+            <InputBase
+              className={classes.titleEdit}
+              value={title}
+              onChange={handleNoteGroupChange('title')}
+              fullWidth
+            />
+          ) : (
+            <Typography component="h4" variant="h4">
+              {title}
+            </Typography>
           )}
         </Grid>
+        {(editing || mouseOver) && (
+          <Grid item>
+            <IconButton onClick={handleToggleEditing}>
+              <MdiIcon
+                color={theme.palette.primary.light}
+                size={1}
+                path={editing ? mdiCheck : mdiPencil}
+              />
+            </IconButton>
+          </Grid>
+        )}
+
+        {editing && (
+          <Fragment>
+            <Grid item>
+              <IconButton onClick={handleNoteGroupMove(-1)}>
+                <MdiIcon
+                  color={theme.palette.primary.light}
+                  size={1}
+                  path={mdiChevronUp}
+                />
+              </IconButton>
+            </Grid>
+            <Grid item>
+              <IconButton onClick={handleNoteGroupMove(+1)}>
+                <MdiIcon
+                  color={theme.palette.primary.light}
+                  size={1}
+                  path={mdiChevronDown}
+                />
+              </IconButton>
+            </Grid>
+            <Grid item>
+              <IconButton onClick={handleToggleDeleteConfirm}>
+                <MdiIcon
+                  color={theme.palette.primary.light}
+                  size={1}
+                  path={mdiDelete}
+                />
+              </IconButton>
+            </Grid>
+          </Fragment>
+        )}
       </Grid>
       <Grid
         className={classes.notes}
@@ -191,6 +213,7 @@ export default function NoteGroupComponent(
           </IconButton>
         </Grid>
       </Grid>
+
       {iconPicker && (
         <IconPicker
           {...props}
@@ -198,6 +221,13 @@ export default function NoteGroupComponent(
             (typeof iconPicker === 'string' && iconPicker) || undefined
           }
           handleIconPickerFinished={handleIconPickerFinished}
+        />
+      )}
+      {deleteConfirm && (
+        <ConfirmDialog
+          text="Are you sure you want to delete this group?"
+          handleClose={handleToggleDeleteConfirm}
+          handleConfirm={handleNoteGroupDelete}
         />
       )}
     </Fragment>

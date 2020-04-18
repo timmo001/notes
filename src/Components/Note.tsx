@@ -1,14 +1,25 @@
-import React, { ReactElement, ChangeEvent } from 'react';
+import React, { ReactElement, ChangeEvent, useState } from 'react';
 
 import { deleteNote, moveNote, updateNote } from './Data/Notes';
 import NoteList from './Note/List';
 import NoteTask from './Note/Task';
 import type { NoteProps, Note } from './Types';
 
-export default function NoteComponent(props: NoteProps): ReactElement | null {
+export default function NoteComponent(props: NoteProps): ReactElement {
   const { notesId, noteGroupKey, noteGroups } = props;
   const { client } = props.api;
   const { key, type, icon, content, checked } = props.note;
+
+  const [editing, setEditing] = useState<boolean>(false);
+  const [mouseOver, setMouseOver] = useState<boolean>(false);
+
+  function handleMouseEnter(): void {
+    setMouseOver(true);
+  }
+
+  function handleMouseLeave(): void {
+    setMouseOver(false);
+  }
 
   async function handleNoteDelete(): Promise<void> {
     deleteNote(client, notesId, noteGroups, noteGroupKey, key);
@@ -24,32 +35,41 @@ export default function NoteComponent(props: NoteProps): ReactElement | null {
     updateNote(client, notesId, noteGroups, noteGroupKey, key, itemKey, event);
   };
 
-  switch (type) {
-    default:
-      return null;
-    case 'list':
-      return (
+  function handleToggleEditing(): void {
+    setEditing(!editing);
+  }
+
+  return (
+    <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      {type === 'list' ? (
         <NoteList
+          editing={editing}
+          mouseOver={mouseOver}
           note={{ key, type, icon, content: content || '' }}
           handleNoteChange={handleNoteChange}
           handleNoteDelete={handleNoteDelete}
           handleNoteMove={handleNoteMove}
+          handleToggleEditing={handleToggleEditing}
         />
-      );
-    case 'task':
-      return (
-        <NoteTask
-          note={{
-            key,
-            type,
-            icon,
-            content: content || '',
-            checked: checked || false,
-          }}
-          handleNoteChange={handleNoteChange}
-          handleNoteDelete={handleNoteDelete}
-          handleNoteMove={handleNoteMove}
-        />
-      );
-  }
+      ) : (
+        type === 'task' && (
+          <NoteTask
+            editing={editing}
+            mouseOver={mouseOver}
+            note={{
+              key,
+              type,
+              icon,
+              content: content || '',
+              checked: checked || false,
+            }}
+            handleNoteChange={handleNoteChange}
+            handleNoteDelete={handleNoteDelete}
+            handleNoteMove={handleNoteMove}
+            handleToggleEditing={handleToggleEditing}
+          />
+        )
+      )}
+    </div>
+  );
 }

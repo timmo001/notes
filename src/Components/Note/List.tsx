@@ -9,7 +9,7 @@ import type { NoteBaseProps, NoteList } from '../Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
-    minHeight: 42,
+    minHeight: 56,
     padding: theme.spacing(0.5, 1.5),
   },
 }));
@@ -22,8 +22,12 @@ export default function NoteListComponent(props: NoteListProps): ReactElement {
   const classes = useStyles();
   return (
     <Fragment>
-      <Paper className={classes.root} square>
-        <Grid container direction="row" alignItems="center">
+      <Paper square>
+        <Grid
+          className={classes.root}
+          container
+          direction="row"
+          alignItems="center">
           <Content {...props} />
           <Actions {...props} />
         </Grid>
