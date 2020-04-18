@@ -6,7 +6,7 @@ import IconButton from '@material-ui/core/IconButton';
 import InputBase from '@material-ui/core/InputBase';
 
 import { updateNote } from '../Data/Notes';
-import Icon from '../Icon';
+import Icon from '../Common/Icon';
 import IconPicker from '../Common/IconPicker';
 import type { NoteBaseProps, Note } from '../Types';
 

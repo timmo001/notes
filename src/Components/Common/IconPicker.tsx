@@ -15,7 +15,7 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import Grid from '@material-ui/core/Grid';
 import TextField from '@material-ui/core/TextField';
 
-import Icon from '../Icon';
+import Icon from './Icon';
 import Loading from './Loading';
 import type { BaseProps } from '../Types';
 

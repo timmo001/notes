@@ -12,7 +12,7 @@ import {
   moveNoteGroup,
   updateNoteGroup,
 } from './Data/Notes';
-import Icon from './Icon';
+import Icon from './Common/Icon';
 import IconPicker from './Common/IconPicker';
 import NoteComponent from './Note';
 import type { NoteGroup, Note, NoteGroupProps } from './Types';
