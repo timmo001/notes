@@ -10,7 +10,7 @@ import CssBaseline from '@material-ui/core/CssBaseline';
 import Grid from '@material-ui/core/Grid';
 
 import Header from './Header';
-import Loading from './Loading';
+import Loading from './Common/Loading';
 import NoteGroupComponent from './NoteGroup';
 import placeholderNoteGroups from './Placeholders/Notes';
 import type { BaseProps, NoteGroup } from './Types';

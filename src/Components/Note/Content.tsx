@@ -7,7 +7,7 @@ import InputBase from '@material-ui/core/InputBase';
 
 import { updateNote } from '../Data/Notes';
 import Icon from '../Icon';
-import IconPicker from '../IconPicker';
+import IconPicker from '../Common/IconPicker';
 import type { NoteBaseProps, Note } from '../Types';
 
 const useStyles = makeStyles((theme: Theme) => ({

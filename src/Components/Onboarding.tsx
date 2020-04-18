@@ -13,7 +13,7 @@ import socketio from '@feathersjs/socketio-client';
 
 import type { Configuration } from './Types';
 import clone from '../utils/clone';
-import Loading from './Loading';
+import Loading from './Common/Loading';
 import Login from './Login';
 import Main from './Main';
 import placeholderConfiguration from './Placeholders/Configuration';

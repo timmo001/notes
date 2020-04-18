@@ -13,10 +13,10 @@ import {
   updateNoteGroup,
 } from './Data/Notes';
 import Icon from './Icon';
-import IconPicker from './IconPicker';
+import IconPicker from './Common/IconPicker';
 import NoteComponent from './Note';
 import type { NoteGroup, Note, NoteGroupProps } from './Types';
-import ConfirmDialog from './ConfirmDialog';
+import ConfirmDialog from './Common/ConfirmDialog';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
