@@ -39,7 +39,10 @@ export default function NoteTaskComponent(props: NoteTaskProps): ReactElement {
               inputProps={{ 'aria-label': 'primary checkbox' }}
             />
           </Grid>
-          <Content {...props} />
+          <Content
+            {...props}
+            handleContentChange={handleNoteChange('content')}
+          />
           <Actions {...props} />
         </Grid>
       </Paper>

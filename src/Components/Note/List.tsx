@@ -19,6 +19,8 @@ interface NoteListProps extends NoteBaseProps {
 }
 
 export default function NoteListComponent(props: NoteListProps): ReactElement {
+  const { handleNoteChange } = props;
+
   const classes = useStyles();
   return (
     <Fragment>
@@ -28,7 +30,10 @@ export default function NoteListComponent(props: NoteListProps): ReactElement {
           container
           direction="row"
           alignItems="center">
-          <Content {...props} />
+          <Content
+            {...props}
+            handleContentChange={handleNoteChange('content')}
+          />
           <Actions {...props} />
         </Grid>
       </Paper>

@@ -53,11 +53,12 @@ export default function NoteGroupComponent(
 ): ReactElement {
   const { notesId, noteGroups } = props;
   const { client } = props.api;
-  const { key, title, icon, notes } = props.noteGroup;
+  const { key, icon, notes } = props.noteGroup;
 
   const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
   const [iconPicker, setIconPicker] = useState<string | boolean>(false);
   const [mouseOver, setMouseOver] = useState<boolean>(false);
+  const [title, setTitle] = useState<string>(props.noteGroup.title);
 
   function handleMouseEnter(): void {
     setMouseOver(true);
@@ -95,6 +96,7 @@ export default function NoteGroupComponent(
   const handleNoteGroupChange = (itemKey: keyof NoteGroup) => async (
     event: ChangeEvent<HTMLInputElement>
   ): Promise<void> => {
+    if (itemKey === 'title') setTitle(event.target.value);
     updateNoteGroup(client, notesId, noteGroups, key, itemKey, event);
   };
 

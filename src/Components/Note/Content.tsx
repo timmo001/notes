@@ -1,10 +1,9 @@
-import React, { Fragment, ReactElement, useState } from 'react';
+import React, { Fragment, ReactElement, ChangeEvent, useState } from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
 import InputBase from '@material-ui/core/InputBase';
-import Typography from '@material-ui/core/Typography';
 
 import { updateNote } from '../Data/Notes';
 import Icon from '../Icon';
@@ -22,6 +21,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 
 interface ContentProps extends NoteBaseProps {
   note: Note;
+  handleContentChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
 }
 
 export default function Content(props: ContentProps): ReactElement {
@@ -30,12 +30,20 @@ export default function Content(props: ContentProps): ReactElement {
     noteGroupKey,
     noteGroups,
     notesId,
-    handleNoteChange,
+    handleContentChange,
   } = props;
   const { client } = props.api;
-  const { key, icon, content, checked } = props.note;
+  const { key, icon, checked } = props.note;
 
+  const [content, setContent] = useState<string>(props.note.content || '');
   const [iconPicker, setIconPicker] = useState<string | boolean>(false);
+
+  function handleLocalContentChange(
+    event: ChangeEvent<HTMLInputElement>
+  ): void {
+    setContent(event.target.value);
+    handleContentChange(event);
+  }
 
   function handleShowIconPicker(): void {
     setIconPicker(icon || true);
@@ -69,7 +77,7 @@ export default function Content(props: ContentProps): ReactElement {
           className={clsx(classes.text, checked && classes.checkedText)}
           disabled={checked}
           value={content}
-          onChange={handleNoteChange('content')}
+          onChange={handleLocalContentChange}
           fullWidth
           multiline
         />
