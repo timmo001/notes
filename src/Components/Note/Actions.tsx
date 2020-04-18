@@ -3,25 +3,12 @@ import { useTheme } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
 import MdiIcon from '@mdi/react';
-import {
-  mdiCheck,
-  mdiChevronDown,
-  mdiChevronUp,
-  mdiClose,
-  mdiPencil,
-} from '@mdi/js';
+import { mdiChevronDown, mdiChevronUp, mdiClose } from '@mdi/js';
 
-import { NoteBaseProps } from 'Components/Types';
-import ConfirmDialog from 'Components/ConfirmDialog';
+import type { NoteBaseProps } from '../Types';
 
 export default function Actions(props: NoteBaseProps): ReactElement | null {
   const { mouseOver, handleNoteDelete, handleNoteMove } = props;
-
-  const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
-
-  function handleToggleDeleteConfirm(): void {
-    setDeleteConfirm(!deleteConfirm);
-  }
 
   const theme = useTheme();
   if (!mouseOver) return null;
@@ -46,7 +33,7 @@ export default function Actions(props: NoteBaseProps): ReactElement | null {
         </IconButton>
       </Grid>
       <Grid item>
-        <IconButton onClick={handleToggleDeleteConfirm}>
+        <IconButton onClick={handleNoteDelete}>
           <MdiIcon
             color={theme.palette.primary.contrastText}
             size={1}
@@ -54,13 +41,6 @@ export default function Actions(props: NoteBaseProps): ReactElement | null {
           />
         </IconButton>
       </Grid>
-      {deleteConfirm && (
-        <ConfirmDialog
-          text="Are you sure you want to delete this note?"
-          handleClose={handleToggleDeleteConfirm}
-          handleConfirm={handleNoteDelete}
-        />
-      )}
     </Fragment>
   );
 }
