@@ -65,7 +65,7 @@ export interface NoteProps extends NoteGroupProps {
   noteGroupKey: string;
 }
 
-export interface NoteGroupBaseProps {
+export interface NoteGroupBaseProps extends NoteProps {
   handleNoteGroupChange: (
     key: keyof NoteGroup
   ) => (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
@@ -73,7 +73,7 @@ export interface NoteGroupBaseProps {
   handleNoteGroupMove: (position: number) => () => Promise<void>;
 }
 
-export interface NoteBaseProps {
+export interface NoteBaseProps extends NoteProps {
   editing: boolean;
   mouseOver: boolean;
   handleNoteChange: (

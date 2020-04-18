@@ -43,6 +43,7 @@ export default function NoteComponent(props: NoteProps): ReactElement {
     <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       {type === 'list' ? (
         <NoteList
+          {...props}
           editing={editing}
           mouseOver={mouseOver}
           note={{ key, type, icon, content: content || '' }}
@@ -54,6 +55,7 @@ export default function NoteComponent(props: NoteProps): ReactElement {
       ) : (
         type === 'task' && (
           <NoteTask
+            {...props}
             editing={editing}
             mouseOver={mouseOver}
             note={{

@@ -62,7 +62,7 @@ export default function NoteGroupComponent(
 
   const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
   const [editing, setEditing] = useState<boolean>(false);
-  const [iconPicker, setIconPicker] = useState<string | boolean>();
+  const [iconPicker, setIconPicker] = useState<string | boolean>(false);
   const [mouseOver, setMouseOver] = useState<boolean>(false);
 
   function handleMouseEnter(): void {
@@ -87,7 +87,7 @@ export default function NoteGroupComponent(
 
   function handleIconPickerFinished(icon?: string): void {
     updateNoteGroup(client, notesId, noteGroups, key, 'icon', icon || '');
-    setIconPicker(undefined);
+    setIconPicker(false);
   }
 
   async function handleAddNote(): Promise<void> {

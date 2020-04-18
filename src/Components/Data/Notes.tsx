@@ -68,6 +68,15 @@ export async function updateNoteGroup(
   itemKey: keyof NoteGroup,
   event: string | ChangeEvent<HTMLInputElement>
 ): Promise<void> {
+  process.env.NODE_ENV === 'development' &&
+    console.log(
+      'updateNote:',
+      notesId,
+      noteGroups,
+      noteGroupKey,
+      itemKey,
+      event
+    );
   const noteGroupIndex: number = noteGroups.findIndex(
     (noteGroup: NoteGroup) => noteGroup.key === noteGroupKey
   );
@@ -134,8 +143,18 @@ export async function updateNote(
   noteGroupKey: string,
   noteKey: string,
   itemKey: keyof Note,
-  event: ChangeEvent<HTMLInputElement>
+  event: string | ChangeEvent<HTMLInputElement>
 ): Promise<void> {
+  process.env.NODE_ENV === 'development' &&
+    console.log(
+      'updateNote:',
+      notesId,
+      noteGroups,
+      noteGroupKey,
+      noteKey,
+      itemKey,
+      event
+    );
   const noteGroupIndex: number = noteGroups.findIndex(
     (noteGroup: NoteGroup) => noteGroup.key === noteGroupKey
   );
@@ -146,7 +165,11 @@ export async function updateNote(
   noteGroups[noteGroupIndex].notes[noteIndex] = {
     ...note,
     [itemKey]:
-      itemKey === 'checked' ? event.target.checked : event.target.value,
+      typeof event === 'string'
+        ? event
+        : itemKey === 'checked'
+        ? event.target.checked
+        : event.target.value,
   };
   updateNotes(client, notesId, noteGroups);
 }
