@@ -1,4 +1,10 @@
-import React, { Fragment, ReactElement, ChangeEvent, useState } from 'react';
+import React, {
+  Fragment,
+  ReactElement,
+  ChangeEvent,
+  useState,
+  useEffect,
+} from 'react';
 import { makeStyles, Theme, useTheme } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
 import IconButton from '@material-ui/core/IconButton';
@@ -99,6 +105,10 @@ export default function NoteGroupComponent(
     if (itemKey === 'title') setTitle(event.target.value);
     updateNoteGroup(client, notesId, noteGroups, key, itemKey, event);
   };
+
+  useEffect(() => {
+    if (props.noteGroup.title !== title) setTitle(props.noteGroup.title);
+  }, [props.noteGroup, title]);
 
   const classes = useStyles();
   const theme = useTheme();

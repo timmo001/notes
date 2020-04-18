@@ -70,7 +70,7 @@ export default function Content(props: ContentProps): ReactElement {
 
   useEffect(() => {
     if (props.note.content !== content) setContent(props.note.content || '');
-  }, [props.note]);
+  }, [props.note, content]);
 
   const classes = useStyles();
   return (
