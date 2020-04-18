@@ -74,7 +74,6 @@ export interface NoteGroupBaseProps extends NoteProps {
 }
 
 export interface NoteBaseProps extends NoteProps {
-  editing: boolean;
   mouseOver: boolean;
   handleNoteChange: (
     key: keyof Note

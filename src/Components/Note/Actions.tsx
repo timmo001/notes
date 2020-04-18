@@ -34,46 +34,32 @@ export default function Actions(props: NoteBaseProps): ReactElement | null {
   return (
     <Fragment>
       <Grid item>
-        <IconButton onClick={handleToggleEditing}>
+        <IconButton onClick={handleNoteMove(-1)}>
           <MdiIcon
             color={theme.palette.primary.contrastText}
             size={1}
-            path={editing ? mdiCheck : mdiPencil}
+            path={mdiChevronUp}
           />
         </IconButton>
       </Grid>
-
-      {editing && (
-        <Fragment>
-          <Grid item>
-            <IconButton onClick={handleNoteMove(-1)}>
-              <MdiIcon
-                color={theme.palette.primary.contrastText}
-                size={1}
-                path={mdiChevronUp}
-              />
-            </IconButton>
-          </Grid>
-          <Grid item>
-            <IconButton onClick={handleNoteMove(+1)}>
-              <MdiIcon
-                color={theme.palette.primary.contrastText}
-                size={1}
-                path={mdiChevronDown}
-              />
-            </IconButton>
-          </Grid>
-          <Grid item>
-            <IconButton onClick={handleToggleDeleteConfirm}>
-              <MdiIcon
-                color={theme.palette.primary.contrastText}
-                size={1}
-                path={mdiClose}
-              />
-            </IconButton>
-          </Grid>
-        </Fragment>
-      )}
+      <Grid item>
+        <IconButton onClick={handleNoteMove(+1)}>
+          <MdiIcon
+            color={theme.palette.primary.contrastText}
+            size={1}
+            path={mdiChevronDown}
+          />
+        </IconButton>
+      </Grid>
+      <Grid item>
+        <IconButton onClick={handleToggleDeleteConfirm}>
+          <MdiIcon
+            color={theme.palette.primary.contrastText}
+            size={1}
+            path={mdiClose}
+          />
+        </IconButton>
+      </Grid>
       {deleteConfirm && (
         <ConfirmDialog
           text="Are you sure you want to delete this note?"

@@ -12,9 +12,6 @@ import IconPicker from '../IconPicker';
 import type { NoteBaseProps, Note } from '../Types';
 
 const useStyles = makeStyles((theme: Theme) => ({
-  icon: {
-    margin: theme.spacing(0, 1),
-  },
   text: {
     margin: theme.spacing(0, 1),
   },
@@ -29,7 +26,7 @@ interface ContentProps extends NoteBaseProps {
 
 export default function Content(props: ContentProps): ReactElement {
   const {
-    editing,
+    mouseOver,
     noteGroupKey,
     noteGroups,
     notesId,
@@ -60,34 +57,22 @@ export default function Content(props: ContentProps): ReactElement {
   const classes = useStyles();
   return (
     <Fragment>
-      {editing ? (
-        <Grid item className={classes.icon}>
+      {(icon || mouseOver) && (
+        <Grid item>
           <IconButton onClick={handleShowIconPicker}>
             <Icon icon={icon || 'mdi:pencil-outline'} />
           </IconButton>
         </Grid>
-      ) : (
-        icon && (
-          <Grid item className={classes.icon}>
-            <Icon icon={icon} />
-          </Grid>
-        )
       )}
       <Grid item xs>
-        {editing ? (
-          <InputBase
-            className={clsx(classes.text, checked && classes.checkedText)}
-            disabled={checked}
-            value={content}
-            onChange={handleNoteChange('content')}
-            fullWidth
-            multiline
-          />
-        ) : (
-          <Typography component="span" variant="body1">
-            {content}
-          </Typography>
-        )}
+        <InputBase
+          className={clsx(classes.text, checked && classes.checkedText)}
+          disabled={checked}
+          value={content}
+          onChange={handleNoteChange('content')}
+          fullWidth
+          multiline
+        />
       </Grid>
       {iconPicker && (
         <IconPicker
