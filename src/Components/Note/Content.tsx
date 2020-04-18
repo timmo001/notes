@@ -1,4 +1,10 @@
-import React, { Fragment, ReactElement, ChangeEvent, useState } from 'react';
+import React, {
+  Fragment,
+  ReactElement,
+  ChangeEvent,
+  useState,
+  useEffect,
+} from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
@@ -61,6 +67,10 @@ export default function Content(props: ContentProps): ReactElement {
     );
     setIconPicker(false);
   }
+
+  useEffect(() => {
+    if (props.note.content !== content) setContent(props.note.content || '');
+  }, [props.note]);
 
   const classes = useStyles();
   return (
