@@ -45,7 +45,6 @@ export interface ConfigurationGeneral {
 export interface BaseProps {
   api: Api;
   configuration: Configuration;
-  editingConfiguration: boolean;
   loggedIn: boolean;
   handleLogin: () => void;
   handleLogout: () => void;
