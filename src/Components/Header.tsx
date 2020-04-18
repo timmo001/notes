@@ -7,7 +7,7 @@ import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
 import useScrollTrigger from '@material-ui/core/useScrollTrigger';
 import Icon from '@mdi/react';
-import { mdiAccountCircle, mdiPlus } from '@mdi/js';
+import { mdiLogout, mdiPlus } from '@mdi/js';
 
 import { addNoteGroup } from './Data/Notes';
 import type { MainProps } from './Types';
@@ -42,7 +42,7 @@ function HideOnScroll(props: HideOnScrollProps): ReactElement {
 }
 
 export default function Header(props: MainProps): ReactElement {
-  const { noteGroups, notesId, loggedIn, handleLogin, handleLogout } = props;
+  const { noteGroups, notesId, handleLogout } = props;
   const { client } = props.api;
 
   async function handleAddNoteGroup(): Promise<void> {
@@ -71,13 +71,10 @@ export default function Header(props: MainProps): ReactElement {
                 size={1}
               />
             </IconButton>
-            <IconButton
-              color="inherit"
-              aria-label={loggedIn ? 'Log Out' : 'Login'}
-              onClick={loggedIn ? handleLogout : handleLogin}>
+            <IconButton color="inherit" title="Log Out" onClick={handleLogout}>
               <Icon
-                title={loggedIn ? 'Log Out' : 'Login'}
-                path={mdiAccountCircle}
+                title="Log Out"
+                path={mdiLogout}
                 color={theme.palette.text.primary}
                 size={1}
               />
