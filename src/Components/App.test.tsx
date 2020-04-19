@@ -6,6 +6,6 @@ import App from './App';
 
 test('renders placeholder', async () => {
   const { getByText } = render(<App />);
-  const placeholderElement = getByText(/Living Room/i);
+  const placeholderElement = getByText(/No username/i);
   expect(placeholderElement).toBeInTheDocument();
 });
