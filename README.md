@@ -1,5 +1,7 @@
 # Notes
 
+[![Build Status](https://dev.azure.com/timmo0001/Notes/_apis/build/status/Edge?branchName=master)](https://dev.azure.com/timmo0001/Notes/_build/latest?definitionId=14&branchName=master)
+
 [![GitHub Release][releases-shield]][releases]
 ![Project Stage][project-stage-shield]
 [![License][license-shield]](LICENSE.md)
