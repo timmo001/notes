@@ -29,7 +29,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: {
     minHeight: 56,
     alignItems: 'center',
-    margin: theme.spacing(1, 4, 1, 1),
+    padding: theme.spacing(1),
   },
   add: {
     marginTop: theme.spacing(1),
