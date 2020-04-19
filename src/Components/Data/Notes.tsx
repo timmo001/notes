@@ -41,9 +41,8 @@ export async function deleteNoteGroup(
   client: Application,
   notesId: string,
   noteGroups: NoteGroup[],
-  noteGroupKey: string
+  noteGroupIndex: number
 ): Promise<void> {
-  const noteGroupIndex: number = getNoteGroupIndex(noteGroups, noteGroupKey);
   noteGroups.splice(noteGroupIndex, 1);
   updateNotes(client, notesId, noteGroups);
 }
@@ -52,10 +51,9 @@ export async function moveNoteGroup(
   client: Application,
   notesId: string,
   noteGroups: NoteGroup[],
-  noteGroupKey: string,
+  noteGroupIndex: number,
   position: number
 ): Promise<void> {
-  const noteGroupIndex: number = getNoteGroupIndex(noteGroups, noteGroupKey);
   arrayMove.mutate(noteGroups, noteGroupIndex, noteGroupIndex + position);
   updateNotes(client, notesId, noteGroups);
 }
@@ -64,7 +62,7 @@ export async function updateNoteGroup(
   client: Application,
   notesId: string,
   noteGroups: NoteGroup[],
-  noteGroupKey: string,
+  noteGroupIndex: number,
   itemKey: keyof NoteGroup,
   event: string | ChangeEvent<HTMLInputElement>
 ): Promise<void> {
@@ -73,13 +71,10 @@ export async function updateNoteGroup(
       'updateNote:',
       notesId,
       noteGroups,
-      noteGroupKey,
+      noteGroupIndex,
       itemKey,
       event
     );
-  const noteGroupIndex: number = noteGroups.findIndex(
-    (noteGroup: NoteGroup) => noteGroup.key === noteGroupKey
-  );
   const noteGroup: NoteGroup = noteGroups[noteGroupIndex];
   noteGroups[noteGroupIndex] = {
     ...noteGroup,
@@ -92,9 +87,8 @@ export async function addNote(
   client: Application,
   notesId: string,
   noteGroups: NoteGroup[],
-  noteGroupKey: string
+  noteGroupIndex: number
 ): Promise<void> {
-  const noteGroupIndex: number = getNoteGroupIndex(noteGroups, noteGroupKey);
   noteGroups[noteGroupIndex].notes.push(placeholderNote());
   updateNotes(client, notesId, noteGroups);
 }
@@ -103,14 +97,9 @@ export async function deleteNote(
   client: Application,
   notesId: string,
   noteGroups: NoteGroup[],
-  noteGroupKey: string,
-  noteKey: string
+  noteGroupIndex: number,
+  noteIndex: number
 ): Promise<void> {
-  const noteGroupIndex: number = getNoteGroupIndex(noteGroups, noteGroupKey);
-  const noteIndex: number = getNoteIndex(
-    noteGroups[noteGroupIndex].notes,
-    noteKey
-  );
   noteGroups[noteGroupIndex].notes.splice(noteIndex, 1);
   updateNotes(client, notesId, noteGroups);
 }
@@ -119,15 +108,10 @@ export async function moveNote(
   client: Application,
   notesId: string,
   noteGroups: NoteGroup[],
-  noteGroupKey: string,
-  noteKey: string,
+  noteGroupIndex: number,
+  noteIndex: number,
   position: number
 ): Promise<void> {
-  const noteGroupIndex: number = getNoteGroupIndex(noteGroups, noteGroupKey);
-  const noteIndex: number = getNoteIndex(
-    noteGroups[noteGroupIndex].notes,
-    noteKey
-  );
   arrayMove.mutate(
     noteGroups[noteGroupIndex].notes,
     noteIndex,
@@ -140,8 +124,8 @@ export async function updateNote(
   client: Application,
   notesId: string,
   noteGroups: NoteGroup[],
-  noteGroupKey: string,
-  noteKey: string,
+  noteGroupIndex: number,
+  noteIndex: number,
   itemKey: keyof Note,
   event: string | ChangeEvent<HTMLInputElement>
 ): Promise<void> {
@@ -150,17 +134,11 @@ export async function updateNote(
       'updateNote:',
       notesId,
       noteGroups,
-      noteGroupKey,
-      noteKey,
+      noteGroupIndex,
+      noteIndex,
       itemKey,
       event
     );
-  const noteGroupIndex: number = noteGroups.findIndex(
-    (noteGroup: NoteGroup) => noteGroup.key === noteGroupKey
-  );
-  const noteIndex: number = noteGroups[noteGroupIndex].notes.findIndex(
-    (note: Note) => note.key === noteKey
-  );
   const note: Note = noteGroups[noteGroupIndex].notes[noteIndex];
   noteGroups[noteGroupIndex].notes[noteIndex] = {
     ...note,

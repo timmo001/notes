@@ -7,7 +7,7 @@ import { noteTypes } from '../Types';
 import type { NoteProps, Note } from '../Types';
 
 export default function NoteComponent(props: NoteProps): ReactElement {
-  const { notesId, noteGroupKey, noteGroups } = props;
+  const { notesId, noteGroupIndex, noteGroups, noteIndex } = props;
   const { client } = props.api;
   const { key, type, icon, content, checked } = props.note;
 
@@ -22,17 +22,25 @@ export default function NoteComponent(props: NoteProps): ReactElement {
   }
 
   async function handleNoteDelete(): Promise<void> {
-    deleteNote(client, notesId, noteGroups, noteGroupKey, key);
+    deleteNote(client, notesId, noteGroups, noteGroupIndex, noteIndex);
   }
 
   const handleNoteMove = (position: number) => async (): Promise<void> => {
-    moveNote(client, notesId, noteGroups, noteGroupKey, key, position);
+    moveNote(client, notesId, noteGroups, noteGroupIndex, noteIndex, position);
   };
 
   const handleNoteChange = (itemKey: keyof Note) => async (
     event: ChangeEvent<HTMLInputElement>
   ): Promise<void> => {
-    updateNote(client, notesId, noteGroups, noteGroupKey, key, itemKey, event);
+    updateNote(
+      client,
+      notesId,
+      noteGroups,
+      noteGroupIndex,
+      noteIndex,
+      itemKey,
+      event
+    );
   };
 
   async function handleNoteTypeNext(): Promise<void> {
@@ -40,8 +48,8 @@ export default function NoteComponent(props: NoteProps): ReactElement {
       client,
       notesId,
       noteGroups,
-      noteGroupKey,
-      key,
+      noteGroupIndex,
+      noteIndex,
       'type',
       noteTypes[(noteTypes.indexOf(type) + 1) % noteTypes.length]
     );

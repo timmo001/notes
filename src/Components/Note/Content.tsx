@@ -32,14 +32,15 @@ interface ContentProps extends NoteBaseProps {
 
 export default function Content(props: ContentProps): ReactElement {
   const {
-    mouseOver,
-    noteGroupKey,
-    noteGroups,
-    notesId,
     handleContentChange,
+    mouseOver,
+    noteGroupIndex,
+    noteGroups,
+    noteIndex,
+    notesId,
   } = props;
   const { client } = props.api;
-  const { key, icon, checked } = props.note;
+  const { icon, checked } = props.note;
 
   const [content, setContent] = useState<string>(props.note.content || '');
   const [iconPicker, setIconPicker] = useState<string | boolean>(false);
@@ -60,8 +61,8 @@ export default function Content(props: ContentProps): ReactElement {
       client,
       notesId,
       noteGroups,
-      noteGroupKey,
-      key,
+      noteGroupIndex,
+      noteIndex,
       'icon',
       icon || ''
     );

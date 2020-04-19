@@ -60,11 +60,12 @@ export interface MainProps extends BaseProps {
 
 export interface NoteGroupProps extends MainProps {
   noteGroup: NoteGroup;
+  noteGroupIndex: number;
 }
 
 export interface NoteProps extends NoteGroupProps {
   note: Note;
-  noteGroupKey: string;
+  noteIndex: number;
 }
 
 export interface NoteGroupBaseProps extends NoteProps {

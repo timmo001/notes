@@ -4,6 +4,7 @@ import React, {
   ChangeEvent,
   useState,
   useEffect,
+  useMemo,
 } from 'react';
 import { makeStyles, Theme, useTheme } from '@material-ui/core/styles';
 import Grid from '@material-ui/core/Grid';
@@ -44,6 +45,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   titleEdit: {
     height: 41,
+    margin: theme.spacing(0, 1),
     fontSize: '2.125rem',
     fontWeight: 400,
     lineHeight: 1.235,
@@ -57,9 +59,9 @@ const useStyles = makeStyles((theme: Theme) => ({
 export default function NoteGroupComponent(
   props: NoteGroupProps
 ): ReactElement {
-  const { notesId, noteGroups } = props;
+  const { notesId, noteGroups, noteGroupIndex } = props;
   const { client } = props.api;
-  const { key, icon, notes } = props.noteGroup;
+  const { icon, notes } = props.noteGroup;
 
   const [deleteConfirm, setDeleteConfirm] = useState<boolean>(false);
   const [iconPicker, setIconPicker] = useState<string | boolean>(false);
@@ -83,32 +85,52 @@ export default function NoteGroupComponent(
   }
 
   function handleIconPickerFinished(icon?: string): void {
-    updateNoteGroup(client, notesId, noteGroups, key, 'icon', icon || '');
+    updateNoteGroup(
+      client,
+      notesId,
+      noteGroups,
+      noteGroupIndex,
+      'icon',
+      icon || ''
+    );
     setIconPicker(false);
   }
 
   async function handleAddNote(): Promise<void> {
-    addNote(client, notesId, noteGroups, key);
+    addNote(client, notesId, noteGroups, noteGroupIndex);
   }
 
   async function handleNoteGroupDelete(): Promise<void> {
-    deleteNoteGroup(client, notesId, noteGroups, key);
+    deleteNoteGroup(client, notesId, noteGroups, noteGroupIndex);
   }
 
   const handleNoteGroupMove = (position: number) => async (): Promise<void> => {
-    moveNoteGroup(client, notesId, noteGroups, key, position);
+    moveNoteGroup(client, notesId, noteGroups, noteGroupIndex, position);
   };
 
   const handleNoteGroupChange = (itemKey: keyof NoteGroup) => async (
     event: ChangeEvent<HTMLInputElement>
   ): Promise<void> => {
     if (itemKey === 'title') setTitle(event.target.value);
-    updateNoteGroup(client, notesId, noteGroups, key, itemKey, event);
+    updateNoteGroup(
+      client,
+      notesId,
+      noteGroups,
+      noteGroupIndex,
+      itemKey,
+      event
+    );
   };
 
   useEffect(() => {
     if (props.noteGroup.title !== title) setTitle(props.noteGroup.title);
   }, [props.noteGroup, title]);
+
+  const moveUpDisabled = useMemo(() => noteGroupIndex < 1, [noteGroupIndex]);
+  const moveDownDisabled = useMemo(
+    () => noteGroupIndex >= noteGroups.length - 1,
+    [noteGroupIndex, noteGroups.length]
+  );
 
   const classes = useStyles();
   const theme = useTheme();
@@ -118,7 +140,6 @@ export default function NoteGroupComponent(
         className={classes.root}
         container
         alignItems="center"
-        spacing={1}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}>
         {(icon || mouseOver) && (
@@ -140,18 +161,30 @@ export default function NoteGroupComponent(
         {mouseOver && (
           <Fragment>
             <Grid item>
-              <IconButton onClick={handleNoteGroupMove(-1)}>
+              <IconButton
+                disabled={moveUpDisabled}
+                onClick={handleNoteGroupMove(-1)}>
                 <MdiIcon
-                  color={theme.palette.primary.light}
+                  color={
+                    !moveUpDisabled
+                      ? theme.palette.primary.light
+                      : 'currentColor'
+                  }
                   size={1}
                   path={mdiChevronUp}
                 />
               </IconButton>
             </Grid>
             <Grid item>
-              <IconButton onClick={handleNoteGroupMove(+1)}>
+              <IconButton
+                disabled={moveDownDisabled}
+                onClick={handleNoteGroupMove(+1)}>
                 <MdiIcon
-                  color={theme.palette.primary.light}
+                  color={
+                    !moveDownDisabled
+                      ? theme.palette.primary.light
+                      : 'currentColor'
+                  }
                   size={1}
                   path={mdiChevronDown}
                 />
@@ -174,9 +207,14 @@ export default function NoteGroupComponent(
         container
         direction="column"
         alignItems="center">
-        {notes.map((note: Note, mapKey: number) => (
-          <Grid key={mapKey} className={classes.note} item>
-            <NoteComponent {...props} noteGroupKey={key} note={note} />
+        {notes.map((note: Note, noteIndex: number) => (
+          <Grid key={noteIndex} className={classes.note} item>
+            <NoteComponent
+              {...props}
+              note={note}
+              noteGroupIndex={noteGroupIndex}
+              noteIndex={noteIndex}
+            />
           </Grid>
         ))}
         <Grid item>

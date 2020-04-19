@@ -75,13 +75,14 @@ export default function Main(props: BaseProps): ReactElement {
         <Fragment>
           <Header {...props} noteGroups={noteGroups} notesId={notesId} />
           <Grid className={classes.root} container direction="column">
-            {noteGroups.map((noteGroup: NoteGroup, key: number) => (
-              <Grid key={key} item>
+            {noteGroups.map((noteGroup: NoteGroup, noteGroupIndex: number) => (
+              <Grid key={noteGroupIndex} item>
                 <NoteGroupComponent
                   {...props}
+                  noteGroup={noteGroup}
+                  noteGroupIndex={noteGroupIndex}
                   noteGroups={noteGroups}
                   notesId={notesId}
-                  noteGroup={noteGroup}
                 />
               </Grid>
             ))}
