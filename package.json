@@ -1,7 +1,13 @@
 {
   "name": "notes",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "author": {
+    "name": "Timmo",
+    "email": "contact@timmo.xyz"
+  },
+  "license": "MIT",
+  "homepage": ".",
   "dependencies": {
     "@feathersjs/authentication": "4.5.3",
     "@feathersjs/authentication-client": "4.5.3",
