@@ -72,7 +72,7 @@ ARG BUILD_VERSION
 # Labels
 LABEL \
     maintainer="Timmo <contact@timmo.xyz>" \
-    org.label-schema.description="Lorem Ipsum" \
+    org.label-schema.description="Notes PWA" \
     org.label-schema.build-date=${BUILD_DATE} \
     org.label-schema.name="Notes" \
     org.label-schema.schema-version="1.0" \

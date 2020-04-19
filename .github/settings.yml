@@ -1,8 +1,8 @@
 ---
 repository:
-  description: "Lorem ipsum."
+  description: "Notes PWA."
   homepage: https://timmo.dev/notes
-  topics: ingress, typescript, javascript, reactjs, websocket, webapp
+  topics: notes, typescript, javascript, reactjs, websocket, webapp
   private: false
   has_issues: true
   has_projects: false

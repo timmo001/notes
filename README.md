@@ -17,7 +17,7 @@
 
 [![Buy me a coffee][buymeacoffee-shield]][buymeacoffee]
 
-TBD
+Notes PWA
 
 ![banner][banner]
 
