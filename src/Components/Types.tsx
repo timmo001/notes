@@ -14,6 +14,8 @@ export interface NoteGroup {
   notes: Note[];
 }
 
+export const noteTypes = ['list', 'task'];
+
 interface NoteBase {
   key: string;
   type: 'list' | 'task';
@@ -80,4 +82,5 @@ export interface NoteBaseProps extends NoteProps {
   ) => (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleNoteDelete: () => Promise<void>;
   handleNoteMove: (position: number) => () => Promise<void>;
+  handleNoteTypeNext: () => Promise<void>;
 }

@@ -1,9 +1,10 @@
 import React, { ReactElement, ChangeEvent, useState } from 'react';
 
-import { deleteNote, moveNote, updateNote } from './Data/Notes';
-import NoteList from './Note/List';
-import NoteTask from './Note/Task';
-import type { NoteProps, Note } from './Types';
+import { deleteNote, moveNote, updateNote } from '../Data/Notes';
+import NoteList from './List';
+import NoteTask from './Task';
+import { noteTypes } from '../Types';
+import type { NoteProps, Note } from '../Types';
 
 export default function NoteComponent(props: NoteProps): ReactElement {
   const { notesId, noteGroupKey, noteGroups } = props;
@@ -34,6 +35,18 @@ export default function NoteComponent(props: NoteProps): ReactElement {
     updateNote(client, notesId, noteGroups, noteGroupKey, key, itemKey, event);
   };
 
+  async function handleNoteTypeNext(): Promise<void> {
+    updateNote(
+      client,
+      notesId,
+      noteGroups,
+      noteGroupKey,
+      key,
+      'type',
+      noteTypes[(noteTypes.indexOf(type) + 1) % noteTypes.length]
+    );
+  }
+
   return (
     <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       {type === 'list' ? (
@@ -44,6 +57,7 @@ export default function NoteComponent(props: NoteProps): ReactElement {
           handleNoteChange={handleNoteChange}
           handleNoteDelete={handleNoteDelete}
           handleNoteMove={handleNoteMove}
+          handleNoteTypeNext={handleNoteTypeNext}
         />
       ) : (
         type === 'task' && (
@@ -60,6 +74,7 @@ export default function NoteComponent(props: NoteProps): ReactElement {
             handleNoteChange={handleNoteChange}
             handleNoteDelete={handleNoteDelete}
             handleNoteMove={handleNoteMove}
+            handleNoteTypeNext={handleNoteTypeNext}
           />
         )
       )}

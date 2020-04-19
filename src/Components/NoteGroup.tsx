@@ -20,7 +20,7 @@ import {
 } from './Data/Notes';
 import Icon from './Common/Icon';
 import IconPicker from './Common/IconPicker';
-import NoteComponent from './Note';
+import NoteComponent from './Note/Note';
 import type { NoteGroup, Note, NoteGroupProps } from './Types';
 import ConfirmDialog from './Common/ConfirmDialog';
 
