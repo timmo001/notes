@@ -32,7 +32,7 @@
     "moment": "2.24.0",
     "query-string": "6.12.1",
     "react": "16.13.1",
-    "react-color": "2.18.0",
+    "react-color": "2.18.1",
     "react-dom": "16.13.1",
     "react-scripts": "3.4.1",
     "socket.io-client": "2.3.0",
