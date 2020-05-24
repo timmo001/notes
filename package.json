@@ -17,7 +17,7 @@
     "@material-ui/icons": "4.9.1",
     "@material-ui/lab": "4.0.0-alpha.50",
     "@material-ui/styles": "4.9.10",
-    "@mdi/js": "5.1.45",
+    "@mdi/js": "5.3.45",
     "@mdi/react": "1.4.0",
     "@mdi/svg": "5.1.45",
     "@testing-library/jest-dom": "5.5.0",
