@@ -19,7 +19,7 @@
     "@material-ui/styles": "4.9.10",
     "@mdi/js": "5.3.45",
     "@mdi/react": "1.4.0",
-    "@mdi/svg": "5.1.45",
+    "@mdi/svg": "5.3.45",
     "@testing-library/jest-dom": "5.5.0",
     "@testing-library/react": "10.0.2",
     "@testing-library/user-event": "10.0.2",
