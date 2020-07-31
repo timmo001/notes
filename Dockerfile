@@ -35,7 +35,7 @@ RUN \
         curl=7.69.1-r0 \
         git=2.26.2-r0 \
         tar=1.32-r1 \
-        yarn=1.19.2-r0 \
+        yarn=1.22.4-r0 \
     \
     && apk add --no-cache \
         bash=5.0.11-r1 \
