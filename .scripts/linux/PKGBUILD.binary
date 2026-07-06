@@ -1,0 +1,26 @@
+#!/bin/sh
+# Maintainer: Aidan Timson (Timmo) <aidan@timmo.dev>
+pkgname=notes-git
+pkgver=${ARCH_PKGVER:-0.1.0.r0.local}
+pkgrel=1
+pkgdesc="Standalone CLI and MCP server for repo-scoped Markdown notes (git version)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/timmo001/notes"
+license=('Apache-2.0')
+keywords=('mcp' 'cli' 'notes' 'handoff' 'agent')
+depends=('glibc')
+provides=('notes')
+conflicts=('notes')
+options=('!strip')
+source=('notes' 'notes.zsh' 'notes.bash' 'notes.fish' 'LICENSE')
+
+package() {
+  install -Dm755 notes "$pkgdir/usr/bin/notes"
+  ln -s notes "$pkgdir/usr/bin/note"
+  ln -s notes "$pkgdir/usr/bin/handoffs"
+  ln -s notes "$pkgdir/usr/bin/handoff"
+  install -Dm644 notes.zsh "$pkgdir/usr/share/zsh/site-functions/_notes"
+  install -Dm644 notes.bash "$pkgdir/usr/share/bash-completion/completions/notes"
+  install -Dm644 notes.fish "$pkgdir/usr/share/fish/vendor_completions.d/notes.fish"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

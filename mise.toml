@@ -1,0 +1,117 @@
+min_version = "2025.1.0"
+
+[tools]
+node = "26.4.0"
+bun = "1.3.14"
+
+[tasks.install]
+description = "Install notes dependencies"
+run = "bun install"
+
+[tasks.dev]
+description = "Run notes in watch mode"
+depends = ["install"]
+run = "bun run dev"
+
+[tasks.build]
+description = "Compile the notes binary"
+depends = ["install"]
+run = "bun run build"
+
+[tasks."package:arch"]
+description = "Create an Arch Linux package"
+depends = ["build"]
+run = '''
+VERSION="0.1.0.r$(git rev-list --count HEAD).g$(git rev-parse --short=7 HEAD)"
+export VERSION
+chmod +x ./.scripts/linux/create-arch.sh
+./.scripts/linux/create-arch.sh
+'''
+
+[tasks.typecheck]
+description = "Type-check the notes source"
+depends = ["install"]
+run = "bunx tsc --noEmit"
+
+[tasks.format]
+description = "Format source and docs"
+depends = ["install"]
+run = "bun run format"
+
+[tasks."format:check"]
+description = "Check formatting without writing"
+depends = ["install"]
+run = "bun run format:check"
+
+[tasks.check]
+description = "Type-check and verify formatting"
+depends = ["typecheck", "format:check"]
+
+[tasks."docs:install"]
+description = "Install docs dependencies"
+dir = "docs"
+run = "bun install"
+
+[tasks."docs:dev"]
+description = "Run docs dev server"
+depends = ["docs:install"]
+dir = "docs"
+run = "bun run dev"
+
+[tasks."docs:dev:serve"]
+description = "Run docs dev server in the background"
+depends = ["docs:install"]
+dir = "docs"
+run = "bun run gen && bunx astro dev --background"
+
+[tasks."docs:dev:status"]
+description = "Show docs dev server status"
+dir = "docs"
+run = "bunx astro dev status"
+
+[tasks."docs:dev:logs"]
+description = "Show docs dev server logs"
+dir = "docs"
+run = "bunx astro dev logs"
+
+[tasks."docs:dev:stop"]
+description = "Stop docs dev server"
+dir = "docs"
+run = "bunx astro dev stop"
+
+[tasks."docs:build"]
+description = "Build docs site"
+depends = ["docs:install"]
+dir = "docs"
+run = "bun run build"
+
+[tasks."docs:og"]
+description = "Regenerate the docs Open Graph image"
+depends = ["docs:install"]
+dir = "docs"
+run = "bun run og"
+
+[tasks."docs:preview"]
+description = "Preview docs site"
+depends = ["docs:install"]
+dir = "docs"
+run = "bun run preview"
+
+[tasks."docs:gen:cli"]
+description = "Regenerate CLI command reference"
+dir = "docs"
+run = "bun run gen:cli"
+
+[tasks."docs:gen:mcp"]
+description = "Regenerate MCP tool reference"
+dir = "docs"
+run = "bun run gen:mcp"
+
+[tasks."docs:gen"]
+description = "Regenerate generated docs"
+dir = "docs"
+run = "bun run gen"
+
+[tasks."docs:check"]
+description = "Regenerate and build docs"
+depends = ["docs:gen", "docs:build"]
