@@ -1,0 +1,77 @@
+---
+title: Notes
+description: Standalone CLI and MCP server for repo-scoped Markdown notes.
+template: splash
+hero:
+  title: Notes
+  tagline: Repo-scoped Markdown notes for humans and agents.
+  image:
+    file: ../../assets/hero.svg
+    alt: Notes logo
+  actions:
+    - text: Install
+      link: /install/
+      icon: right-arrow
+    - text: Quick start
+      link: /quick-start/
+      icon: open-book
+      variant: minimal
+    - text: View on GitHub
+      link: https://github.com/timmo001/notes
+      icon: external
+      variant: minimal
+      attrs:
+        rel: me
+---
+
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+`notes` manages repository notes in a Git-backed vault and exposes the same behaviour through a CLI and an MCP server.
+
+<CardGrid>
+  <Card title="Repo notes" icon="open-book">
+    Store Markdown notes under `repo-notes/{owner}/{repo}` based on the current
+    Git remote.
+  </Card>
+  <Card title="Safe writes" icon="setting">
+    Reads, writes, and deletes are constrained to the notes vault, then
+    committed and best-effort pushed.
+  </Card>
+  <Card title="Handoffs" icon="document">
+    Handoffs are ordinary notes tagged `handoff`, with priority metadata for
+    agent-to-agent continuation.
+  </Card>
+  <Card title="MCP server" icon="server">
+    The same note operations are exposed as raw-text MCP tools for agent
+    harnesses.
+  </Card>
+</CardGrid>
+
+## Start Here
+
+<CardGrid>
+  <LinkCard
+    title="Install"
+    href="/install/"
+    description="Install from the AUR or build the binary locally with mise."
+  />
+  <LinkCard
+    title="Quick Start"
+    href="/quick-start/"
+    description="List, read, write, and serve notes over MCP."
+  />
+  <LinkCard
+    title="Notes"
+    href="/notes/"
+    description="Understand the vault layout, frontmatter, and safety model."
+  />
+  <LinkCard
+    title="MCP Server"
+    href="/mcp/"
+    description="Expose notes to MCP-compatible agents over stdio."
+  />
+</CardGrid>
+
+## Documentation Scope
+
+This repo owns the standalone CLI and MCP server. OpenCode plugins and slash commands that consume `notes` live in dotfiles/OpenCode config.
