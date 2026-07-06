@@ -56,4 +56,4 @@ cd ../..
 rm -rf build/arch
 
 echo "Package created successfully!"
-echo "Install with: yay -U dist/notes-${ARCH_PKGVER}-1-x86_64.pkg.tar.zst"
+echo "Install with: yay -U dist/repo-notes-git-${ARCH_PKGVER}-1-x86_64.pkg.tar.zst"

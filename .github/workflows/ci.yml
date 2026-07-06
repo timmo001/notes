@@ -72,7 +72,7 @@ jobs:
           echo "app_changed=$app_changed" >> "$GITHUB_OUTPUT"
 
   update-aur:
-    name: Update AUR (notes-git)
+    name: Update AUR (repo-notes-git)
     runs-on: ubuntu-latest
     needs:
       - build

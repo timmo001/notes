@@ -8,4 +8,4 @@ harnesses.
 
 Full setup, CLI reference, MCP usage, and integration docs are published at <https://notes.timmo.dev>.
 
-On Arch, install `notes-git` from the AUR. For local development, run `mise run install` and `mise run build`, then use `dist/notes`.
+On Arch, install `repo-notes-git` from the AUR. For local development, run `mise run install` and `mise run build`, then use `dist/notes`.

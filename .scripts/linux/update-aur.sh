@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Update the AUR package for notes-git
+# Update the AUR package for repo-notes-git
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-AUR_PACKAGE_NAME="notes-git"
+AUR_PACKAGE_NAME="repo-notes-git"
 AUR_REPO_URL="ssh://aur@aur.archlinux.org/${AUR_PACKAGE_NAME}.git"
 IS_CI="${CI:-false}"
 
