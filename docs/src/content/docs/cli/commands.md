@@ -65,11 +65,11 @@ notes list [--all] [--tag <tag>] [--format labels|json]
 
 **Options**
 
-| Option              | Description                                |
-| ------------------- | ------------------------------------------ |
-| `--all`             | Show notes from every repo-notes directory |
-| `--tag` `<tag>`     | Only include notes with this tag           |
-| `--format` `<labels | json>`                                     | Output format (one of: `labels`, `json`) |
+| Option                      | Description                                |
+| --------------------------- | ------------------------------------------ |
+| `--all`                     | Show notes from every repo-notes directory |
+| `--tag` `<tag>`             | Only include notes with this tag           |
+| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`)   |
 
 **Examples**
 
@@ -155,10 +155,10 @@ Handoffs are normal notes tagged handoff, with optional priority metadata.
 
 **Options**
 
-| Option              | Description                                |
-| ------------------- | ------------------------------------------ |
-| `--all`             | Show notes from every repo-notes directory |
-| `--format` `<labels | json>`                                     | Output format (one of: `labels`, `json`) |
+| Option                      | Description                                |
+| --------------------------- | ------------------------------------------ |
+| `--all`                     | Show notes from every repo-notes directory |
+| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`)   |
 
 **Examples**
 

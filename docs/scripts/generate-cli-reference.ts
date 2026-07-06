@@ -13,6 +13,7 @@ const outFile = path.join(root, "src/content/docs/cli/commands.md");
 const lines: string[] = [];
 const push = (line = "") => lines.push(line);
 const code = (text: string) => `\`${text}\``;
+const tableCell = (text: string) => text.replaceAll("|", "\\|");
 
 function optionLabel(option: CliOptionSpec): string {
   const parts = [code(option.name)];
@@ -38,7 +39,9 @@ function renderOptions(options: readonly CliOptionSpec[]): void {
   push("| Option | Description |");
   push("| --- | --- |");
   for (const option of visible) {
-    push(`| ${optionLabel(option)} | ${optionDescription(option)} |`);
+    push(
+      `| ${tableCell(optionLabel(option))} | ${tableCell(optionDescription(option))} |`,
+    );
   }
   push();
 }
@@ -56,7 +59,7 @@ function renderArguments(args: readonly CliArgumentSpec[]): void {
       const values = arg.choices.map((c) => code(c.value)).join(", ");
       desc += `${desc && !/[.!?)]$/.test(desc) ? "." : ""}${desc ? " " : ""}One of: ${values}.`;
     }
-    push(`| ${code(`<${arg.name}>`)} | ${desc.trim()} |`);
+    push(`| ${tableCell(code(`<${arg.name}>`))} | ${tableCell(desc.trim())} |`);
   }
   push();
 }
