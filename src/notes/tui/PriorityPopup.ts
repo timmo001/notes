@@ -43,7 +43,7 @@ export interface PriorityPopupOptions {
   readonly onDismiss: () => void;
 }
 
-/** Centred popup overlay for choosing a handoff priority. */
+/** Centred popup overlay for choosing a note priority. */
 export class PriorityPopup {
   private readonly renderer: CliRenderer;
   private readonly theme: Theme;

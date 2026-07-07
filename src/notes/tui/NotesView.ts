@@ -125,7 +125,7 @@ export interface NotesViewOptions {
     noteContent: string,
     mode: OpenCodeNoteMode,
   ) => Promise<void>;
-  /** Set the handoff priority for a note and commit it. */
+  /** Set the priority for a note and commit it. */
   readonly onSetPriority: (
     filePath: string,
     priority: NotePriority,
@@ -652,7 +652,6 @@ export class NotesView {
   }
 
   private cycleGroupMode(): void {
-    if (!this.isHandoffFilter()) return;
     const nextIndex =
       (GROUP_CYCLE.indexOf(this.groupMode) + 1) % GROUP_CYCLE.length;
     this.groupMode = GROUP_CYCLE[nextIndex];
@@ -665,7 +664,7 @@ export class NotesView {
   }
 
   private groupingByPriority(): boolean {
-    return this.isHandoffFilter() && this.groupMode === "priority";
+    return this.groupMode === "priority";
   }
 
   private sortEntries(entries: readonly NoteEntry[]): readonly NoteEntry[] {
@@ -886,14 +885,13 @@ export class NotesView {
   }
 
   private requestChangePriority(): void {
-    if (!this.isHandoffFilter()) return;
     if (this.settingPriorityPath) {
       this.statusBar.content = t`${fg(this.theme.yellow)("A priority update is already in progress")}`;
       return;
     }
     const entry = this.selectedEntry;
     if (!entry) {
-      this.statusBar.content = t`${fg(this.theme.yellow)("Select a handoff before changing priority")}`;
+      this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before changing priority")}`;
       return;
     }
     this.noteList.setActive(false);
@@ -1070,9 +1068,7 @@ export class NotesView {
       id: entry.filePath,
       title: entry.name ?? stripMarkdownExtension(entry.filename),
       description: formatListDescription(entry),
-      color: isHandoffEntry(entry)
-        ? priorityColor(this.theme, notePriority(entry))
-        : this.theme.fg,
+      color: priorityColor(this.theme, notePriority(entry)),
       section: this.listItemSection(entry, showSection),
       value: entry,
     };
@@ -1095,12 +1091,8 @@ export class NotesView {
       ? t`${fg(this.theme.fgMuted)("Description: ")}${fg(this.theme.fg)(entry.description)}`
       : t`${fg(this.theme.fgMuted)("Description: ")}${fg(this.theme.fgSubtle)("No description")}`;
     this.noteTags.content = t`${fg(this.theme.fgMuted)("Tags: ")}${fg(this.theme.fg)(formatTags(entry.tags))}`;
-    if (isHandoffEntry(entry)) {
-      const priority = notePriority(entry);
-      this.notePriorityText.content = t`${fg(this.theme.fgMuted)("Priority: ")}${bold(fg(priorityColor(this.theme, priority))(priorityLabel(priority)))}`;
-    } else {
-      this.notePriorityText.content = t``;
-    }
+    const priority = notePriority(entry);
+    this.notePriorityText.content = t`${fg(this.theme.fgMuted)("Priority: ")}${bold(fg(priorityColor(this.theme, priority))(priorityLabel(priority)))}`;
     this.noteFile.content = t`${fg(this.theme.fgMuted)("File: ")}${fg(this.theme.fg)(notePathLabel(entry))}`;
     this.noteModified.content = t`${fg(this.theme.fgMuted)("Modified: ")}${fg(this.theme.fg)(modified)}`;
   }
@@ -1217,10 +1209,6 @@ function matchesFilter(
   if (!filter?.tag) return true;
   const wanted = filter.tag.toLowerCase();
   return entry.tags.some((tag) => tag.toLowerCase() === wanted);
-}
-
-function isHandoffEntry(entry: NoteEntry): boolean {
-  return entry.tags.some((tag) => tag.toLowerCase() === "handoff");
 }
 
 function sortComparator(

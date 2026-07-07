@@ -209,7 +209,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
     summary: "Browse handoff-tagged notes",
     usage: "[--all] [--list] [--format labels|json]",
     description: [
-      "Handoffs are normal notes tagged handoff, with optional priority metadata.",
+      "Handoffs are normal notes tagged handoff. Priority metadata is shared with notes.",
       "With no flags this opens the interactive notes TUI filtered to handoffs.",
     ],
     options: [allOption, listOption, formatOption, helpOption],

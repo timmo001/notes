@@ -48,7 +48,7 @@ export interface AppDeps {
   readonly finaliseNoteDraft: (filePath: string) => Promise<void>;
   /** Commit an edited note after editor exit. */
   readonly finaliseNoteEdit: (filePath: string) => Promise<void>;
-  /** Set the handoff priority for a note and commit it. */
+  /** Set the priority for a note and commit it. */
   readonly updateNotePriority: (
     filePath: string,
     priority: NotePriority,

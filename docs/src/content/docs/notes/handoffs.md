@@ -21,7 +21,7 @@ tags: [handoff]
 
 ## Priority
 
-Handoff priority can be `low`, `medium`, `high`, or `critical`. Missing priority is treated as `medium`.
+Note priority can be `low`, `medium`, `high`, or `critical`. Missing priority is treated as `medium`.
 
 ```bash
 notes handoffs
@@ -32,12 +32,12 @@ notes handoffs --format json
 
 `notes handoffs` opens the same two-pane TUI as `notes`, filtered to notes tagged `handoff`. Use `--list` when you want stdout output for scripts or non-interactive shells. `notes handoff` is an alias for `notes handoffs`.
 
-The handoff view adds priority-aware controls:
+The handoff view uses the same priority-aware controls as the main notes TUI:
 
 | Key | Action                                    |
 | --- | ----------------------------------------- |
 | `g` | Toggle grouping by priority               |
-| `p` | Change the selected handoff's priority    |
+| `p` | Change the selected note's priority       |
 | `s` | Cycle sorting within the current grouping |
 
 ## Instructions

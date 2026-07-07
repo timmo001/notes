@@ -12,7 +12,7 @@ export interface RepoNoteIdentity {
   readonly remoteUrl: string;
 }
 
-/** Handoff priority level, highest urgency first when ranked. */
+/** Note priority level, highest urgency first when ranked. */
 export type NotePriority = "low" | "medium" | "high" | "critical";
 
 /** Grouping dimension applied to the notes list. */
@@ -29,7 +29,7 @@ export const PRIORITY_LEVELS: readonly NotePriority[] = [
   "low",
 ];
 
-/** Priority applied to handoffs that declare none. */
+/** Priority applied to notes that declare none. */
 export const DEFAULT_NOTE_PRIORITY: NotePriority = "medium";
 
 /** Frontmatter extracted from a note file. */
@@ -40,7 +40,7 @@ export interface NoteFrontmatter {
   readonly description: string | null;
   /** Kebab-case tags parsed from frontmatter. */
   readonly tags: readonly string[];
-  /** Handoff priority parsed from frontmatter, or null when absent/invalid. */
+  /** Note priority parsed from frontmatter, or null when absent/invalid. */
   readonly priority: NotePriority | null;
 }
 
