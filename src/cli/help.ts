@@ -1,11 +1,14 @@
 import { cliCommands, getCliCommand, type CliCommandSpec } from "./spec.js";
 
 const rootExamples = [
+  "notes                          Browse notes in the TUI",
+  "notes --all                    Browse all repo notes in the TUI",
   "notes list                     List notes for the current repository",
   "notes list --tag handoff       List handoff-tagged notes",
   "notes read --path <path>       Print a note file",
   "notes write --path <path> --stdin",
-  "notes handoffs                 List handoff notes",
+  "notes handoffs                 Browse handoff notes in the TUI",
+  "notes handoffs --list          List handoff notes",
   "notes mcp                      MCP server over stdio",
 ];
 
@@ -103,9 +106,10 @@ function renderCommand(command: CliCommandSpec): string {
 
 function renderRootHelp(): string {
   return [
-    "Usage: notes <command> [options]",
+    "Usage: notes [--all] [command] [options]",
     "",
-    "Standalone CLI and MCP server for repo-scoped Markdown notes.",
+    "Standalone TUI, CLI, and MCP server for repo-scoped Markdown notes.",
+    "With no command, notes opens the interactive TUI for the current repository.",
     "",
     ...renderAligned(
       "Commands",

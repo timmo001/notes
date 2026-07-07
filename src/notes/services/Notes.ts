@@ -32,9 +32,12 @@ import {
   type NoteCommitResult,
   type NoteContextOptions,
   type NoteContextPayload,
+  type NoteCreateDraft,
+  type NoteCreateKind,
   type NoteDeleteResult,
   type NoteEntry,
   type NoteFrontmatter,
+  type NotePriority,
   type NotePushResult,
   type NoteRepoSection,
   type NoteWriteResult,
@@ -80,6 +83,21 @@ interface NotesService {
   readonly delete: (
     filePath: string,
   ) => Effect.Effect<NoteDeleteResult, NotesError>;
+  readonly createDraft: (
+    kind: NoteCreateKind,
+    name: string,
+    description: string,
+  ) => Effect.Effect<NoteCreateDraft, NotesError>;
+  readonly finaliseDraft: (
+    filePath: string,
+  ) => Effect.Effect<NoteCommitResult, NotesError>;
+  readonly finaliseEdit: (
+    filePath: string,
+  ) => Effect.Effect<NoteCommitResult, NotesError>;
+  readonly setPriority: (
+    filePath: string,
+    priority: NotePriority,
+  ) => Effect.Effect<NoteCommitResult, NotesError>;
 }
 
 type CommandResult =
@@ -156,6 +174,39 @@ function readNoteFrontmatter(filePath: string): NoteFrontmatter {
   };
 }
 
+function setFrontmatterPriority(
+  content: string,
+  priority: NotePriority,
+): string | null {
+  const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatter) return null;
+
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const priorityLine = `priority: ${priority}`;
+  const lines = frontmatter[1].split(/\r?\n/);
+
+  const existingIndex = lines.findIndex((line) => /^priority:\s*/.test(line));
+  if (existingIndex !== -1) {
+    lines[existingIndex] = priorityLine;
+  } else {
+    const descIndex = lines.findIndex((line) => /^description:\s*/.test(line));
+    const tagsIndex = lines.findIndex((line) => /^tags:\s*/.test(line));
+    const insertAt =
+      descIndex !== -1
+        ? descIndex + 1
+        : tagsIndex !== -1
+          ? tagsIndex
+          : lines.length;
+    lines.splice(insertAt, 0, priorityLine);
+  }
+
+  const body = lines.join(newline);
+  return content.replace(
+    frontmatter[0],
+    () => `---${newline}${body}${newline}---`,
+  );
+}
+
 function setFrontmatterDate(content: string, date: string): string | null {
   const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!frontmatter) return null;
@@ -224,6 +275,87 @@ function listNoteRepoSections(
   }
 
   return sections;
+}
+
+function slugifyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function collisionFreePath(dir: string, slug: string): string {
+  const base = join(dir, slug);
+  if (!existsSync(base)) return base;
+
+  const ext = ".md";
+  const stem = slug.slice(0, -ext.length);
+  for (let suffix = 2; suffix < 100; suffix++) {
+    const candidate = join(dir, `${stem}-${suffix}${ext}`);
+    if (!existsSync(candidate)) return candidate;
+  }
+  return base;
+}
+
+function draftSeedContent(
+  kind: NoteCreateKind,
+  identity: RepoNoteIdentity,
+  now: Date,
+  name: string,
+  description: string,
+): string {
+  const date = formatNoteTimestamp(now);
+  const repo = `${identity.owner}/${identity.repo}`;
+  const desc =
+    description ||
+    `Draft ${kind === "handoff" ? "handoff" : "repository"} note.`;
+
+  if (kind === "handoff") {
+    return [
+      "---",
+      `repo: ${repo}`,
+      `date: ${date}`,
+      "type: handoff",
+      `name: ${name}`,
+      `description: ${desc}`,
+      "priority: medium",
+      "tags: [handoff, draft]",
+      "---",
+      "",
+      `# ${name}`,
+      "",
+      "## Summary",
+      "",
+      "",
+      "## Next Focus",
+      "",
+      "",
+      "## Suggested Skills",
+      "",
+      "",
+      "## Artifact References",
+      "",
+      "",
+      "## Open Threads",
+      "",
+      "",
+    ].join("\n");
+  }
+
+  return [
+    "---",
+    `repo: ${repo}`,
+    `date: ${date}`,
+    `name: ${name}`,
+    `description: ${desc}`,
+    "tags: [draft]",
+    "---",
+    "",
+    `# ${name}`,
+    "",
+    "",
+  ].join("\n");
 }
 
 function formatTag(
@@ -728,6 +860,99 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             ].join("\n");
 
             return { path: resolvedPath, output, commit, push };
+          }),
+        createDraft: (kind, name, description) =>
+          Effect.gen(function* () {
+            const { identity } = yield* resolveIdentity();
+            const notesPath = join(
+              repoNotesRoot,
+              identity.owner,
+              identity.repo,
+            );
+            const slug = slugifyName(name) || "note";
+            const filePath = collisionFreePath(notesPath, `${slug}.md`);
+            const now = new Date(yield* Clock.currentTimeMillis);
+            const content = draftSeedContent(
+              kind,
+              identity,
+              now,
+              name,
+              description,
+            );
+
+            yield* Effect.try({
+              try: () => {
+                mkdirSync(notesPath, { recursive: true });
+                writeFileSync(filePath, content);
+              },
+              catch: (error) =>
+                fail(
+                  `createDraft: failed to write draft: ${errorMessage(error)}`,
+                ),
+            });
+
+            const stat = statSync(filePath);
+            const entry: NoteEntry = {
+              filename: basename(filePath),
+              filePath,
+              mtime: stat.mtimeMs / 1000,
+              ...readNoteFrontmatter(filePath),
+            };
+
+            return { entry, content };
+          }),
+        finaliseDraft: (filePath) =>
+          Effect.gen(function* () {
+            const resolvedPath = yield* assertInsideNotesRoot(filePath);
+            if (!existsSync(resolvedPath)) {
+              return { ok: true, text: "draft file was removed" };
+            }
+            const filename = basename(resolvedPath);
+            const message = `notes: create ${filename}`;
+            const { commit } = yield* commitAndPush(resolvedPath, message);
+            return commit;
+          }),
+        finaliseEdit: (filePath) =>
+          Effect.gen(function* () {
+            const resolvedPath = yield* assertInsideNotesRoot(filePath);
+            if (!existsSync(resolvedPath)) {
+              return { ok: true, text: "note file was removed" };
+            }
+            const filename = basename(resolvedPath);
+            const message = `notes: edit ${filename}`;
+            const { commit } = yield* commitAndPush(resolvedPath, message);
+            return commit;
+          }),
+        setPriority: (filePath, priority) =>
+          Effect.gen(function* () {
+            const resolvedPath = yield* assertInsideNotesRoot(filePath);
+            const content = yield* Effect.try({
+              try: () => readFileSync(resolvedPath, "utf-8"),
+              catch: (error) =>
+                fail(
+                  `setPriority: failed to read file ${filePath}: ${errorMessage(error)}`,
+                ),
+            });
+
+            const updated = setFrontmatterPriority(content, priority);
+            if (updated === null) {
+              return yield* fail(
+                `setPriority: no frontmatter found in ${filePath}; cannot set priority`,
+              );
+            }
+
+            yield* Effect.try({
+              try: () => writeFileSync(resolvedPath, updated),
+              catch: (error) =>
+                fail(
+                  `setPriority: failed to write file ${filePath}: ${errorMessage(error)}`,
+                ),
+            });
+
+            const filename = basename(resolvedPath);
+            const message = `notes: set priority ${filename}`;
+            const { commit } = yield* commitAndPush(resolvedPath, message);
+            return commit;
           }),
       };
     }),

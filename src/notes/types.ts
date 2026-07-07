@@ -15,6 +15,12 @@ export interface RepoNoteIdentity {
 /** Handoff priority level, highest urgency first when ranked. */
 export type NotePriority = "low" | "medium" | "high" | "critical";
 
+/** Grouping dimension applied to the notes list. */
+export type NoteGroupMode = "none" | "priority";
+
+/** Group modes cycled by the notes view grouping key, in order. */
+export const GROUP_CYCLE: readonly NoteGroupMode[] = ["priority", "none"];
+
 /** Priority levels ordered highest-first for display and sorting. */
 export const PRIORITY_LEVELS: readonly NotePriority[] = [
   "critical",
@@ -58,6 +64,16 @@ export interface NoteRepoSection {
   readonly notesPath: string;
   /** Note entries in this repository, sorted newest-first. */
   readonly entries: readonly NoteEntry[];
+}
+
+/** Filter applied when opening the interactive notes view. */
+export interface NotesViewFilter {
+  /** Tag that note entries must contain, compared case-insensitively. */
+  readonly tag?: string;
+  /** Display title used for filtered views such as Handoffs. */
+  readonly title?: string;
+  /** Show notes from every repository note directory instead of only the current repo. */
+  readonly includeAllRepos?: boolean;
 }
 
 /** Options for rendering note context. */
@@ -130,6 +146,17 @@ export interface NoteDeleteResult {
   readonly commit: NoteCommitResult;
   /** Best-effort push outcome, or undefined when the vault has no remote. */
   readonly push?: NotePushResult;
+}
+
+/** Kind of note to create via the add-item flow. */
+export type NoteCreateKind = "note" | "handoff";
+
+/** Draft note returned after initial file creation before editor launch. */
+export interface NoteCreateDraft {
+  /** The NoteEntry for the newly created draft file. */
+  readonly entry: NoteEntry;
+  /** The initial seed content written to the file. */
+  readonly content: string;
 }
 
 /** Supported notes list output formats. */

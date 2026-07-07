@@ -88,6 +88,11 @@ const formatOption = {
   choices: [{ value: "labels" }, { value: "json" }],
 } satisfies CliOptionSpec;
 
+const listOption = {
+  name: "--list",
+  description: "List handoffs to stdout instead of opening the TUI",
+} satisfies CliOptionSpec;
+
 const pathOption = {
   name: "--path",
   valueName: "path",
@@ -201,13 +206,19 @@ export const cliCommands: readonly CliCommandSpec[] = [
   {
     name: "handoffs",
     aliases: ["handoff"],
-    summary: "List handoff-tagged notes",
-    usage: "[--all] [--format labels|json]",
+    summary: "Browse handoff-tagged notes",
+    usage: "[--all] [--list] [--format labels|json]",
     description: [
       "Handoffs are normal notes tagged handoff, with optional priority metadata.",
+      "With no flags this opens the interactive notes TUI filtered to handoffs.",
     ],
-    options: [allOption, formatOption, helpOption],
-    examples: ["notes handoffs", "notes handoffs --all", "notes handoff"],
+    options: [allOption, listOption, formatOption, helpOption],
+    examples: [
+      "notes handoffs",
+      "notes handoffs --all",
+      "notes handoffs --list",
+      "notes handoff",
+    ],
   },
   {
     name: "mcp",

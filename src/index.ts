@@ -1,5 +1,6 @@
 import { Effect, Layer, Schema } from "effect";
 import { NodeRuntime } from "@effect/platform-node";
+import { basename } from "node:path";
 import { renderHelp } from "./cli/help.js";
 import { getCliCommand, nativeCommandNames } from "./cli/spec.js";
 import { hasOption, optionValue } from "./cli/args.js";
@@ -23,6 +24,7 @@ import {
   type NoteEntry,
   type NotePushResult,
   type NoteRepoSection,
+  type NotesViewFilter,
   type NotesListFormat,
   type NoteWriteResult,
 } from "./notes/types.js";
@@ -31,6 +33,10 @@ type ParsedArgs = {
   readonly command: string | undefined;
   readonly rest: readonly string[];
   readonly help: boolean;
+};
+
+type TuiMode = {
+  readonly initialNotesFilter?: NotesViewFilter;
 };
 
 class UsageError extends Schema.TaggedErrorClass<UsageError>()("UsageError", {
@@ -48,6 +54,11 @@ function parseArgs(args: readonly string[]): ParsedArgs {
     rest,
     help: rest.includes("--help") || rest.includes("-h"),
   };
+}
+
+function invokedCommand(): string | undefined {
+  const name = basename(process.argv[1] ?? "");
+  return name === "handoffs" || name === "handoff" ? "handoffs" : undefined;
 }
 
 function failUsage(message: string): never {
@@ -154,6 +165,37 @@ function sortHandoffs(entries: readonly NoteEntry[]): readonly NoteEntry[] {
       priorityRank(notePriority(a)) - priorityRank(notePriority(b));
     return rankDelta !== 0 ? rankDelta : b.mtime - a.mtime;
   });
+}
+
+const allNotesFilter = {
+  includeAllRepos: true,
+} satisfies NotesViewFilter;
+
+const handoffNotesFilter = {
+  tag: "handoff",
+  title: "Handoffs",
+} satisfies NotesViewFilter;
+
+function includeAllRepos(filter: NotesViewFilter): NotesViewFilter {
+  return { ...filter, includeAllRepos: true };
+}
+
+function isHandoffsTuiInvocation(args: readonly string[]): boolean {
+  return args.length === 0 || (args.length === 1 && args[0] === "--all");
+}
+
+function guardInteractiveTui(mode: TuiMode): void {
+  if (process.stdout.isTTY) return;
+  const filter = mode.initialNotesFilter;
+  const alternative =
+    filter?.tag === "handoff"
+      ? `notes handoffs --list${filter.includeAllRepos ? " --all" : ""}`
+      : `notes list${filter?.includeAllRepos ? " --all" : ""}`;
+  console.error(
+    "notes: not opening the interactive TUI (stdout is not an interactive terminal).",
+  );
+  console.error(`Run \`${alternative}\` for machine-readable output.`);
+  process.exit(1);
 }
 
 function formatHandoffSections(sections: readonly NoteRepoSection[]): string {
@@ -268,7 +310,8 @@ function runHandoffs(args: readonly string[]) {
     Effect.gen(function* () {
       const notes = yield* Notes;
       const format = parseListFormat(args);
-      if (hasOption(args, "--all")) {
+      const listArgs = args.filter((arg) => arg !== "--list");
+      if (hasOption(listArgs, "--all")) {
         const sections = filterSections(yield* notes.listAll(), "handoff");
         const output =
           format === "json"
@@ -297,38 +340,119 @@ function runCompletions(args: readonly string[]) {
   return Effect.sync(() => process.stdout.write(renderCompletions(shell)));
 }
 
-const parsed = parseArgs(process.argv.slice(2));
+async function runTui(mode: TuiMode): Promise<void> {
+  guardInteractiveTui(mode);
+
+  const { extractNativeLibIfNeeded } =
+    await import("./lib/extractNativeLib.js");
+  const nativeLibPath = await extractNativeLibIfNeeded();
+  const { Renderer } = await import("./services/Renderer.js");
+  const { loadTheme } = await import("./theme.js");
+  const { App } = await import("./notes/tui/App.js");
+
+  const theme = Effect.runSync(loadTheme);
+  const TuiLayers = Renderer.layer(theme, nativeLibPath).pipe(
+    Layer.provideMerge(Notes.layer),
+    Layer.provideMerge(CommandExecutor.layer),
+    Layer.provideMerge(Config.layer),
+  );
+
+  const tuiProgram = Effect.gen(function* () {
+    const notes = yield* Notes;
+    const renderer = yield* Renderer;
+    const services = yield* Effect.context<never>();
+    const runPromise = Effect.runPromiseWith(services);
+
+    new App(
+      {
+        renderer,
+        theme,
+        listNotes: () => runPromise(notes.list()),
+        listAllNotes: () => runPromise(notes.listAll()),
+        readNote: (filePath) => runPromise(notes.read(filePath)),
+        deleteNote: (filePath) => runPromise(notes.delete(filePath)),
+        createNoteDraft: (kind, name, description) =>
+          runPromise(notes.createDraft(kind, name, description)),
+        finaliseNoteDraft: (filePath) =>
+          runPromise(notes.finaliseDraft(filePath)).then(() => {}),
+        finaliseNoteEdit: (filePath) =>
+          runPromise(notes.finaliseEdit(filePath)).then(() => {}),
+        updateNotePriority: (filePath, priority) =>
+          runPromise(notes.setPriority(filePath, priority)).then(() => {}),
+      },
+      { initialNotesFilter: mode.initialNotesFilter },
+    );
+
+    renderer.start();
+    return yield* Effect.never;
+  });
+
+  await Effect.runPromise(
+    tuiProgram.pipe(Effect.scoped, Effect.provide(TuiLayers)),
+  );
+}
+
+const initialCommand = invokedCommand();
+const cliArgs = initialCommand
+  ? [initialCommand, ...process.argv.slice(2)]
+  : process.argv.slice(2);
+const parsed = parseArgs(cliArgs);
 const command = parsed.command;
+
+async function runTuiOrExit(mode: TuiMode): Promise<void> {
+  try {
+    await runTui(mode);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}
 
 if (parsed.help && !command) {
   console.log(renderHelp());
   process.exit(0);
 }
 
-if (!command) {
-  console.log(renderHelp());
-  process.exit(0);
-}
-
-if (!nativeCommandNames.has(command)) {
-  failUsage(`notes: unknown command '${command}'`);
-}
-
-if (parsed.help && command !== "help") {
-  console.log(renderHelp(command));
-  process.exit(0);
-}
-
-const CliLayers = Notes.layer.pipe(
-  Layer.provideMerge(CommandExecutor.layer),
-  Layer.provideMerge(Config.layer),
-);
-
-if (command === "mcp") {
-  NodeRuntime.runMain(mcpServer.pipe(Effect.provide(CliLayers)), {
-    teardown: mcpTeardown,
+if (!initialCommand && cliArgs.length === 1 && cliArgs[0] === "--all") {
+  await runTuiOrExit({ initialNotesFilter: allNotesFilter });
+} else if (!command) {
+  await runTuiOrExit({});
+} else if (
+  (command === "handoffs" || command === "handoff") &&
+  !parsed.help &&
+  isHandoffsTuiInvocation(parsed.rest)
+) {
+  await runTuiOrExit({
+    initialNotesFilter: parsed.rest.includes("--all")
+      ? includeAllRepos(handoffNotesFilter)
+      : handoffNotesFilter,
   });
 } else {
+  runNative(parsed, command);
+}
+
+function runNative(parsed: ParsedArgs, command: string): void {
+  if (!nativeCommandNames.has(command)) {
+    failUsage(`notes: unknown command '${command}'`);
+  }
+
+  if (parsed.help && command !== "help") {
+    console.log(renderHelp(command));
+    process.exit(0);
+  }
+
+  const CliLayers = Notes.layer.pipe(
+    Layer.provideMerge(CommandExecutor.layer),
+    Layer.provideMerge(Config.layer),
+  );
+
+  if (command === "mcp") {
+    NodeRuntime.runMain(mcpServer.pipe(Effect.provide(CliLayers)), {
+      teardown: mcpTeardown,
+    });
+    return;
+  }
+
   const effect = (() => {
     const canonical = getCliCommand(command)?.name ?? command;
     switch (canonical) {

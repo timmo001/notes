@@ -145,26 +145,29 @@ notes delete --path ~/Documents/notes/repo-notes/owner/repo/topic.md
 
 ## `notes handoffs`
 
-List handoff-tagged notes
+Browse handoff-tagged notes
 
 ```text
-notes handoffs [--all] [--format labels|json]
+notes handoffs [--all] [--list] [--format labels|json]
 ```
 
 Handoffs are normal notes tagged handoff, with optional priority metadata.
+With no flags this opens the interactive notes TUI filtered to handoffs.
 
 **Options**
 
-| Option                      | Description                                |
-| --------------------------- | ------------------------------------------ |
-| `--all`                     | Show notes from every repo-notes directory |
-| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`)   |
+| Option                      | Description                                        |
+| --------------------------- | -------------------------------------------------- |
+| `--all`                     | Show notes from every repo-notes directory         |
+| `--list`                    | List handoffs to stdout instead of opening the TUI |
+| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`)           |
 
 **Examples**
 
 ```bash
 notes handoffs
 notes handoffs --all
+notes handoffs --list
 notes handoff
 ```
 

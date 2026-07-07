@@ -5,7 +5,30 @@ sidebar:
   order: 1
 ---
 
-`notes` stores Markdown files in a Git-backed vault. The default vault is `~/Documents/notes`; set `NOTES` to use a different path. `DOT_NOTES_DIR` is still read as a compatibility fallback when `NOTES` is unset.
+`notes` stores Markdown files in a Git-backed vault and opens an interactive browser when run without a command. The default vault is `~/Documents/notes`; set `NOTES` to use a different path. `DOT_NOTES_DIR` is still read as a compatibility fallback when `NOTES` is unset.
+
+## Browse
+
+```bash
+notes
+notes --all
+```
+
+The TUI uses a two-pane layout: the left pane lists notes, and the right pane previews the selected note's metadata and Markdown body. Useful controls:
+
+| Key                 | Action                              |
+| ------------------- | ----------------------------------- |
+| `up` / `down`       | Move through notes                  |
+| `Tab`               | Switch between list and preview     |
+| `/`                 | Search note names, tags and summary |
+| `s`                 | Cycle sorting                       |
+| `v`                 | Toggle current repo/all repos       |
+| `a` / `A`           | Create a note in editor/visual      |
+| `e` / `E`           | Edit in editor/visual               |
+| `o` / `O`           | Open in OpenCode/default plan mode  |
+| `d`                 | Delete after confirmation           |
+| `r`                 | Refresh                             |
+| `Esc` / `Backspace` | Exit or go back                     |
 
 ## Layout
 
