@@ -195,6 +195,10 @@ describe("Notes service", () => {
     temporaryDirectories.push(parent);
     const root = join(parent, "vault");
     const path = join(root, "repo-notes", "timmo001", "notes", "note.md");
+    mkdirSync(root);
+    git(root, "init");
+    git(root, "config", "user.name", "Notes Test");
+    git(root, "config", "user.email", "notes@example.invalid");
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
