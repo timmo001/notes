@@ -44,8 +44,10 @@ export class CommandExecutor extends Context.Service<
           if (signal.aborted) proc.kill();
           signal.addEventListener("abort", () => proc.kill(), { once: true });
 
-          const stdout = await new Response(proc.stdout).text();
-          const stderr = await new Response(proc.stderr).text();
+          const [stdout, stderr] = await Promise.all([
+            new Response(proc.stdout).text(),
+            new Response(proc.stderr).text(),
+          ]);
           const exitCode = await proc.exited;
           if (exitCode !== 0) {
             throw new CommandError({
@@ -66,13 +68,18 @@ export class CommandExecutor extends Context.Service<
               }),
       }),
     exitCode: (cmd, args, opts) =>
-      Effect.promise(async () => {
-        const proc = Bun.spawn([cmd, ...args], {
-          stdout: "ignore",
-          stderr: "ignore",
-          cwd: opts?.cwd,
-        });
-        return await proc.exited;
-      }),
+      Effect.tryPromise({
+        try: async (signal) => {
+          const proc = Bun.spawn([cmd, ...args], {
+            stdout: "ignore",
+            stderr: "ignore",
+            cwd: opts?.cwd,
+          });
+          if (signal.aborted) proc.kill();
+          signal.addEventListener("abort", () => proc.kill(), { once: true });
+          return await proc.exited;
+        },
+        catch: () => 1,
+      }).pipe(Effect.catch((code) => Effect.succeed(code))),
   });
 }

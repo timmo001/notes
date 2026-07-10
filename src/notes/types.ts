@@ -104,10 +104,25 @@ export interface NoteContent {
   readonly content: string;
 }
 
+/** Full note content with a revision hash for guarded updates. */
+export interface NoteReadResult {
+  readonly path: string;
+  readonly content: string;
+  readonly hash: string;
+}
+
+/** Options controlling a note write. */
+export interface NoteWriteOptions {
+  readonly stampDate?: boolean;
+  readonly expectedHash?: string;
+}
+
 /** Result of a best-effort git commit after note I/O. */
 export interface NoteCommitResult {
   /** Whether the commit step completed or had nothing to commit. */
   readonly ok: boolean;
+  /** Whether this operation created a commit. */
+  readonly committed: boolean;
   /** Command output when available. */
   readonly text?: string;
   /** Non-fatal error message when commit failed. */
@@ -124,28 +139,28 @@ export interface NotePushResult {
   readonly error?: string;
 }
 
+/** Git outcome shared by all note mutations. */
+export interface NoteGitResult {
+  readonly commit: NoteCommitResult;
+  readonly push?: NotePushResult;
+}
+
 /** Result returned after writing a note file. */
-export interface NoteWriteResult {
+export interface NoteWriteResult extends NoteGitResult {
   /** Absolute path written. */
   readonly path: string;
   /** Markdown output suitable for tool display. */
   readonly output: string;
-  /** Git commit outcome for the write. */
-  readonly commit: NoteCommitResult;
-  /** Best-effort push outcome, or undefined when the vault has no remote. */
-  readonly push?: NotePushResult;
+  /** SHA-256 hash of the content written. */
+  readonly hash: string;
 }
 
 /** Result returned after deleting a note file. */
-export interface NoteDeleteResult {
+export interface NoteDeleteResult extends NoteGitResult {
   /** Absolute path deleted. */
   readonly path: string;
   /** Markdown output suitable for tool display. */
   readonly output: string;
-  /** Git commit outcome for the deletion. */
-  readonly commit: NoteCommitResult;
-  /** Best-effort push outcome, or undefined when the vault has no remote. */
-  readonly push?: NotePushResult;
 }
 
 /** Kind of note to create via the add-item flow. */
@@ -157,6 +172,13 @@ export interface NoteCreateDraft {
   readonly entry: NoteEntry;
   /** The initial seed content written to the file. */
   readonly content: string;
+}
+
+/** Completed create-and-edit flow with its Git outcome. */
+export interface NoteCreateResult {
+  readonly draft: NoteCreateDraft;
+  readonly git: NoteGitResult;
+  readonly created: boolean;
 }
 
 /** Supported notes list output formats. */

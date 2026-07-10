@@ -1,16 +1,12 @@
 import type { CliRenderer } from "@opentui/core";
 import { ENV, envString } from "../lib/env.js";
 import { runWithRendererSuspended } from "./SuspendedCommand.js";
+import { runSupervisedProcess } from "./SupervisedProcess.js";
 
 /** Supported external editor launch modes. */
 export type ExternalEditorKind = "editor" | "visual";
 
-/** Launch mode that should start the external editor detached from the TUI. */
-export function editorLaunchesDetached(kind: ExternalEditorKind): boolean {
-  return kind === "visual";
-}
-
-/** Launch a path in an external editor. Editor mode waits; visual mode detaches. */
+/** Launch a path and wait for the editor to finish. */
 export async function openPathInEditor(
   renderer: CliRenderer,
   path: string,
@@ -19,35 +15,29 @@ export async function openPathInEditor(
 ): Promise<void> {
   const command = editorCommand(path, kind);
 
-  if (editorLaunchesDetached(kind)) {
-    launchDetached(command);
+  if (kind === "visual") {
+    await runSupervisedProcess(["bash", "-lc", command], {
+      label: "Visual editor",
+      stdin: "ignore",
+      stdout: "ignore",
+      stderr: "ignore",
+    });
     return;
   }
 
   await runWithRendererSuspended({ renderer, afterResume }, async () => {
-    const proc = Bun.spawn(["bash", "-lc", command], {
+    await runSupervisedProcess(["bash", "-lc", command], {
+      label: "Editor",
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
     });
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) throw new ExternalEditorExitError(exitCode);
   });
 }
 
 /** Human-readable label for an external editor launch mode. */
 export function editorLabel(kind: ExternalEditorKind): string {
   return kind === "visual" ? "visual editor" : "editor";
-}
-
-class ExternalEditorExitError extends Error {
-  readonly exitCode: number;
-
-  constructor(exitCode: number) {
-    super(`Editor exited with code ${exitCode}`);
-    this.name = "ExternalEditorExitError";
-    this.exitCode = exitCode;
-  }
 }
 
 function editorCommand(path: string, kind: ExternalEditorKind): string {
@@ -68,14 +58,4 @@ function firstNonEmpty(...values: readonly (string | undefined)[]): string {
 
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
-}
-
-function launchDetached(command: string): void {
-  const proc = Bun.spawn(["bash", "-lc", command], {
-    stdin: "ignore",
-    stdout: "ignore",
-    stderr: "ignore",
-    detached: true,
-  });
-  proc.unref();
 }

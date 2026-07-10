@@ -85,7 +85,7 @@ notes list --format json
 Print a note file
 
 ```text
-notes read --path <path>
+notes read --path <path> [--json]
 ```
 
 **Options**
@@ -93,6 +93,7 @@ notes read --path <path>
 | Option            | Description                                         |
 | ----------------- | --------------------------------------------------- |
 | `--path` `<path>` | Absolute path to a note file inside the notes vault |
+| `--json`          | Emit content and revision hash as JSON              |
 
 **Examples**
 
@@ -105,16 +106,17 @@ notes read --path ~/Documents/notes/repo-notes/owner/repo/topic.md
 Write stdin to a note file, then commit and push it
 
 ```text
-notes write --path <path> --stdin [--json]
+notes write --path <path> --stdin [--expected-hash <sha256>] [--json]
 ```
 
 **Options**
 
-| Option            | Description                                         |
-| ----------------- | --------------------------------------------------- |
-| `--path` `<path>` | Absolute path to a note file inside the notes vault |
-| `--stdin`         | Read note content from stdin                        |
-| `--json`          | Emit the note output and push status as JSON        |
+| Option                       | Description                                               |
+| ---------------------------- | --------------------------------------------------------- |
+| `--path` `<path>`            | Absolute path to a note file inside the notes vault       |
+| `--stdin`                    | Read note content from stdin                              |
+| `--expected-hash` `<sha256>` | Fail if the existing note no longer has this SHA-256 hash |
+| `--json`                     | Emit the complete mutation result as JSON                 |
 
 **Examples**
 
@@ -135,7 +137,7 @@ notes delete --path <path> [--json]
 | Option            | Description                                         |
 | ----------------- | --------------------------------------------------- |
 | `--path` `<path>` | Absolute path to a note file inside the notes vault |
-| `--json`          | Emit the note output and push status as JSON        |
+| `--json`          | Emit the complete mutation result as JSON           |
 
 **Examples**
 

@@ -32,7 +32,7 @@ notes read --path ~/Documents/notes/repo-notes/owner/repo/topic.md
 notes write --path ~/Documents/notes/repo-notes/owner/repo/topic.md --stdin < topic.md
 ```
 
-Writes refresh the frontmatter `date:`, create parent directories, commit the changed note, and best-effort push the vault when it has a remote.
+Writes validate and refresh frontmatter, create parent directories, commit the changed note, and best-effort push the vault when it has a remote. Use `notes read --json` and pass its `hash` back with `--expected-hash` when an overwrite must fail if another process changed the note.
 
 ## Handoffs
 

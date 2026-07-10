@@ -1,16 +1,16 @@
 import type { CliRenderer } from "@opentui/core";
 import type { Theme } from "../../theme.js";
 import type {
-  NoteCreateDraft,
   NoteCreateKind,
+  NoteCreateResult,
   NoteDeleteResult,
   NoteEntry,
+  NoteGitResult,
   NotePriority,
   NoteRepoSection,
   NotesViewFilter,
 } from "../types.js";
 import { NotesView } from "./NotesView.js";
-import { openNoteInEditor } from "./NoteEditor.js";
 import type { NoteEditorKind } from "./NoteEditor.js";
 import { openNoteInOpenCode, type OpenCodeNoteMode } from "./OpenCodeNote.js";
 
@@ -38,21 +38,24 @@ export interface AppDeps {
   readonly readNote: (filePath: string) => Promise<string>;
   /** Delete a note file from the notes vault. */
   readonly deleteNote: (filePath: string) => Promise<NoteDeleteResult>;
-  /** Create a draft note file with seed content. */
-  readonly createNoteDraft: (
+  /** Create, edit, and commit a note as one transaction. */
+  readonly createNote: (
     kind: NoteCreateKind,
     name: string,
     description: string,
-  ) => Promise<NoteCreateDraft>;
-  /** Commit a draft note after editor exit. */
-  readonly finaliseNoteDraft: (filePath: string) => Promise<void>;
-  /** Commit an edited note after editor exit. */
-  readonly finaliseNoteEdit: (filePath: string) => Promise<void>;
+    editorKind: NoteEditorKind,
+  ) => Promise<NoteCreateResult>;
+  /** Run an editor and commit the resulting note change as one transaction. */
+  readonly editNote: (
+    entry: NoteEntry,
+    kind: NoteEditorKind,
+    create: boolean,
+  ) => Promise<NoteGitResult>;
   /** Set the priority for a note and commit it. */
   readonly updateNotePriority: (
     filePath: string,
     priority: NotePriority,
-  ) => Promise<void>;
+  ) => Promise<NoteGitResult>;
 }
 
 /** Top-level TUI app for the standalone notes command. */
@@ -66,14 +69,9 @@ export class App {
       listAllNotes: deps.listAllNotes,
       readNote: deps.readNote,
       deleteNote: deps.deleteNote,
-      createNoteDraft: deps.createNoteDraft,
-      finaliseNoteDraft: deps.finaliseNoteDraft,
-      finaliseNoteEdit: deps.finaliseNoteEdit,
+      createNote: deps.createNote,
+      editNote: deps.editNote,
       onSetPriority: deps.updateNotePriority,
-      onEditNote: (entry, kind: NoteEditorKind) =>
-        openNoteInEditor(deps.renderer, entry, kind, () => {
-          setTerminalTitle(`Notes TUI > ${this.notesTitle()}`);
-        }),
       onOpenOpencode: (entry, noteContent, mode: OpenCodeNoteMode) =>
         openNoteInOpenCode(deps.renderer, entry, noteContent, {
           mode,

@@ -1,5 +1,7 @@
 import { Effect } from "effect";
-import { gitExitCode, gitOutput, gitRequired } from "../lib/git.js";
+import { existsSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
+import { gitExitCode, gitOutput } from "../lib/git.js";
 import { CommandExecutor } from "../services/CommandExecutor.js";
 import { resolveDefaultRemote } from "./remotes.js";
 
@@ -45,9 +47,10 @@ function runStep(
 /** Whether the index holds staged changes. */
 export function hasStagedChanges(
   cwd?: string,
+  paths: readonly string[] = [],
 ): Effect.Effect<boolean, never, CommandExecutor> {
   return gitExitCode(
-    ["diff", "--cached", "--quiet"],
+    ["diff", "--cached", "--quiet", ...(paths.length ? ["--", ...paths] : [])],
     cwd ? { cwd } : undefined,
   ).pipe(Effect.map((code) => code !== 0));
 }
@@ -91,6 +94,7 @@ export interface CommitStep {
   readonly noVerify?: boolean;
   readonly io?: GitIo;
   readonly tolerateEmpty?: boolean;
+  readonly paths?: readonly string[];
 }
 
 /** The result of a commit request. */
@@ -107,7 +111,7 @@ export function commitIn(
 ): Effect.Effect<CommitOutcome, never, CommandExecutor> {
   return Effect.gen(function* () {
     if (step.tolerateEmpty) {
-      const staged = yield* hasStagedChanges(step.cwd);
+      const staged = yield* hasStagedChanges(step.cwd, step.paths);
       if (!staged)
         return { ok: true, committed: false, text: "nothing to commit" };
     }
@@ -115,6 +119,7 @@ export function commitIn(
       "commit",
       ...(step.message !== undefined ? ["-m", step.message] : []),
       ...(step.noVerify ? ["--no-verify"] : []),
+      ...(step.paths?.length ? ["--only", "--", ...step.paths] : []),
     ];
     const result = yield* runStep(step.cwd, args);
     return result.ok
@@ -130,26 +135,98 @@ export interface PushOutcome {
   readonly error?: string;
 }
 
-function rebaseOnUpstream(
-  cwd: string | undefined,
+/** Refuse a dirty index and integrate upstream changes before note I/O. */
+export function preflightMutation(
+  cwd?: string,
 ): Effect.Effect<GitStepResult, never, CommandExecutor> {
   const opts = cwd ? { cwd } : undefined;
-  return gitRequired(
-    ["pull", "--rebase", "--autostash", "--no-edit"],
-    opts,
-  ).pipe(
-    Effect.map(() => ({ ok: true, text: "" }) satisfies GitStepResult),
-    Effect.catch(() =>
-      gitExitCode(["rebase", "--abort"], opts).pipe(
-        Effect.as({
+  return Effect.gen(function* () {
+    const stagedCode = yield* gitExitCode(
+      ["diff", "--cached", "--quiet"],
+      opts,
+    );
+    if (stagedCode > 1) {
+      return {
+        ok: false,
+        text: "",
+        error: `Unable to inspect staged changes (git exited ${stagedCode}).`,
+      };
+    }
+    if (stagedCode === 1) {
+      return {
+        ok: false,
+        text: "",
+        error:
+          "The notes repository already has staged changes. Commit or unstage them before changing a note.",
+      };
+    }
+
+    for (const marker of [
+      "rebase-merge",
+      "rebase-apply",
+      "MERGE_HEAD",
+      "CHERRY_PICK_HEAD",
+      "REVERT_HEAD",
+    ]) {
+      const markerPath = yield* readGitIn(cwd, [
+        "rev-parse",
+        "--git-path",
+        marker,
+      ]);
+      if (
+        markerPath &&
+        existsSync(
+          isAbsolute(markerPath)
+            ? markerPath
+            : resolve(cwd ?? process.cwd(), markerPath),
+        )
+      ) {
+        return {
           ok: false,
           text: "",
           error:
-            "Could not rebase on the upstream before pushing; aborted the rebase and kept your local commit. Integrate the remote changes manually with git pull --rebase, then push.",
-        } satisfies GitStepResult),
-      ),
-    ),
-  );
+            "The notes repository already has a Git operation in progress.",
+        };
+      }
+    }
+
+    const branch = yield* runStep(cwd, [
+      "symbolic-ref",
+      "--quiet",
+      "--short",
+      "HEAD",
+    ]);
+    if (!branch.ok) {
+      return {
+        ok: false,
+        text: "",
+        error: "The notes repository is in detached HEAD state.",
+      };
+    }
+    const upstream = yield* readGitIn(cwd, [
+      "rev-parse",
+      "--abbrev-ref",
+      "--symbolic-full-name",
+      "@{upstream}",
+    ]);
+    if (!upstream) return { ok: true, text: "" };
+
+    const pulled = yield* runStep(cwd, [
+      "pull",
+      "--rebase",
+      "--no-autostash",
+      "--no-edit",
+    ]);
+    if (pulled.ok) return pulled;
+    yield* gitExitCode(["rebase", "--abort"], opts);
+    return {
+      ok: false,
+      text: "",
+      error:
+        pulled.error ??
+        "Could not rebase the notes repository before changing the note.",
+    };
+  });
 }
 
 /** Push the current branch, rebasing onto its upstream first when needed. */
@@ -176,8 +253,6 @@ export function pushBranch(
       "@{upstream}",
     ]);
     if (upstream) {
-      const rebased = yield* rebaseOnUpstream(cwd);
-      if (!rebased.ok) return { ok: false, message: "", error: rebased.error };
       const pushed = yield* runStep(cwd, ["push"]);
       return pushed.ok
         ? { ok: true, message: `Pushed to ${upstream}` }

@@ -19,7 +19,7 @@ sidebar:
 }
 ```
 
-The server exposes note tools for reading, listing, writing, and deleting vault files. See the generated [MCP tool reference](/mcp/tools/) for tool parameters.
+The server exposes note tools for reading, listing, writing, and deleting vault files. Reads include a SHA-256 revision that writes can use to reject stale content. See the generated [MCP tool reference](/mcp/tools/) for tool parameters.
 
 ## Tools
 

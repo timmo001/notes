@@ -33,6 +33,11 @@ description = "Type-check the notes source"
 depends = ["install"]
 run = "bunx tsc --noEmit"
 
+[tasks.test]
+description = "Run notes tests"
+depends = ["install"]
+run = "bun test"
+
 [tasks.format]
 description = "Format source and docs"
 depends = ["install"]
@@ -44,8 +49,8 @@ depends = ["install"]
 run = "bun run format:check"
 
 [tasks.check]
-description = "Type-check and verify formatting"
-depends = ["typecheck", "format:check"]
+description = "Test, type-check and verify formatting"
+depends = ["test", "typecheck", "format:check"]
 
 [tasks."docs:install"]
 description = "Install docs dependencies"

@@ -1,5 +1,6 @@
 import type { CliRenderer } from "@opentui/core";
 import { runWithRendererSuspended } from "./SuspendedCommand.js";
+import { runSupervisedProcess } from "./SupervisedProcess.js";
 
 /** Supported OpenCode launch modes. */
 export type OpenCodeSessionMode = "default" | "plan";
@@ -22,12 +23,12 @@ export async function openOpenCodeSession(
   await runWithRendererSuspended(
     { renderer, afterResume: options.afterResume },
     async () => {
-      const proc = Bun.spawn(openCodeArgs(options), {
+      await runSupervisedProcess(openCodeArgs(options), {
+        label: "OpenCode",
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",
       });
-      await proc.exited;
     },
   );
 }

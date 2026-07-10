@@ -100,6 +100,12 @@ const pathOption = {
   description: "Absolute path to a note file inside the notes vault",
 } satisfies CliOptionSpec;
 
+const expectedHashOption = {
+  name: "--expected-hash",
+  valueName: "sha256",
+  description: "Fail if the existing note no longer has this SHA-256 hash",
+} satisfies CliOptionSpec;
+
 /** Top-level notes command descriptors. */
 export const cliCommands: readonly CliCommandSpec[] = [
   {
@@ -164,8 +170,12 @@ export const cliCommands: readonly CliCommandSpec[] = [
   {
     name: "read",
     summary: "Print a note file",
-    usage: "--path <path>",
-    options: [pathOption, helpOption],
+    usage: "--path <path> [--json]",
+    options: [
+      pathOption,
+      { name: "--json", description: "Emit content and revision hash as JSON" },
+      helpOption,
+    ],
     examples: [
       "notes read --path ~/Documents/notes/repo-notes/owner/repo/topic.md",
     ],
@@ -173,13 +183,14 @@ export const cliCommands: readonly CliCommandSpec[] = [
   {
     name: "write",
     summary: "Write stdin to a note file, then commit and push it",
-    usage: "--path <path> --stdin [--json]",
+    usage: "--path <path> --stdin [--expected-hash <sha256>] [--json]",
     options: [
       pathOption,
       { name: "--stdin", description: "Read note content from stdin" },
+      expectedHashOption,
       {
         name: "--json",
-        description: "Emit the note output and push status as JSON",
+        description: "Emit the complete mutation result as JSON",
       },
       helpOption,
     ],
@@ -195,7 +206,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
       pathOption,
       {
         name: "--json",
-        description: "Emit the note output and push status as JSON",
+        description: "Emit the complete mutation result as JSON",
       },
       helpOption,
     ],

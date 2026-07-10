@@ -16,6 +16,46 @@ export function optionValue(
   return value && !value.startsWith("-") ? value : undefined;
 }
 
+/** Reject unknown, duplicate, valueless, or positional command arguments. */
+export function validateOptions(
+  args: readonly string[],
+  options: Readonly<Record<string, "flag" | "value">>,
+): void {
+  const seen = new Set<string>();
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg.startsWith("--")) throw new Error(`Unexpected argument: ${arg}`);
+    const equalsIndex = arg.indexOf("=");
+    const name = equalsIndex === -1 ? arg : arg.slice(0, equalsIndex);
+    const kind = options[name];
+    if (!kind) throw new Error(`Unknown option: ${name}`);
+    if (seen.has(name)) throw new Error(`Duplicate option: ${name}`);
+    seen.add(name);
+    if (kind === "flag" && equalsIndex !== -1) {
+      throw new Error(`Option ${name} does not take a value`);
+    }
+    if (kind === "value") {
+      const value =
+        equalsIndex === -1 ? args[index + 1] : arg.slice(equalsIndex + 1);
+      if (!value || value.startsWith("-")) {
+        throw new Error(`Option ${name} requires a value`);
+      }
+      if (equalsIndex === -1) index += 1;
+    }
+  }
+}
+
+/** Validate an optional lowercase SHA-256 command value. */
+export function expectedHashOption(
+  args: readonly string[],
+): string | undefined {
+  const value = optionValue(args, "--expected-hash");
+  if (value !== undefined && !/^[0-9a-f]{64}$/.test(value)) {
+    throw new Error("--expected-hash must be a lowercase SHA-256 hash");
+  }
+  return value;
+}
+
 /** Parse ISO/RFC/epoch/relative date values to ISO strings. */
 export function parseSince(value: string): string {
   const trimmed = value.trim();

@@ -9,7 +9,7 @@ sidebar:
 
 ## `note_read`
 
-Read the full content of a note file from the notes vault.
+Read the full content and SHA-256 revision of a note file from the notes vault.
 
 CLI equivalent: `notes read --path <path>`
 
@@ -34,10 +34,11 @@ Write a note file to the notes vault, then commit and best-effort push it.
 
 CLI equivalent: `notes write --path <path> --stdin`
 
-| Parameter | Type   | Default | CLI             | Description                                                 |
-| --------- | ------ | ------- | --------------- | ----------------------------------------------------------- |
-| `path`    | string |         | `--path <path>` | Absolute path to the note file to create or overwrite.      |
-| `content` | string |         | `stdin`         | Full file content to write, including frontmatter and body. |
+| Parameter      | Type   | Default | CLI                        | Description                                                               |
+| -------------- | ------ | ------- | -------------------------- | ------------------------------------------------------------------------- |
+| `path`         | string |         | `--path <path>`            | Absolute path to the note file to create or overwrite.                    |
+| `content`      | string |         | `stdin`                    | Full file content to write, including frontmatter and body.               |
+| `expectedHash` | string |         | `--expected-hash <sha256>` | Optional SHA-256 revision from note_read used to reject stale overwrites. |
 
 ## `note_delete`
 

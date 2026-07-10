@@ -20,17 +20,15 @@ import {
   GLOBAL_HELP,
   type HelpEntry,
 } from "../../tui/helpBar.js";
-import {
-  editorLabel,
-  editorLaunchesDetached,
-} from "../../tui/externalEditor.js";
+import { editorLabel } from "../../tui/externalEditor.js";
 import { openCodeSessionLabel } from "../../tui/openCodeSession.js";
 import { StatusList, type StatusListItem } from "../../tui/StatusList.js";
 import type {
-  NoteCreateDraft,
   NoteCreateKind,
+  NoteCreateResult,
   NoteDeleteResult,
   NoteEntry,
+  NoteGitResult,
   NotePriority,
   NoteRepoSection,
   NotesViewFilter,
@@ -43,6 +41,7 @@ import {
   type NoteGroupMode,
 } from "../types.js";
 import { formatLocalNoteDateTimeFromEpochSeconds } from "../time.js";
+import { noteGitOutcome } from "../gitOutcome.js";
 import type { NoteEditorKind } from "./NoteEditor.js";
 import {
   NoteCreatePrompt,
@@ -104,21 +103,19 @@ export interface NotesViewOptions {
   readonly readNote: (filePath: string) => Promise<string>;
   /** Delete a note file from the notes vault. */
   readonly deleteNote: (filePath: string) => Promise<NoteDeleteResult>;
-  /** Create a draft note file with seed content. */
-  readonly createNoteDraft: (
+  /** Create, edit, and commit a note as one transaction. */
+  readonly createNote: (
     kind: NoteCreateKind,
     name: string,
     description: string,
-  ) => Promise<NoteCreateDraft>;
-  /** Commit a draft note file after editor exit. */
-  readonly finaliseNoteDraft: (filePath: string) => Promise<void>;
-  /** Commit an edited existing note file after editor exit. */
-  readonly finaliseNoteEdit: (filePath: string) => Promise<void>;
-  /** Open the selected note in an external editor. */
-  readonly onEditNote: (
+    editorKind: NoteEditorKind,
+  ) => Promise<NoteCreateResult>;
+  /** Run an editor and commit the resulting note change as one transaction. */
+  readonly editNote: (
     entry: NoteEntry,
     kind: NoteEditorKind,
-  ) => Promise<void>;
+    create: boolean,
+  ) => Promise<NoteGitResult>;
   /** Open the selected note in a full OpenCode session. */
   readonly onOpenOpencode: (
     entry: NoteEntry,
@@ -129,7 +126,7 @@ export interface NotesViewOptions {
   readonly onSetPriority: (
     filePath: string,
     priority: NotePriority,
-  ) => Promise<void>;
+  ) => Promise<NoteGitResult>;
   /** Called when the user navigates back or exits. */
   readonly onBack: () => void;
 }
@@ -178,6 +175,8 @@ export class NotesView {
   private loadedNoteContent: string | null = null;
   private loadedNoteContentPath: string | null = null;
   private isVisible = false;
+  private activeOperation: string | null = null;
+  private acknowledgement: string | null = null;
   private openingOpenCode = false;
   private editingFilePath: string | null = null;
   private creatingNote = false;
@@ -738,12 +737,12 @@ export class NotesView {
   }
 
   private async openSelectedInOpenCode(mode: OpenCodeNoteMode): Promise<void> {
-    if (this.openingOpenCode) return;
     const entry = this.selectedEntry;
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before opening OpenCode")}`;
       return;
     }
+    if (!this.beginOperation(`opening ${openCodeSessionLabel(mode)}`)) return;
 
     this.openingOpenCode = true;
     const modeLabel = openCodeSessionLabel(mode);
@@ -763,44 +762,36 @@ export class NotesView {
       this.statusBar.content = t`${fg(this.theme.red)(`Failed to open OpenCode: ${errorMessage(error)}`)}`;
     } finally {
       this.openingOpenCode = false;
+      this.endOperation();
     }
   }
 
   private async openSelectedInEditor(kind: NoteEditorKind): Promise<void> {
-    if (this.editingFilePath) {
-      this.statusBar.content = t`${fg(this.theme.yellow)("An editor is already open")}`;
-      return;
-    }
     const entry = this.selectedEntry;
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before editing")}`;
       return;
     }
+    if (!this.beginOperation(`editing ${notePathLabel(entry)}`)) return;
 
     this.editingFilePath = entry.filePath;
     this.selectedFilePath = entry.filePath;
     const label = notePathLabel(entry);
-    const detached = editorLaunchesDetached(kind);
     this.statusBar.content = t`${fg(this.theme.yellow)(`Opening ${label} in ${editorLabel(kind)}...`)}`;
 
     let editError: unknown;
+    let gitResult: NoteGitResult | undefined;
     let refreshed = false;
     try {
       try {
-        await this.callbacks.onEditNote(entry, kind);
-        if (!detached) {
-          try {
-            await this.callbacks.finaliseNoteEdit(entry.filePath);
-          } catch {
-            // Non-fatal: git commit/sync failure does not block the flow.
-          }
-        }
+        gitResult = await this.callbacks.editNote(entry, kind, false);
       } catch (error) {
         editError = error;
       }
       refreshed = await this.refresh();
     } finally {
       this.editingFilePath = null;
+      this.endOperation();
     }
 
     if (editError) {
@@ -808,17 +799,17 @@ export class NotesView {
       return;
     }
     if (refreshed) {
-      this.statusBar.content = detached
-        ? t`${fg(this.theme.green)(`Opened ${label} in ${editorLabel(kind)}`)}`
-        : t`${fg(this.theme.green)(`Updated ${label}`)}`;
+      const outcome = gitResult ? noteGitOutcome(gitResult) : undefined;
+      const message = outcome?.complete
+        ? `Updated ${label}`
+        : `Updated ${label}; ${outcome?.detail ?? "git status unavailable"}`;
+      if (outcome && !outcome.complete) this.showAcknowledgement(message);
+      else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
     }
   }
 
   private startCreateFlow(editorKind: NoteEditorKind): void {
-    if (this.creatingNote || this.editingFilePath) {
-      this.statusBar.content = t`${fg(this.theme.yellow)("An editor is already open")}`;
-      return;
-    }
+    if (this.activeOperation) return this.showActiveOperation();
     this.createEditorKind = editorKind;
     this.noteList.setActive(false);
     this.bodyScroll.blur();
@@ -833,62 +824,52 @@ export class NotesView {
   private async executeCreateFlow(
     result: NoteCreatePromptResult,
   ): Promise<void> {
+    if (!this.beginOperation(`creating ${result.kind}`)) return;
     this.creatingNote = true;
     this.statusBar.content = t`${fg(this.theme.yellow)(`Creating ${result.kind} draft...`)}`;
     this.focusPane(this.activePane);
 
-    let draft: NoteCreateDraft;
+    let created: NoteCreateResult;
     try {
-      draft = await this.callbacks.createNoteDraft(
+      created = await this.callbacks.createNote(
         result.kind,
         result.name,
         result.description,
+        this.createEditorKind,
       );
     } catch (error) {
       this.creatingNote = false;
+      this.endOperation();
       this.statusBar.content = t`${fg(this.theme.red)(`Failed to create draft: ${errorMessage(error)}`)}`;
       return;
     }
 
+    const { draft, git } = created;
     this.selectedFilePath = draft.entry.filePath;
-    const detached = editorLaunchesDetached(this.createEditorKind);
-    this.statusBar.content = t`${fg(this.theme.yellow)(`Opening ${draft.entry.filename} in ${editorLabel(this.createEditorKind)}...`)}`;
-    let editError: unknown;
     try {
-      try {
-        await this.callbacks.onEditNote(draft.entry, this.createEditorKind);
-      } catch (error) {
-        editError = error;
-      }
-      if (!detached) {
-        try {
-          await this.callbacks.finaliseNoteDraft(draft.entry.filePath);
-        } catch {
-          // Non-fatal: git commit failure does not block the flow.
-        }
-      }
       await this.refresh();
     } finally {
       this.creatingNote = false;
+      this.endOperation();
     }
 
-    if (editError) {
-      this.statusBar.content = t`${fg(this.theme.red)(`Editor error for ${draft.entry.filename}: ${errorMessage(editError)}`)}`;
+    if (!created.created) {
+      this.statusBar.content = t`${fg(this.theme.fgMuted)(`Create cancelled: ${draft.entry.filename}`)}`;
       return;
     }
+
     const matchesActiveFilter = this.visibleEntries.some(
       (entry) => entry.filePath === draft.entry.filePath,
     );
-    this.statusBar.content = matchesActiveFilter
-      ? t`${fg(this.theme.green)(detached ? `Created draft ${draft.entry.filename} in ${editorLabel(this.createEditorKind)}` : `Created ${draft.entry.filename}`)}`
-      : t`${fg(this.theme.yellow)(detached ? `Created draft ${draft.entry.filename} in ${editorLabel(this.createEditorKind)} (hidden by current filter)` : `Created ${draft.entry.filename} (hidden by current filter)`)}`;
+    const outcome = noteGitOutcome(git);
+    const message = `${outcome?.complete ? "Created" : "Created locally"} ${draft.entry.filename}${matchesActiveFilter ? "" : " (hidden by current filter)"}${outcome && !outcome.complete ? `; ${outcome.detail}` : ""}`;
+    if (!outcome.complete) this.showAcknowledgement(message);
+    else
+      this.statusBar.content = t`${fg(matchesActiveFilter ? this.theme.green : this.theme.yellow)(message)}`;
   }
 
   private requestChangePriority(): void {
-    if (this.settingPriorityPath) {
-      this.statusBar.content = t`${fg(this.theme.yellow)("A priority update is already in progress")}`;
-      return;
-    }
+    if (this.activeOperation) return this.showActiveOperation();
     const entry = this.selectedEntry;
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before changing priority")}`;
@@ -913,27 +894,33 @@ export class NotesView {
       this.focusPane(this.activePane);
       return;
     }
+    if (!this.beginOperation(`setting ${notePathLabel(entry)} priority`))
+      return;
     this.settingPriorityPath = entry.filePath;
     this.selectedFilePath = entry.filePath;
     const label = notePathLabel(entry);
     this.statusBar.content = t`${fg(this.theme.yellow)(`Setting ${label} to ${priorityLabel(priority)}...`)}`;
     this.focusPane(this.activePane);
     try {
-      await this.callbacks.onSetPriority(entry.filePath, priority);
+      const result = await this.callbacks.onSetPriority(
+        entry.filePath,
+        priority,
+      );
       await this.refresh();
-      this.statusBar.content = t`${fg(this.theme.green)(`Set ${label} priority to ${priorityLabel(priority)}`)}`;
+      const outcome = noteGitOutcome(result);
+      const message = `Set ${label} priority to ${priorityLabel(priority)}${outcome.complete ? "" : `; ${outcome.detail}`}`;
+      if (!outcome.complete) this.showAcknowledgement(message);
+      else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
     } catch (error) {
       this.statusBar.content = t`${fg(this.theme.red)(`Failed to set priority: ${errorMessage(error)}`)}`;
     } finally {
       this.settingPriorityPath = null;
+      this.endOperation();
     }
   }
 
   private requestDeleteSelected(): void {
-    if (this.deletingFilePath) {
-      this.statusBar.content = t`${fg(this.theme.yellow)("A note deletion is already in progress")}`;
-      return;
-    }
+    if (this.activeOperation) return this.showActiveOperation();
     const entry = this.selectedEntry;
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before deleting")}`;
@@ -945,7 +932,8 @@ export class NotesView {
 
   private async confirmDeleteSelected(): Promise<void> {
     const entry = this.deleteConfirmation;
-    if (!entry || this.deletingFilePath) return;
+    if (!entry || !this.beginOperation(`deleting ${notePathLabel(entry)}`))
+      return;
     this.deletingFilePath = entry.filePath;
     this.clearDeleteConfirmation();
     this.loadVersion += 1;
@@ -962,6 +950,7 @@ export class NotesView {
       this.statusBar.content = t`${fg(this.theme.red)(`Failed to delete ${label}: ${errorMessage(error)}`)}`;
     } finally {
       this.deletingFilePath = null;
+      this.endOperation();
     }
   }
 
@@ -992,10 +981,10 @@ export class NotesView {
   }
 
   private showDeleteSuccess(label: string, result: NoteDeleteResult): void {
-    const message = result.commit.ok
-      ? `Deleted ${label}`
-      : `Deleted ${label}; git commit failed: ${result.commit.error ?? "unknown error"}`;
-    this.statusBar.content = t`${fg(result.commit.ok ? this.theme.green : this.theme.yellow)(message)}`;
+    const outcome = noteGitOutcome(result);
+    const message = `Deleted ${label}${outcome.complete ? "" : `; ${outcome.detail}`}`;
+    if (!outcome.complete) this.showAcknowledgement(message);
+    else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
   }
 
   private showDeletePrompt(entry: NoteEntry): void {
@@ -1030,6 +1019,22 @@ export class NotesView {
 
   private handleKeyPress(key: KeyEvent): void {
     if (!this.isVisible) return;
+    if (this.acknowledgement) {
+      key.preventDefault();
+      this.acknowledgement = null;
+      this.updateStatusBar();
+      return;
+    }
+    if (this.activeOperation) {
+      key.preventDefault();
+      this.showActiveOperation();
+      return;
+    }
+    if (key.ctrl && key.name === "c") {
+      key.preventDefault();
+      this.callbacks.onBack();
+      return;
+    }
     if (this.createPrompt.visible) {
       this.createPrompt.handleKeyPress(key);
       return;
@@ -1048,6 +1053,28 @@ export class NotesView {
       return;
     }
     this.keyHandlers[`${key.shift ? "shift+" : ""}${key.name}`]?.();
+  }
+
+  private beginOperation(label: string): boolean {
+    if (this.activeOperation) {
+      this.showActiveOperation();
+      return false;
+    }
+    this.activeOperation = label;
+    return true;
+  }
+
+  private endOperation(): void {
+    this.activeOperation = null;
+  }
+
+  private showActiveOperation(): void {
+    this.statusBar.content = t`${fg(this.theme.yellow)(`${this.activeOperation ?? "An operation"} is still in progress`)}`;
+  }
+
+  private showAcknowledgement(message: string): void {
+    this.acknowledgement = message;
+    this.statusBar.content = t`${fg(this.theme.yellow)(`${message}. Press any key to acknowledge`)}`;
   }
 
   private focusPane(pane: NotesPane): void {

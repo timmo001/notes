@@ -30,6 +30,8 @@ The TUI uses a two-pane layout: the left pane lists notes, and the right pane pr
 | `r`                 | Refresh                             |
 | `Esc` / `Backspace` | Exit or go back                     |
 
+Editor commands must stay attached until editing finishes. Set `EDITOR` for terminal editing and use a waiting visual command such as `VISUAL="code --wait"` for `A` and `E`.
+
 ## Layout
 
 Repository notes live under:
@@ -42,7 +44,7 @@ The `{owner}/{repo}` segment is resolved from the current Git repository's remot
 
 ## Frontmatter
 
-Notes are ordinary Markdown files. The CLI reads these fields from YAML frontmatter when present:
+Notes are ordinary Markdown files with YAML frontmatter:
 
 ```yaml
 ---
@@ -55,13 +57,15 @@ priority: medium
 ---
 ```
 
-`name`, `description`, `tags`, and `priority` are used for listings. Writes refresh the `date:` line automatically.
+`name`, `description`, `tags`, and `priority` are used for listings. Writes validate the frontmatter and refresh `date:` automatically.
 
 ## Safety
 
-Read, write, and delete operations are restricted to the notes vault. Paths are expanded, resolved, and checked before file I/O.
+Read, write, and delete operations are restricted to physical Markdown files under `repo-notes/{owner}/{repo}`. Symlinks, special files, malformed repository identities, and paths elsewhere in the vault are rejected. Writes use atomic replacement, and draft creation never overwrites an existing filename.
 
-Writes and deletes are committed to the vault Git repo. If the vault has a remote, `notes` attempts a best-effort push. Push failures are reported but do not fail the note operation.
+Before a mutation, `notes` refuses an existing staged index and rebases safely onto the configured upstream. Mutations are serialized across processes, committed to the vault Git repo, and then pushed when a remote exists. Editor sessions hold the same transaction lock until the resulting note is validated and committed. A commit or push failure is reported as partial success because the local file change has already completed.
+
+`notes read --json` and MCP `note_read` return a SHA-256 revision. Pass it to `notes write --expected-hash` or MCP `note_write.expectedHash` to reject a stale overwrite.
 
 ## Listing
 

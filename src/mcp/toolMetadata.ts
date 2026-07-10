@@ -29,7 +29,8 @@ export const mcpTools: readonly McpToolMetadata[] = [
   {
     name: "note_read",
     cli: "notes read --path <path>",
-    description: "Read the full content of a note file from the notes vault.",
+    description:
+      "Read the full content and SHA-256 revision of a note file from the notes vault.",
     parameters: {
       path: {
         type: "string",
@@ -77,6 +78,12 @@ export const mcpTools: readonly McpToolMetadata[] = [
         cli: "stdin",
         description:
           "Full file content to write, including frontmatter and body.",
+      },
+      expectedHash: {
+        type: "string",
+        cli: "--expected-hash <sha256>",
+        description:
+          "Optional SHA-256 revision from note_read used to reject stale overwrites.",
       },
     },
   },

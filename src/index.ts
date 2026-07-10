@@ -3,7 +3,12 @@ import { NodeRuntime } from "@effect/platform-node";
 import { basename } from "node:path";
 import { renderHelp } from "./cli/help.js";
 import { getCliCommand, nativeCommandNames } from "./cli/spec.js";
-import { hasOption, optionValue } from "./cli/args.js";
+import {
+  expectedHashOption,
+  hasOption,
+  optionValue,
+  validateOptions,
+} from "./cli/args.js";
 import {
   isCompletionShell,
   renderCompletions,
@@ -120,9 +125,7 @@ function emitNoteResult(
   json: boolean,
 ): Effect.Effect<void> {
   if (json) {
-    return writeLine(
-      JSON.stringify({ output: result.output, push: result.push ?? null }),
-    );
+    return writeLine(JSON.stringify(result));
   }
   return Effect.gen(function* () {
     yield* writeLine(result.output);
@@ -210,6 +213,7 @@ function formatHandoffSections(sections: readonly NoteRepoSection[]): string {
 }
 
 function runRoot(args: readonly string[]) {
+  validateOptions(args, { "--repo-notes": "flag" });
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
@@ -222,6 +226,7 @@ function runRoot(args: readonly string[]) {
 }
 
 function runContext(args: readonly string[]) {
+  validateOptions(args, { "--command": "value", "--json": "flag" });
   return handleNotesError(
     Effect.gen(function* () {
       const command = optionValue(args, "--command");
@@ -242,6 +247,11 @@ function runContext(args: readonly string[]) {
 }
 
 function runList(args: readonly string[]) {
+  validateOptions(args, {
+    "--all": "flag",
+    "--tag": "value",
+    "--format": "value",
+  });
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
@@ -274,28 +284,41 @@ function requirePath(subcommand: string, args: readonly string[]): string {
 }
 
 function runRead(args: readonly string[]) {
+  validateOptions(args, { "--path": "value", "--json": "flag" });
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      yield* writeText(yield* notes.read(requirePath("read", args)));
+      const result = yield* notes.read(requirePath("read", args));
+      yield* hasOption(args, "--json")
+        ? writeLine(JSON.stringify(result))
+        : writeText(result.content);
     }),
   );
 }
 
 function runWrite(args: readonly string[]) {
+  validateOptions(args, {
+    "--path": "value",
+    "--stdin": "flag",
+    "--expected-hash": "value",
+    "--json": "flag",
+  });
   return handleNotesError(
     Effect.gen(function* () {
       if (!hasOption(args, "--stdin"))
         failUsage("notes write requires --stdin");
       const notes = yield* Notes;
       const content = yield* Effect.promise(() => Bun.stdin.text());
-      const result = yield* notes.write(requirePath("write", args), content);
+      const result = yield* notes.write(requirePath("write", args), content, {
+        expectedHash: expectedHashOption(args),
+      });
       yield* emitNoteResult(result, hasOption(args, "--json"));
     }),
   );
 }
 
 function runDelete(args: readonly string[]) {
+  validateOptions(args, { "--path": "value", "--json": "flag" });
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
@@ -306,6 +329,11 @@ function runDelete(args: readonly string[]) {
 }
 
 function runHandoffs(args: readonly string[]) {
+  validateOptions(args, {
+    "--all": "flag",
+    "--list": "flag",
+    "--format": "value",
+  });
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
@@ -331,6 +359,10 @@ function runHandoffs(args: readonly string[]) {
 }
 
 function runCompletions(args: readonly string[]) {
+  const positional = args.filter((arg) => !arg.startsWith("-"));
+  if (args.some((arg) => arg.startsWith("-")) || positional.length > 1) {
+    failUsage("notes completions accepts at most one shell name");
+  }
   const shell = args.find((arg) => !arg.startsWith("-")) ?? "zsh";
   if (!isCompletionShell(shell)) {
     throw new Error(
@@ -349,6 +381,7 @@ async function runTui(mode: TuiMode): Promise<void> {
   const { Renderer } = await import("./services/Renderer.js");
   const { loadTheme } = await import("./theme.js");
   const { App } = await import("./notes/tui/App.js");
+  const { openNoteInEditor } = await import("./notes/tui/NoteEditor.js");
 
   const theme = Effect.runSync(loadTheme);
   const TuiLayers = Renderer.layer(theme, nativeLibPath).pipe(
@@ -369,22 +402,38 @@ async function runTui(mode: TuiMode): Promise<void> {
         theme,
         listNotes: () => runPromise(notes.list()),
         listAllNotes: () => runPromise(notes.listAll()),
-        readNote: (filePath) => runPromise(notes.read(filePath)),
+        readNote: (filePath) =>
+          runPromise(notes.read(filePath)).then((result) => result.content),
         deleteNote: (filePath) => runPromise(notes.delete(filePath)),
-        createNoteDraft: (kind, name, description) =>
-          runPromise(notes.createDraft(kind, name, description)),
-        finaliseNoteDraft: (filePath) =>
-          runPromise(notes.finaliseDraft(filePath)).then(() => {}),
-        finaliseNoteEdit: (filePath) =>
-          runPromise(notes.finaliseEdit(filePath)).then(() => {}),
+        createNote: (kind, name, description, editorKind) =>
+          runPromise(
+            notes.create(kind, name, description, (entry) =>
+              openNoteInEditor(renderer, entry, editorKind, () => {
+                process.stdout.write(`\x1b]0;Notes TUI\x07`);
+              }),
+            ),
+          ),
+        editNote: (entry, kind, create) =>
+          runPromise(
+            notes.edit(
+              entry.filePath,
+              (currentEntry) =>
+                openNoteInEditor(renderer, currentEntry, kind, () => {
+                  process.stdout.write(`\x1b]0;Notes TUI\x07`);
+                }),
+              create,
+            ),
+          ),
         updateNotePriority: (filePath, priority) =>
-          runPromise(notes.setPriority(filePath, priority)).then(() => {}),
+          runPromise(notes.setPriority(filePath, priority)),
       },
       { initialNotesFilter: mode.initialNotesFilter },
     );
 
     renderer.start();
-    return yield* Effect.never;
+    return yield* Effect.callback<void>((resume) => {
+      renderer.once("destroy", () => resume(Effect.void));
+    });
   });
 
   await Effect.runPromise(
@@ -447,43 +496,62 @@ function runNative(parsed: ParsedArgs, command: string): void {
   );
 
   if (command === "mcp") {
+    try {
+      validateOptions(parsed.rest, {});
+    } catch (error) {
+      failUsage(error instanceof Error ? error.message : String(error));
+    }
     NodeRuntime.runMain(mcpServer.pipe(Effect.provide(CliLayers)), {
       teardown: mcpTeardown,
     });
     return;
   }
 
-  const effect = (() => {
-    const canonical = getCliCommand(command)?.name ?? command;
-    switch (canonical) {
-      case "root":
-        return runRoot(parsed.rest);
-      case "context":
-        return runContext(parsed.rest);
-      case "list":
-        return runList(parsed.rest);
-      case "read":
-        return runRead(parsed.rest);
-      case "write":
-        return runWrite(parsed.rest);
-      case "delete":
-        return runDelete(parsed.rest);
-      case "handoffs":
-        return runHandoffs(parsed.rest);
-      case "completions":
-        return runCompletions(parsed.rest);
-      case "help":
-        return Effect.sync(() => {
-          console.log(renderHelp(helpCommandArg(parsed.rest)));
-        });
-      default:
-        return Effect.fail(
-          new UsageError({
-            message: usageMessage(`notes: unknown command '${command}'`),
-          }),
-        );
-    }
-  })();
+  const effect = Effect.try({
+    try: () => {
+      const canonical = getCliCommand(command)?.name ?? command;
+      switch (canonical) {
+        case "root":
+          return runRoot(parsed.rest);
+        case "context":
+          return runContext(parsed.rest);
+        case "list":
+          return runList(parsed.rest);
+        case "read":
+          return runRead(parsed.rest);
+        case "write":
+          return runWrite(parsed.rest);
+        case "delete":
+          return runDelete(parsed.rest);
+        case "handoffs":
+          return runHandoffs(parsed.rest);
+        case "completions":
+          return runCompletions(parsed.rest);
+        case "help":
+          if (parsed.rest.some((arg) => arg.startsWith("-"))) {
+            failUsage("notes help does not accept options");
+          }
+          if (parsed.rest.filter((arg) => !arg.startsWith("-")).length > 1) {
+            failUsage("notes help accepts at most one command name");
+          }
+          return Effect.sync(() => {
+            console.log(renderHelp(helpCommandArg(parsed.rest)));
+          });
+        default:
+          return Effect.fail(
+            new UsageError({
+              message: usageMessage(`notes: unknown command '${command}'`),
+            }),
+          );
+      }
+    },
+    catch: (error) =>
+      new UsageError({
+        message: usageMessage(
+          error instanceof Error ? error.message : String(error),
+        ),
+      }),
+  }).pipe(Effect.flatten);
 
   Effect.runPromise(effect.pipe(Effect.provide(CliLayers))).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));

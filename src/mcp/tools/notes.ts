@@ -6,6 +6,7 @@ import type {
   NoteRepoSection,
   NoteWriteResult,
 } from "../../notes/types.js";
+import { noteGitOutcome } from "../../notes/gitOutcome.js";
 import { Notifier, type NotifierService } from "../services/Notifier.js";
 import {
   DESTRUCTIVE_HINTS,
@@ -19,6 +20,14 @@ const NoteReadParams = Schema.Struct({
       "Absolute path to the note file (e.g. /home/user/Documents/notes/repo-notes/owner/repo/slug.md)",
   }),
 });
+
+const ExpectedHash = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^[0-9a-f]{64}$/, {
+      expected: "a lowercase SHA-256 hash",
+    }),
+  ),
+);
 
 const NoteListParams = Schema.Struct({
   tag: Schema.optional(
@@ -44,6 +53,12 @@ const NoteWriteParams = Schema.Struct({
     description:
       "Full file content to write, including frontmatter and all sections",
   }),
+  expectedHash: Schema.optional(
+    ExpectedHash.annotate({
+      description:
+        "Optional SHA-256 hash returned by note_read. The write fails if the existing note changed.",
+    }),
+  ),
 });
 
 const NoteDeleteParams = Schema.Struct({
@@ -80,11 +95,12 @@ function filterSectionsByTag(
 function formatMutationOutput(
   result: NoteWriteResult | NoteDeleteResult,
 ): string {
-  if (!result.push) return result.output;
-  const pushLine = result.push.ok
-    ? `Pushed: ${result.push.message}`
-    : `Push failed (non-fatal): ${result.push.error ?? "unknown error"}`;
-  return `${result.output}\n\n${pushLine}`;
+  const outcome = noteGitOutcome(result);
+  return outcome.complete
+    ? result.push
+      ? `${result.output}\n\nPushed: ${result.push.message}`
+      : result.output
+    : `${result.output}\n\nPartial success: ${outcome.detail}`;
 }
 
 function notifyMutation(
@@ -93,11 +109,7 @@ function notifyMutation(
   result: NoteWriteResult | NoteDeleteResult,
 ): Effect.Effect<void> {
   const name = result.path.split("/").pop() || result.path;
-  const detail = result.push
-    ? result.push.ok
-      ? result.push.message
-      : `push failed: ${result.push.error ?? "unknown error"}`
-    : "saved locally";
+  const detail = noteGitOutcome(result).detail;
   return notifier.notify(`notes: ${action}`, `${name} - ${detail}`);
 }
 
@@ -110,12 +122,15 @@ export const registerNotesTools = Effect.gen(function* () {
   yield* register({
     name: "note_read",
     description:
-      "Read the full content of a note file from the notes vault. " +
+      "Read the full content and SHA-256 revision of a note file from the notes vault. " +
       "Use this to read an existing note before appending to it. " +
       "This is the ONLY permitted way to read note files when a vault guard is active.",
     parameters: NoteReadParams,
     annotations: READONLY_HINTS,
-    handle: (params) => notes.read(params.path),
+    handle: (params) =>
+      notes
+        .read(params.path)
+        .pipe(Effect.map((result) => JSON.stringify(result))),
   });
 
   yield* register({
@@ -154,7 +169,9 @@ export const registerNotesTools = Effect.gen(function* () {
     annotations: DESTRUCTIVE_HINTS,
     handle: (params) =>
       Effect.gen(function* () {
-        const result = yield* notes.write(params.path, params.content);
+        const result = yield* notes.write(params.path, params.content, {
+          expectedHash: params.expectedHash,
+        });
         yield* notifyMutation(notifier, "written", result);
         return formatMutationOutput(result);
       }),

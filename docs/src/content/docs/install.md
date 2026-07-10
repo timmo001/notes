@@ -11,7 +11,7 @@ Install the `repo-notes-git` AUR package with an AUR helper:
 yay -S repo-notes-git
 ```
 
-`repo-notes-git` builds from the GitHub repository and installs the `notes` binary plus Bash, Fish, and Zsh completions.
+`repo-notes-git` installs Git, the `notes` binary, and Bash, Fish, and Zsh completions.
 
 ## Build Locally
 
