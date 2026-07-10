@@ -5,6 +5,8 @@ import {
   mkdtempSync,
   mkdirSync,
   rmSync,
+  readFileSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -63,6 +65,132 @@ afterEach(() => {
 });
 
 describe("Notes service", () => {
+  test("lists markdown notes newest-first with parsed metadata", async () => {
+    const { root, path, layer } = fixture();
+    const notesPath = join(root, "repo-notes", "timmo001", "notes");
+    const malformedPath = join(notesPath, "newer.md");
+    writeFileSync(malformedPath, "not frontmatter");
+    writeFileSync(join(notesPath, "ignored.txt"), "ignored");
+    utimesSync(path, new Date(1_000), new Date(1_000));
+    utimesSync(malformedPath, new Date(2_000), new Date(2_000));
+
+    const entries = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).list();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(entries.map((entry) => entry.filename)).toEqual([
+      "newer.md",
+      "note.md",
+    ]);
+    expect(entries[0]).toMatchObject({
+      name: null,
+      description: null,
+      tags: [],
+      priority: null,
+    });
+    expect(entries[1]).toMatchObject({
+      name: "Note",
+      description: "Description",
+      tags: ["draft"],
+    });
+  });
+
+  test("lists non-empty repositories in owner and repository order", async () => {
+    const { root, layer } = fixture();
+    const otherPath = join(root, "repo-notes", "alpha", "zeta");
+    mkdirSync(otherPath, { recursive: true });
+    writeFileSync(
+      join(otherPath, "other.md"),
+      renderDraft(
+        "note",
+        { ...identity, owner: "alpha", repo: "zeta" },
+        "date",
+        "Other",
+        "Other description",
+      ),
+    );
+    mkdirSync(join(root, "repo-notes", "empty", "repo"), {
+      recursive: true,
+    });
+
+    const sections = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).listAll();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(sections.map((section) => section.repoSlug)).toEqual([
+      "alpha/zeta",
+      "timmo001/notes",
+    ]);
+    expect(sections[0]?.entries[0]).toMatchObject({
+      filename: "other.md",
+      repoSlug: "alpha/zeta",
+    });
+  });
+
+  test("includes note contents only for note-reference context", async () => {
+    const { layer } = fixture();
+
+    const reference = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({
+          command: "note-reference",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+    const ordinary = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({
+          command: "unrelated-command",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(reference.entries).toHaveLength(1);
+    expect(reference.contents?.[0]).toMatchObject({ filename: "note.md" });
+    expect(reference.contents?.[0]?.content).toContain("# Note");
+    expect(ordinary.entries).toEqual([]);
+    expect(ordinary.contents).toBeUndefined();
+  });
+
+  test("creates a unique slug when a note filename already exists", async () => {
+    const { layer } = fixture();
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).create(
+          "note",
+          "Note",
+          "New description",
+          async () => {},
+        );
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(result.created).toBeTrue();
+    expect(result.draft.entry.filename).toBe("note-2.md");
+    expect(result.git.commit).toMatchObject({ ok: true, committed: true });
+  });
+
+  test("updates priority without changing the note body", async () => {
+    const { path, layer } = fixture();
+    const bodyBefore = readFileSync(path, "utf8").split("---\n").at(-1);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).setPriority(path, "critical");
+      }).pipe(Effect.provide(layer)),
+    );
+    const content = readFileSync(path, "utf8");
+
+    expect(result.commit).toMatchObject({ ok: true, committed: true });
+    expect(content).toContain("priority: critical");
+    expect(content.split("---\n").at(-1)).toBe(bodyBefore);
+  });
+
   test("returns a revision and rejects a stale write", async () => {
     const { path, layer } = fixture();
     const initial = await Effect.runPromise(
