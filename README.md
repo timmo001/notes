@@ -10,4 +10,10 @@ Full setup, CLI reference, MCP usage, and integration docs are published at <htt
 
 Agents can use the portable [`notes-mcp` skill](.agents/skills/notes-mcp/SKILL.md) for safe MCP note workflows.
 
-On Arch, install `repo-notes-git` from the AUR. For local development, run `mise run install` and `mise run build`, then use `dist/notes`.
+Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
+GitHub draft, optionally generate its release notes, then publish it to build
+Linux archives, deb and RPM packages, and update `repo-notes-bin` in the AUR.
+`repo-notes-git` continues to track relevant changes on `main`.
+
+For local development, run `mise run install` and `mise run build`, then use
+`dist/notes`.

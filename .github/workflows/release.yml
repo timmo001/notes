@@ -1,33 +1,35 @@
 ---
-name: Release Linux packages
+name: Package stable release
 
 # yamllint disable-line rule:truthy
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - src/**
-      - package.json
-      - bun.lock
-      - mise.toml
-      - LICENSE
-      - .scripts/linux/nfpm.yaml
-      - .scripts/linux/PKGBUILD.bin
-      - .scripts/linux/prepare-aur-bin.sh
-      - .github/workflows/release.yml
-  workflow_dispatch: {}
+  release:
+    types:
+      - published
+      - released
+  workflow_dispatch:
+    inputs:
+      release-version:
+        description: Stable GitHub Release tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-linux-${{ github.ref }}
+  group: >-
+    release-linux-${{
+      inputs.release-version || github.event.release.tag_name
+    }}
   cancel-in-progress: false
 
 jobs:
   release:
     name: Build and publish Linux packages
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      !github.event.release.prerelease
     permissions:
       contents: write
     uses: >- # master
@@ -46,21 +48,28 @@ jobs:
         ./dist/release/root/notes completions bash > .scripts/linux/completions/notes.bash
         ./dist/release/root/notes completions fish > .scripts/linux/completions/notes.fish
         ./dist/release/root/notes completions zsh > .scripts/linux/completions/_notes
+      release-version: >-
+        ${{ inputs.release-version || github.event.release.tag_name }}
+      source-ref: >-
+        ${{ inputs.release-version || github.event.release.tag_name }}
+      existing-release: true
 
   prepare-aur:
     name: Prepare AUR package (repo-notes-bin)
     needs: release
     runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: >-
+        ${{ inputs.release-version || github.event.release.tag_name }}
     steps:
       - name: Check out release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          ref: ${{ needs.release.outputs.source-sha }}
+          ref: ${{ env.RELEASE_VERSION }}
       - name: Prepare repo-notes-bin
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ needs.release.outputs.release-version }}
         run: >-
           .scripts/linux/prepare-aur-bin.sh "$RELEASE_VERSION"
           "${{ runner.temp }}/aur-package"

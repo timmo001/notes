@@ -5,13 +5,23 @@ description: Install notes from the AUR or build it locally with mise.
 
 ## Arch Linux
 
-Install the `repo-notes-git` AUR package with an AUR helper:
+Install the stable binary package with an AUR helper:
+
+```bash
+yay -S repo-notes-bin
+```
+
+Install `repo-notes-git` instead to track relevant changes on `main`:
 
 ```bash
 yay -S repo-notes-git
 ```
 
-`repo-notes-git` installs Git, the `notes` binary, and Bash, Fish, and Zsh completions.
+Both packages install Git, the `notes` binary, and Bash, Fish, and Zsh completions.
+
+Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
+GitHub draft, optionally generate its release notes, then publish it to build
+Linux archives, deb and RPM packages and update `repo-notes-bin`.
 
 ## Build Locally
 
