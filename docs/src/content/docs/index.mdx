@@ -29,9 +29,9 @@ import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 `notes` manages repository notes in a Git-backed vault and exposes the same behaviour through a CLI and an MCP server.
 
 <CardGrid>
-  <Card title="Repo notes" icon="open-book">
-    Store Markdown notes under `repo-notes/{owner}/{repo}` based on the current
-    Git remote.
+  <Card title="Project notes" icon="open-book">
+    Store Markdown notes under `projects/{owner}/{repo}` using a Git remote or a
+    local project identity.
   </Card>
   <Card title="Safe writes" icon="setting">
     Reads, writes, and deletes are constrained to the notes vault, then

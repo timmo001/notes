@@ -19,14 +19,14 @@ CLI equivalent: `notes read --path <path>`
 
 ## `note_list`
 
-List note files in the notes vault for the current repository, optionally filtered by tag or grouped across all repositories.
+List note files in the notes vault for the current project, optionally filtered by tag or grouped across all projects.
 
 CLI equivalent: `notes list [--all] [--tag <tag>] --format json`
 
-| Parameter | Type    | Default | CLI           | Description                                                       |
-| --------- | ------- | ------- | ------------- | ----------------------------------------------------------------- |
-| `tag`     | string  |         | `--tag <tag>` | Optional tag to filter notes by, for example handoff.             |
-| `all`     | boolean | false   | `--all`       | List notes from all repositories instead of just the current one. |
+| Parameter | Type    | Default | CLI           | Description                                                   |
+| --------- | ------- | ------- | ------------- | ------------------------------------------------------------- |
+| `tag`     | string  |         | `--tag <tag>` | Optional tag to filter notes by, for example handoff.         |
+| `all`     | boolean | false   | `--all`       | List notes from all projects instead of just the current one. |
 
 ## `note_write`
 

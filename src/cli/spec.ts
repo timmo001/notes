@@ -78,7 +78,7 @@ const helpOption = {
 
 const allOption = {
   name: "--all",
-  description: "Show notes from every repo-notes directory",
+  description: "Show notes from every projects directory",
 } satisfies CliOptionSpec;
 
 const formatOption = {
@@ -111,22 +111,22 @@ export const cliCommands: readonly CliCommandSpec[] = [
   {
     name: "root",
     summary: "Print the notes vault root",
-    usage: "[--repo-notes]",
+    usage: "[--projects]",
     options: [
       {
-        name: "--repo-notes",
-        description: "Print the repository notes directory",
+        name: "--projects",
+        description: "Print the projects directory",
       },
       helpOption,
     ],
-    examples: ["notes root", "notes root --repo-notes"],
+    examples: ["notes root", "notes root --projects"],
   },
   {
     name: "context",
-    summary: "Print repo-note context for integration plugins",
+    summary: "Print project-note context for integration plugins",
     usage: "--command <name> [--json]",
     description: [
-      "Resolve the current repository, its notes directory, and relevant existing notes.",
+      "Resolve the current project, its notes directory, and relevant existing notes.",
       "The --json form is intended for OpenCode plugins that render their own prompt context.",
     ],
     options: [
@@ -177,7 +177,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
       helpOption,
     ],
     examples: [
-      "notes read --path ~/Documents/notes/repo-notes/owner/repo/topic.md",
+      "notes read --path ~/Documents/notes/projects/owner/repo/topic.md",
     ],
   },
   {
@@ -195,7 +195,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
       helpOption,
     ],
     examples: [
-      "notes write --path ~/Documents/notes/repo-notes/owner/repo/topic.md --stdin",
+      "notes write --path ~/Documents/notes/projects/owner/repo/topic.md --stdin",
     ],
   },
   {
@@ -211,7 +211,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
       helpOption,
     ],
     examples: [
-      "notes delete --path ~/Documents/notes/repo-notes/owner/repo/topic.md",
+      "notes delete --path ~/Documents/notes/projects/owner/repo/topic.md",
     ],
   },
   {

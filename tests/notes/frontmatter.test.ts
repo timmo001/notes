@@ -7,6 +7,7 @@ import {
 } from "../../src/notes/frontmatter.js";
 
 const identity = {
+  source: "remote" as const,
   owner: "timmo001",
   repo: "notes",
   remote: "origin",

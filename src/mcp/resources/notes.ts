@@ -11,9 +11,9 @@ const CONTEXT_COMMAND = "notes-list";
 export const registerNotesResources = Effect.gen(function* () {
   yield* McpServer.registerResource({
     uri: "notes://context",
-    name: "repo note context",
+    name: "project note context",
     description:
-      "The current repository's repo-note context: repository identity, notes path, and recent notes.",
+      "The current project's note context: project identity, notes path, and recent notes.",
     mimeType: "text/markdown",
     content: Effect.gen(function* () {
       const notes = yield* Notes;

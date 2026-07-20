@@ -17,7 +17,7 @@ import {
 const NoteReadParams = Schema.Struct({
   path: Schema.String.annotate({
     description:
-      "Absolute path to the note file (e.g. /home/user/Documents/notes/repo-notes/owner/repo/slug.md)",
+      "Absolute path to the note file (e.g. /home/user/Documents/notes/projects/owner/repo/slug.md)",
   }),
 });
 
@@ -39,7 +39,7 @@ const NoteListParams = Schema.Struct({
   all: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        "List notes from all repositories instead of just the current one.",
+        "List notes from all projects instead of just the current one.",
     }),
   ),
 });
@@ -47,7 +47,7 @@ const NoteListParams = Schema.Struct({
 const NoteWriteParams = Schema.Struct({
   path: Schema.String.annotate({
     description:
-      "Absolute path to the note file (e.g. /home/user/Documents/notes/repo-notes/owner/repo/slug.md)",
+      "Absolute path to the note file (e.g. /home/user/Documents/notes/projects/owner/repo/slug.md)",
   }),
   content: Schema.String.annotate({
     description:
@@ -64,7 +64,7 @@ const NoteWriteParams = Schema.Struct({
 const NoteDeleteParams = Schema.Struct({
   path: Schema.String.annotate({
     description:
-      "Absolute path to the note file to delete (e.g. /home/user/Documents/notes/repo-notes/owner/repo/slug.md)",
+      "Absolute path to the note file to delete (e.g. /home/user/Documents/notes/projects/owner/repo/slug.md)",
   }),
 });
 
@@ -136,9 +136,9 @@ export const registerNotesTools = Effect.gen(function* () {
   yield* register({
     name: "note_list",
     description:
-      "List note files in the notes vault for the current repository. " +
+      "List note files in the notes vault for the current project. " +
       "Returns JSON with filename, name, description, tags, priority, and modification time for each note. " +
-      "Optionally filter by tag (e.g. 'handoff') or list notes from all repositories.",
+      "Optionally filter by tag (e.g. 'handoff') or list notes from all projects.",
     parameters: NoteListParams,
     annotations: READONLY_HINTS,
     handle: (params) =>

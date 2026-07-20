@@ -20,6 +20,7 @@ import { Config } from "../../../src/services/Config.js";
 
 const temporaryDirectories: string[] = [];
 const identity = {
+  source: "remote" as const,
   owner: "timmo001",
   repo: "notes",
   remote: "origin",
@@ -46,7 +47,7 @@ function fixture() {
   git(root, "init");
   git(root, "config", "user.name", "Notes Test");
   git(root, "config", "user.email", "notes@example.invalid");
-  const notesPath = join(root, "repo-notes", "timmo001", "notes");
+  const notesPath = join(root, "projects", "timmo001", "notes");
   const path = join(notesPath, "note.md");
   mkdirSync(notesPath, { recursive: true });
   writeFileSync(
@@ -68,7 +69,9 @@ async function callTool(
     McpServer.McpServer.layer,
     Notes.layer.pipe(
       Layer.provideMerge(CommandExecutor.layer),
-      Layer.provideMerge(Layer.succeed(Config, { notesDir: root })),
+      Layer.provideMerge(
+        Layer.succeed(Config, { notesDir: root, projectDir: process.cwd() }),
+      ),
     ),
     Layer.succeed(Notifier, {
       notify: (title, message) =>

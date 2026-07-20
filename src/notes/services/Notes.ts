@@ -9,7 +9,10 @@ import {
   pushBranch,
   stageIn,
 } from "../../git/committer.js";
-import { parseRepositoryRemoteUrl } from "../../git/remotes.js";
+import {
+  isSafeRepositorySegment,
+  parseRepositoryRemoteUrl,
+} from "../../git/remotes.js";
 import { Config } from "../../services/Config.js";
 import { CommandExecutor } from "../../services/CommandExecutor.js";
 import {
@@ -53,7 +56,7 @@ import {
   type RepoNoteIdentity,
 } from "../types.js";
 
-const NOTES_SUBDIR = "repo-notes";
+const PROJECTS_SUBDIR = "projects";
 const COMMANDS_NEEDING_LIST = new Set<string>([
   "note-append",
   "notes-list",
@@ -62,7 +65,7 @@ const COMMANDS_NEEDING_LIST = new Set<string>([
   "handoffs-list",
 ]);
 
-/** Domain error for repo-note operations. */
+/** Domain error for project-note operations. */
 export class NotesError extends Schema.TaggedErrorClass<NotesError>()(
   "NotesError",
   {
@@ -71,10 +74,10 @@ export class NotesError extends Schema.TaggedErrorClass<NotesError>()(
   },
 ) {}
 
-/** Service interface for repo-scoped note context and file I/O. */
+/** Service interface for project-scoped note context and file I/O. */
 interface NotesService {
   readonly root: Effect.Effect<string, NotesError>;
-  readonly repoNotesRoot: Effect.Effect<string, NotesError>;
+  readonly projectsRoot: Effect.Effect<string, NotesError>;
   readonly contextPayload: (
     options: NoteContextOptions,
   ) => Effect.Effect<NoteContextPayload, NotesError>;
@@ -130,24 +133,24 @@ function errorMessage(error: unknown): string {
 }
 
 function readNoteFrontmatter(
-  repoNotesRoot: string,
+  projectsRoot: string,
   filePath: string,
 ): NoteFrontmatter {
   try {
-    return readFrontmatter(readNoteFile(repoNotesRoot, filePath).content);
+    return readFrontmatter(readNoteFile(projectsRoot, filePath).content);
   } catch {
     return { name: null, description: null, tags: [], priority: null };
   }
 }
 
 function listNoteEntries(
-  repoNotesRoot: string,
+  projectsRoot: string,
   notesPath: string,
   repoSlug?: string,
 ): readonly NoteEntry[] {
   if (!existsSync(notesPath)) return [];
   const physicalNotesPath = resolveRepositoryNotesDirectory(
-    repoNotesRoot,
+    projectsRoot,
     notesPath,
   );
 
@@ -167,7 +170,7 @@ function listNoteEntries(
         filePath,
         repoSlug,
         mtime: stat.mtimeMs / 1000,
-        ...readNoteFrontmatter(repoNotesRoot, filePath),
+        ...readNoteFrontmatter(projectsRoot, filePath),
       };
     })
     .sort((a, b) => b.mtime - a.mtime);
@@ -180,13 +183,13 @@ function sortedDirectories(path: string) {
 }
 
 function listNoteRepoSections(
-  repoNotesRoot: string,
+  projectsRoot: string,
 ): readonly NoteRepoSection[] {
   try {
-    const rootStat = lstatSync(repoNotesRoot);
+    const rootStat = lstatSync(projectsRoot);
     if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
       throw new Error(
-        `Repository notes root is not a physical directory: ${repoNotesRoot}`,
+        `Projects root is not a physical directory: ${projectsRoot}`,
       );
     }
   } catch (error) {
@@ -199,12 +202,12 @@ function listNoteRepoSections(
   }
 
   const sections: NoteRepoSection[] = [];
-  for (const owner of sortedDirectories(repoNotesRoot)) {
-    const ownerPath = join(repoNotesRoot, owner.name);
+  for (const owner of sortedDirectories(projectsRoot)) {
+    const ownerPath = join(projectsRoot, owner.name);
     for (const repo of sortedDirectories(ownerPath)) {
       const repoSlug = `${owner.name}/${repo.name}`;
       const notesPath = join(ownerPath, repo.name);
-      const entries = listNoteEntries(repoNotesRoot, notesPath, repoSlug);
+      const entries = listNoteEntries(projectsRoot, notesPath, repoSlug);
       if (entries.length > 0) sections.push({ repoSlug, notesPath, entries });
     }
   }
@@ -237,7 +240,7 @@ function payloadToContextBlock(payload: NoteContextPayload): string {
       "<repo-note-context>",
       formatTag(
         "metadata",
-        "Information about how this repo-note context was generated.",
+        "Information about how this project-note context was generated.",
         [`Generated at: ${payload.generatedAt}`],
       ),
       formatTag(
@@ -256,16 +259,17 @@ function payloadToContextBlock(payload: NoteContextPayload): string {
   const parts = [
     "<repo-note-context>",
     formatTag("metadata", "How this context was generated.", [
-      "RepoNotesPlugin generated this context. Use it to locate and manage notes for this repository.",
+      "RepoNotesPlugin generated this context. Use it to locate and manage notes for this project.",
       `Generated at: ${payload.generatedAt}`,
     ]),
     formatTag(
       "repository",
-      "Current repository identity and resolved notes path.",
+      "Current project identity and resolved notes path.",
       [
         `Owner: ${repository?.owner ?? "(unknown)"}`,
         `Repo: ${repository?.repo ?? "(unknown)"}`,
-        `Remote: ${repository ? `${repository.remote} (${repository.remoteUrl})` : "(unknown)"}`,
+        `Source: ${repository?.source ?? "(unknown)"}`,
+        `Remote: ${repository?.source === "remote" ? `${repository.remote} (${repository.remoteUrl})` : "(none)"}`,
         `Notes root: ${payload.notesRoot}`,
         `Notes path: ${payload.notesPath ?? "(unknown)"}`,
         `Notes directory exists: ${payload.notesExist ? "yes" : "no"}`,
@@ -335,7 +339,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
       const config = yield* Config;
       const executor = yield* CommandExecutor;
       const notesRoot = resolve(config.notesDir);
-      const repoNotesRoot = join(notesRoot, NOTES_SUBDIR);
+      const projectsRoot = join(notesRoot, PROJECTS_SUBDIR);
       const mutationLock = yield* Semaphore.make(1);
 
       const withMutationLock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -377,19 +381,16 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         new NotesError({ message, detail });
 
       const resolveIdentity = Effect.fn("Notes.resolveIdentity")(function* () {
-        const inRepo = yield* commandResult("git", [
-          "rev-parse",
-          "--is-inside-work-tree",
-        ]);
-        if (!inRepo.ok || inRepo.text !== "true") {
-          return yield* fail(
-            "RepoNotesPlugin: not inside a git worktree - cannot resolve owner/repo.",
-            inRepo.ok ? undefined : inRepo.error,
-          );
-        }
-
         const warnings: string[] = [];
-        const remotesResult = yield* commandResult("git", ["remote"]);
+        const gitRoot = yield* commandResult(
+          "git",
+          ["rev-parse", "--show-toplevel"],
+          { cwd: config.projectDir },
+        );
+        const identityRoot = gitRoot.ok ? gitRoot.text : config.projectDir;
+        const remotesResult = gitRoot.ok
+          ? yield* commandResult("git", ["remote"], { cwd: config.projectDir })
+          : { ok: true as const, text: "" };
         const remotes = remotesResult.ok
           ? remotesResult.text
               .split(/\r?\n/g)
@@ -397,38 +398,60 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               .filter(Boolean)
           : [];
 
-        if (!remotesResult.ok)
+        if (!remotesResult.ok) {
           warnings.push(`Unable to list git remotes: ${remotesResult.error}`);
-        if (remotes.length === 0)
-          warnings.push("No git remotes detected; defaulting to origin");
+        }
 
         const remote = remotes.includes("upstream")
           ? "upstream"
           : remotes.includes("origin")
             ? "origin"
-            : (remotes[0] ?? "origin");
-        const remoteUrl = yield* commandResult("git", [
-          "remote",
-          "get-url",
-          remote,
-        ]);
-
-        if (!remoteUrl.ok) {
-          return yield* fail(
-            `RepoNotesPlugin: unable to read URL for remote "${remote}".`,
-            remoteUrl.error,
+            : remotes[0];
+        if (remote) {
+          const remoteUrl = yield* commandResult(
+            "git",
+            ["remote", "get-url", remote],
+            { cwd: config.projectDir },
+          );
+          if (remoteUrl.ok) {
+            const parsed = parseRepositoryRemoteUrl(remoteUrl.text);
+            if (parsed) {
+              return {
+                identity: {
+                  source: "remote" as const,
+                  ...parsed,
+                  remote,
+                  remoteUrl: remoteUrl.text,
+                },
+                warnings,
+              };
+            }
+            warnings.push(
+              `Could not parse owner/repo from remote URL; using local project identity: ${remoteUrl.text}`,
+            );
+          } else {
+            warnings.push(
+              `Unable to read URL for remote "${remote}"; using local project identity: ${remoteUrl.error}`,
+            );
+          }
+        } else if (gitRoot.ok) {
+          warnings.push(
+            "No git remotes detected; using local project identity",
           );
         }
 
-        const parsed = parseRepositoryRemoteUrl(remoteUrl.text);
-        if (!parsed) {
+        const project = basename(identityRoot);
+        if (!isSafeRepositorySegment(project)) {
           return yield* fail(
-            `RepoNotesPlugin: could not parse owner/repo from remote URL: ${remoteUrl.text}`,
+            `Unable to derive a safe local project name from: ${identityRoot}`,
           );
         }
-
         return {
-          identity: { ...parsed, remote, remoteUrl: remoteUrl.text },
+          identity: {
+            source: "local" as const,
+            owner: "local" as const,
+            repo: project,
+          },
           warnings,
         };
       });
@@ -436,7 +459,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
       const currentNotesPath = Effect.fn("Notes.currentNotesPath")(
         function* () {
           const { identity } = yield* resolveIdentity();
-          return join(repoNotesRoot, identity.owner, identity.repo);
+          return join(projectsRoot, identity.owner, identity.repo);
         },
       );
 
@@ -576,21 +599,21 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         create: boolean,
       ) {
         const before = yield* Effect.try({
-          try: () => readNoteFile(repoNotesRoot, filePath),
+          try: () => readNoteFile(projectsRoot, filePath),
           catch: (error) => fail(errorMessage(error)),
         });
         const entry: NoteEntry = {
           filename: basename(before.path),
           filePath: before.path,
           mtime: before.mtime,
-          ...readNoteFrontmatter(repoNotesRoot, before.path),
+          ...readNoteFrontmatter(projectsRoot, before.path),
         };
         yield* Effect.tryPromise({
           try: () => runEditor(entry),
           catch: (error) =>
             fail(`Editor failed for ${filePath}: ${errorMessage(error)}`),
         });
-        const resolvedPath = resolveOptionalNotePath(repoNotesRoot, filePath);
+        const resolvedPath = resolveOptionalNotePath(projectsRoot, filePath);
         if (!existsSync(resolvedPath)) {
           if (create) {
             return {
@@ -607,7 +630,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         yield* Effect.try({
           try: () =>
             validateNoteContent(
-              readNoteFile(repoNotesRoot, resolvedPath).content,
+              readNoteFile(projectsRoot, resolvedPath).content,
             ),
           catch: (error) =>
             fail(`Edited note is invalid: ${errorMessage(error)}`),
@@ -630,7 +653,8 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               generatedAt,
               command,
               notesRoot,
-              repoNotesRoot,
+              projectsRoot,
+              repoNotesRoot: projectsRoot,
               entries: [],
               warnings: [],
               error: {
@@ -641,7 +665,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           }
 
           const notesPath = join(
-            repoNotesRoot,
+            projectsRoot,
             resolved.identity.owner,
             resolved.identity.repo,
           );
@@ -650,7 +674,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           let entries: readonly NoteEntry[] = [];
           if (COMMANDS_NEEDING_LIST.has(command)) {
             const listed = yield* Effect.try({
-              try: () => listNoteEntries(repoNotesRoot, notesPath),
+              try: () => listNoteEntries(projectsRoot, notesPath),
               catch: (error) => errorMessage(error),
             }).pipe(
               Effect.match({
@@ -668,7 +692,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                   let content: string;
                   try {
                     content = readNoteFile(
-                      repoNotesRoot,
+                      projectsRoot,
                       entry.filePath,
                     ).content.trim();
                   } catch (error) {
@@ -686,7 +710,8 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             generatedAt,
             command,
             notesRoot,
-            repoNotesRoot,
+            projectsRoot,
+            repoNotesRoot: projectsRoot,
             repository: resolved.identity,
             notesPath,
             notesExist,
@@ -698,7 +723,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
 
       return {
         root: Effect.succeed(notesRoot),
-        repoNotesRoot: Effect.succeed(repoNotesRoot),
+        projectsRoot: Effect.succeed(projectsRoot),
         contextPayload: buildContextPayload,
         context: (options) =>
           Effect.gen(function* () {
@@ -707,11 +732,11 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         list: () =>
           Effect.gen(function* () {
             const notesPath = yield* currentNotesPath();
-            return listNoteEntries(repoNotesRoot, notesPath);
+            return listNoteEntries(projectsRoot, notesPath);
           }),
         listAll: () =>
           Effect.try({
-            try: () => listNoteRepoSections(repoNotesRoot),
+            try: () => listNoteRepoSections(projectsRoot),
             catch: (error) =>
               fail(
                 `notes list --all: failed to list notes: ${errorMessage(error)}`,
@@ -720,7 +745,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         read: (filePath) =>
           Effect.try({
             try: () => {
-              const result = readNoteFile(repoNotesRoot, filePath);
+              const result = readNoteFile(projectsRoot, filePath);
               return {
                 path: result.path,
                 content: result.content,
@@ -739,11 +764,11 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               const existing = yield* Effect.try({
                 try: () => {
                   const resolvedPath = resolveWritableNotePath(
-                    repoNotesRoot,
+                    projectsRoot,
                     filePath,
                   );
                   return existsSync(resolvedPath)
-                    ? readNoteFile(repoNotesRoot, resolvedPath)
+                    ? readNoteFile(projectsRoot, resolvedPath)
                     : undefined;
                 },
                 catch: (error) =>
@@ -775,8 +800,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 catch: (error) => fail(errorMessage(error)),
               });
               const resolvedPath = yield* Effect.try({
-                try: () =>
-                  atomicWriteNoteFile(repoNotesRoot, filePath, stamped),
+                try: () => atomicWriteNoteFile(projectsRoot, filePath, stamped),
                 catch: (error) =>
                   fail(
                     `Failed to write note file ${filePath}: ${errorMessage(error)}`,
@@ -820,7 +844,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             Effect.gen(function* () {
               yield* prepareMutation();
               const resolvedPath = yield* Effect.try({
-                try: () => deleteNoteFile(repoNotesRoot, filePath),
+                try: () => deleteNoteFile(projectsRoot, filePath),
                 catch: (error) =>
                   fail(
                     `Failed to delete note file ${filePath}: ${errorMessage(error)}`,
@@ -868,7 +892,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               const filePath = yield* Effect.try({
                 try: () =>
                   createExclusiveNoteFile(
-                    repoNotesRoot,
+                    projectsRoot,
                     identity.owner,
                     identity.repo,
                     slug,
@@ -879,7 +903,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                     `createDraft: failed to write draft: ${errorMessage(error)}`,
                   ),
               });
-              const note = readNoteFile(repoNotesRoot, filePath);
+              const note = readNoteFile(projectsRoot, filePath);
               const entry: NoteEntry = {
                 filename: basename(filePath),
                 filePath,
@@ -903,7 +927,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             Effect.gen(function* () {
               yield* prepareMutation();
               const note = yield* Effect.try({
-                try: () => readNoteFile(repoNotesRoot, filePath),
+                try: () => readNoteFile(projectsRoot, filePath),
                 catch: (error) =>
                   fail(
                     `setPriority: failed to read file ${filePath}: ${errorMessage(error)}`,
@@ -916,7 +940,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               });
               yield* Effect.try({
                 try: () =>
-                  atomicWriteNoteFile(repoNotesRoot, note.path, updated),
+                  atomicWriteNoteFile(projectsRoot, note.path, updated),
                 catch: (error) =>
                   fail(
                     `setPriority: failed to write file ${filePath}: ${errorMessage(error)}`,

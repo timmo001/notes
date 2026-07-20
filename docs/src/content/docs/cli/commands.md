@@ -14,31 +14,31 @@ This page lists every `notes` command, generated from the same registry that pow
 Print the notes vault root
 
 ```text
-notes root [--repo-notes]
+notes root [--projects]
 ```
 
 **Options**
 
-| Option         | Description                          |
-| -------------- | ------------------------------------ |
-| `--repo-notes` | Print the repository notes directory |
+| Option       | Description                  |
+| ------------ | ---------------------------- |
+| `--projects` | Print the projects directory |
 
 **Examples**
 
 ```bash
 notes root
-notes root --repo-notes
+notes root --projects
 ```
 
 ## `notes context`
 
-Print repo-note context for integration plugins
+Print project-note context for integration plugins
 
 ```text
 notes context --command <name> [--json]
 ```
 
-Resolve the current repository, its notes directory, and relevant existing notes.
+Resolve the current project, its notes directory, and relevant existing notes.
 The --json form is intended for OpenCode plugins that render their own prompt context.
 
 **Options**
@@ -65,11 +65,11 @@ notes list [--all] [--tag <tag>] [--format labels|json]
 
 **Options**
 
-| Option                      | Description                                |
-| --------------------------- | ------------------------------------------ |
-| `--all`                     | Show notes from every repo-notes directory |
-| `--tag` `<tag>`             | Only include notes with this tag           |
-| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`)   |
+| Option                      | Description                              |
+| --------------------------- | ---------------------------------------- |
+| `--all`                     | Show notes from every projects directory |
+| `--tag` `<tag>`             | Only include notes with this tag         |
+| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
 
 **Examples**
 
@@ -98,7 +98,7 @@ notes read --path <path> [--json]
 **Examples**
 
 ```bash
-notes read --path ~/Documents/notes/repo-notes/owner/repo/topic.md
+notes read --path ~/Documents/notes/projects/owner/repo/topic.md
 ```
 
 ## `notes write`
@@ -121,7 +121,7 @@ notes write --path <path> --stdin [--expected-hash <sha256>] [--json]
 **Examples**
 
 ```bash
-notes write --path ~/Documents/notes/repo-notes/owner/repo/topic.md --stdin
+notes write --path ~/Documents/notes/projects/owner/repo/topic.md --stdin
 ```
 
 ## `notes delete`
@@ -142,7 +142,7 @@ notes delete --path <path> [--json]
 **Examples**
 
 ```bash
-notes delete --path ~/Documents/notes/repo-notes/owner/repo/topic.md
+notes delete --path ~/Documents/notes/projects/owner/repo/topic.md
 ```
 
 ## `notes handoffs`
@@ -160,7 +160,7 @@ With no flags this opens the interactive notes TUI filtered to handoffs.
 
 | Option                      | Description                                        |
 | --------------------------- | -------------------------------------------------- |
-| `--all`                     | Show notes from every repo-notes directory         |
+| `--all`                     | Show notes from every projects directory           |
 | `--list`                    | List handoffs to stdout instead of opening the TUI |
 | `--format` `<labels\|json>` | Output format (one of: `labels`, `json`)           |
 

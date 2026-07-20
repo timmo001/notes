@@ -37,10 +37,10 @@ Editor commands must stay attached until editing finishes. Set `EDITOR` for term
 Repository notes live under:
 
 ```text
-{vault}/repo-notes/{owner}/{repo}/{slug}.md
+{vault}/projects/{owner}/{repo}/{slug}.md
 ```
 
-The `{owner}/{repo}` segment is resolved from the current Git repository's remote URL. `notes` prefers `upstream`, then `origin`, then the first remote.
+The `{owner}/{repo}` segment is resolved from the current Git repository's remote URL. `notes` prefers `upstream`, then `origin`, then the first remote. When no usable remote exists, notes use `projects/local/{project}`. The project name comes from the Git worktree root, or from the current directory outside Git.
 
 ## Frontmatter
 
@@ -61,7 +61,7 @@ priority: medium
 
 ## Safety
 
-Read, write, and delete operations are restricted to physical Markdown files under `repo-notes/{owner}/{repo}`. Symlinks, special files, malformed repository identities, and paths elsewhere in the vault are rejected. Writes use atomic replacement, and draft creation never overwrites an existing filename.
+Read, write, and delete operations are restricted to physical Markdown files under `projects/{owner}/{repo}`. Symlinks, special files, malformed project identities, and paths elsewhere in the vault are rejected. Writes use atomic replacement, and draft creation never overwrites an existing filename.
 
 Before a mutation, `notes` refuses an existing staged index and rebases safely onto the configured upstream. Mutations are serialized across processes, committed to the vault Git repo, and then pushed when a remote exists. Editor sessions hold the same transaction lock until the resulting note is validated and committed. A commit or push failure is reported as partial success because the local file change has already completed.
 

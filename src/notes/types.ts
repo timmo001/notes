@@ -1,15 +1,25 @@
 import { formatLocalNoteDateTimeFromEpochSeconds } from "./time.js";
 
-/** Parsed Git repository identity for repo-scoped notes. */
-export interface RepoNoteIdentity {
-  /** GitHub owner or organisation parsed from the selected remote. */
+/** Resolved project identity for project-scoped notes. */
+export type RepoNoteIdentity = RemoteRepoNoteIdentity | LocalRepoNoteIdentity;
+
+export interface RemoteRepoNoteIdentity {
+  readonly source: "remote";
+  /** Owner or organisation parsed from the selected remote. */
   readonly owner: string;
-  /** GitHub repository name parsed from the selected remote. */
+  /** Repository name parsed from the selected remote. */
   readonly repo: string;
   /** Remote name used to resolve owner/repo. */
   readonly remote: string;
   /** Raw remote URL used to resolve owner/repo. */
   readonly remoteUrl: string;
+}
+
+export interface LocalRepoNoteIdentity {
+  readonly source: "local";
+  readonly owner: "local";
+  /** Git root or working-directory basename used as the local project name. */
+  readonly repo: string;
 }
 
 /** Note priority level, highest urgency first when ranked. */
@@ -44,7 +54,7 @@ export interface NoteFrontmatter {
   readonly priority: NotePriority | null;
 }
 
-/** Repo note entry with file metadata and parsed frontmatter. */
+/** Project note entry with file metadata and parsed frontmatter. */
 export interface NoteEntry extends NoteFrontmatter {
   /** Markdown filename, relative to the repo notes directory. */
   readonly filename: string;
@@ -56,7 +66,7 @@ export interface NoteEntry extends NoteFrontmatter {
   readonly mtime: number;
 }
 
-/** Notes grouped under one `repo-notes/<owner>/<repo>` directory. */
+/** Notes grouped under one `projects/<owner>/<repo>` directory. */
 export interface NoteRepoSection {
   /** Repository slug used as the section heading. */
   readonly repoSlug: string;
@@ -87,6 +97,8 @@ export interface NoteContextPayload {
   readonly generatedAt: string;
   readonly command: string;
   readonly notesRoot: string;
+  readonly projectsRoot: string;
+  /** Compatibility alias for integrations released before the projects rename. */
   readonly repoNotesRoot: string;
   readonly repository?: RepoNoteIdentity;
   readonly notesPath?: string;
@@ -184,7 +196,7 @@ export interface NoteCreateResult {
 /** Supported notes list output formats. */
 export type NotesListFormat = "labels" | "json";
 
-/** Render a note label in the repo-note context format. */
+/** Render a note label in the project-note context format. */
 export function formatNoteLabel(entry: NoteEntry): string {
   const date = formatLocalNoteDateTimeFromEpochSeconds(entry.mtime);
   const tagPart = entry.tags.length ? ` [tags: ${entry.tags.join(", ")}]` : "";

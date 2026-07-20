@@ -44,7 +44,7 @@ export const mcpTools: readonly McpToolMetadata[] = [
     name: "note_list",
     cli: "notes list [--all] [--tag <tag>] --format json",
     description:
-      "List note files in the notes vault for the current repository, optionally filtered by tag or grouped across all repositories.",
+      "List note files in the notes vault for the current project, optionally filtered by tag or grouped across all projects.",
     parameters: {
       tag: {
         type: "string",
@@ -56,7 +56,7 @@ export const mcpTools: readonly McpToolMetadata[] = [
         cli: "--all",
         default: "false",
         description:
-          "List notes from all repositories instead of just the current one.",
+          "List notes from all projects instead of just the current one.",
       },
     },
   },
