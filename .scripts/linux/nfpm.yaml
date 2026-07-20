@@ -1,0 +1,37 @@
+---
+name: repo-notes
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+version_schema: none
+release: "1"
+section: utils
+priority: optional
+maintainer: Aidan Timson <aidan@timmo.dev>
+description: Standalone CLI and MCP server for repository notes
+homepage: https://github.com/timmo001/notes
+license: Apache-2.0
+depends:
+  - git
+contents:
+  - src: dist/release/root/notes
+    dst: /usr/bin/notes
+    file_info:
+      mode: 0755
+  - src: /usr/bin/notes
+    dst: /usr/bin/note
+    type: symlink
+  - src: /usr/bin/notes
+    dst: /usr/bin/handoffs
+    type: symlink
+  - src: /usr/bin/notes
+    dst: /usr/bin/handoff
+    type: symlink
+  - src: .scripts/linux/completions/notes.bash
+    dst: /usr/share/bash-completion/completions/notes
+  - src: .scripts/linux/completions/notes.fish
+    dst: /usr/share/fish/vendor_completions.d/notes.fish
+  - src: .scripts/linux/completions/_notes
+    dst: /usr/share/zsh/site-functions/_notes
+  - src: LICENSE
+    dst: /usr/share/licenses/repo-notes/LICENSE

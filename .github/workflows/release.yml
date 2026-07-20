@@ -1,0 +1,89 @@
+---
+name: Release Linux packages
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - src/**
+      - package.json
+      - bun.lock
+      - mise.toml
+      - LICENSE
+      - .scripts/linux/nfpm.yaml
+      - .scripts/linux/PKGBUILD.bin
+      - .scripts/linux/prepare-aur-bin.sh
+      - .github/workflows/release.yml
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-linux-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish Linux packages
+    permissions:
+      contents: write
+    uses: >- # master
+      timmo001/workflows/.github/workflows/release-bun-cli-linux.yml@89463002ce025fb5be762b11083f1f26f58d76b1
+    with:
+      binary-name: notes
+      package-name: repo-notes
+      entrypoint: src/index.ts
+      package-config: .scripts/linux/nfpm.yaml
+      bun-version: 1.3.14
+      smoke-test-arguments: |-
+        help
+        root
+      package-prepare-command: |-
+        mkdir -p .scripts/linux/completions
+        ./dist/release/root/notes completions bash > .scripts/linux/completions/notes.bash
+        ./dist/release/root/notes completions fish > .scripts/linux/completions/notes.fish
+        ./dist/release/root/notes completions zsh > .scripts/linux/completions/_notes
+
+  prepare-aur:
+    name: Prepare AUR package (repo-notes-bin)
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ needs.release.outputs.source-sha }}
+      - name: Prepare repo-notes-bin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.release.outputs.release-version }}
+        run: >-
+          .scripts/linux/prepare-aur-bin.sh "$RELEASE_VERSION"
+          "${{ runner.temp }}/aur-package"
+      - name: Upload repo-notes-bin
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: aur-repo-notes-bin-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/aur-package
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-aur:
+    name: Publish AUR (repo-notes-bin)
+    needs: prepare-aur
+    uses: >- # master
+      timmo001/workflows/.github/workflows/publish-aur.yml@a4091353aaeb94959d5d667f11adc12e2f76ce04
+    with:
+      package-name: repo-notes-bin
+      artifact-name: aur-repo-notes-bin-${{ github.run_id }}-${{ github.run_attempt }}
+      auxiliary-file-paths: |-
+        notes.bash
+        notes.fish
+        _notes
+        LICENSE
+    secrets:
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}

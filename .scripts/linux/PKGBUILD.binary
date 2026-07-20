@@ -9,8 +9,8 @@ url="https://github.com/timmo001/notes"
 license=('Apache-2.0')
 keywords=('mcp' 'cli' 'notes' 'handoff' 'agent')
 depends=('glibc' 'git')
-provides=('notes')
-conflicts=('notes')
+provides=('repo-notes')
+conflicts=('repo-notes' 'repo-notes-bin')
 options=('!strip')
 source=('notes' 'notes.zsh' 'notes.bash' 'notes.fish' 'LICENSE')
 
