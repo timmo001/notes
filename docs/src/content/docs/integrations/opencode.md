@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-`notes` owns the standalone CLI and MCP server. OpenCode plugins, slash commands, and skills are maintained outside this repo because they are part of the agent configuration layer.
+`notes` owns the standalone CLI, MCP server, and portable [`notes-mcp` Agent Skill](https://github.com/timmo001/notes/tree/main/.agents/skills/notes-mcp). OpenCode plugins, slash commands, guards, and integration-specific skills are maintained outside this repo because they are part of the agent configuration layer.
 
 The dotfiles OpenCode plugin consumes structured context from:
 
@@ -29,4 +29,4 @@ The MCP server is configured with the `notes` key:
 
 With that key, raw MCP tools such as `note_read` and `note_write` are exposed to OpenCode as `notes_note_read` and `notes_note_write`.
 
-Plugin source and workflow prompts live in dotfiles/OpenCode config. This repo documents only the CLI and MCP contracts those integrations consume.
+Import the portable skill into your global or project skill directory when agents should use the MCP tools directly. Plugin source and workflow prompts remain in dotfiles/OpenCode config.

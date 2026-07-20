@@ -16,7 +16,7 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Keep CLI metadata in `src/cli/spec.ts`; help, completions, and generated docs consume it.
 - Regenerate generated docs with `mise run docs:gen` after changing CLI or MCP metadata.
 - Do not hand-edit generated docs pages.
-- Keep OpenCode plugin source in dotfiles/opencode-config. This repo provides the standalone `notes` producer and MCP server those plugins consume.
+- Keep portable Notes skills under `.agents/skills/`. Keep OpenCode plugins, commands, guards, and integration-specific skills in dotfiles/opencode-config.
 
 ## Docs Dev Server
 
@@ -34,3 +34,5 @@ mise run build
 mise run docs:gen
 mise run docs:build
 ```
+
+CI validates `.agents/skills/` with the shared `lint-agent-skills` workflow.

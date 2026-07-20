@@ -8,4 +8,6 @@ harnesses.
 
 Full setup, CLI reference, MCP usage, and integration docs are published at <https://notes.timmo.dev>.
 
+Agents can use the portable [`notes-mcp` skill](.agents/skills/notes-mcp/SKILL.md) for safe MCP note workflows.
+
 On Arch, install `repo-notes-git` from the AUR. For local development, run `mise run install` and `mise run build`, then use `dist/notes`.
