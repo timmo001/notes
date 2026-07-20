@@ -6,6 +6,8 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler versions upload",
     "preview": "astro preview",
     "astro": "astro",
     "og": "bun scripts/generate-og.mjs",

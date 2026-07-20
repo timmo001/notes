@@ -24,7 +24,11 @@ describe("runSupervisedProcess", () => {
       throw new Error("Expected process failure");
     } catch (error) {
       expect(error).toBeInstanceOf(ProcessExitError);
-      expect((error as ProcessExitError).exitCode).toBe(7);
+      expect(error).toMatchObject({
+        name: "ProcessExitError",
+        message: "Test process exited with code 7",
+        exitCode: 7,
+      });
     }
   });
 });

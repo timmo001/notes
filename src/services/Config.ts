@@ -7,6 +7,8 @@ import { defaultNotesRoot, expandHomePath } from "../lib/paths.js";
 export interface ConfigService {
   /** Path to the notes vault repository. */
   readonly notesDir: string;
+  /** Directory whose project identity should be resolved. */
+  readonly projectDir: string;
 }
 
 /** Effect service for resolved notes configuration. */
@@ -21,6 +23,7 @@ export class Config extends Context.Service<Config, ConfigService>()("Config") {
             defaultNotesRoot(),
         ),
       ),
+      projectDir: process.cwd(),
     })),
   );
 }

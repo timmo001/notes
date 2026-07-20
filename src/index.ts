@@ -213,12 +213,12 @@ function formatHandoffSections(sections: readonly NoteRepoSection[]): string {
 }
 
 function runRoot(args: readonly string[]) {
-  validateOptions(args, { "--repo-notes": "flag" });
+  validateOptions(args, { "--projects": "flag" });
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      const root = args.includes("--repo-notes")
-        ? yield* notes.repoNotesRoot
+      const root = args.includes("--projects")
+        ? yield* notes.projectsRoot
         : yield* notes.root;
       yield* writeLine(root);
     }),

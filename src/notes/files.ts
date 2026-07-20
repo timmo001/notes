@@ -46,7 +46,7 @@ function isInsideDirectory(parent: string, child: string): boolean {
 }
 
 function notePathParts(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
 ): {
   readonly path: string;
@@ -58,7 +58,7 @@ function notePathParts(
   if (!isAbsolute(expanded))
     throw new Error(`Note path must be absolute: ${input}`);
 
-  const root = resolve(repoNotesRoot);
+  const root = resolve(projectsRoot);
   const path = resolve(expanded);
   const relativePath = relative(root, path);
   if (!isInsideDirectory(root, path)) {
@@ -67,7 +67,7 @@ function notePathParts(
   const parts = relativePath.split(sep);
   if (parts.length !== 3) {
     throw new Error(
-      `Note path must match repo-notes/<owner>/<repo>/<note>.md: ${input}`,
+      `Note path must match projects/<owner>/<repo>/<note>.md: ${input}`,
     );
   }
   const [owner, repo, filename] = parts;
@@ -115,12 +115,12 @@ export function ensurePhysicalVaultRoot(notesRoot: string): string {
 }
 
 function ensurePhysicalParents(
-  repoNotesRoot: string,
+  projectsRoot: string,
   owner: string,
   repo: string,
   create: boolean,
 ): string {
-  const root = resolve(repoNotesRoot);
+  const root = resolve(projectsRoot);
   const notesRoot = dirname(root);
   assertDirectory(notesRoot);
 
@@ -136,7 +136,7 @@ function ensurePhysicalParents(
   const parent = join(root, owner, repo);
   const physicalParent = realpathSync(parent);
   if (!isInsideDirectory(physicalRoot, physicalParent)) {
-    throw new Error(`Note directory resolves outside repo-notes: ${parent}`);
+    throw new Error(`Note directory resolves outside projects: ${parent}`);
   }
   return parent;
 }
@@ -154,10 +154,10 @@ function assertRegularTarget(path: string, allowMissing: boolean): void {
 
 /** Resolve and validate one physical repository notes directory. */
 export function resolveRepositoryNotesDirectory(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
 ): string {
-  const root = resolve(repoNotesRoot);
+  const root = resolve(projectsRoot);
   const path = resolve(input);
   const parts = relative(root, path).split(sep);
   if (
@@ -175,23 +175,23 @@ export function resolveRepositoryNotesDirectory(
 
 /** Resolve a valid note path whether or not its leaf currently exists. */
 export function resolveOptionalNotePath(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
 ): string {
-  return prepareNotePath(repoNotesRoot, input, {
+  return prepareNotePath(projectsRoot, input, {
     createParents: false,
     allowMissing: true,
   });
 }
 
 function prepareNotePath(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
   options: { readonly createParents: boolean; readonly allowMissing: boolean },
 ): string {
-  const parts = notePathParts(repoNotesRoot, input);
+  const parts = notePathParts(projectsRoot, input);
   ensurePhysicalParents(
-    repoNotesRoot,
+    projectsRoot,
     parts.owner,
     parts.repo,
     options.createParents,
@@ -206,10 +206,10 @@ export function hashNoteContent(content: string): string {
 
 /** Resolve and validate a note path for an existing physical file. */
 export function resolveExistingNotePath(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
 ): string {
-  return prepareNotePath(repoNotesRoot, input, {
+  return prepareNotePath(projectsRoot, input, {
     createParents: false,
     allowMissing: false,
   });
@@ -217,10 +217,10 @@ export function resolveExistingNotePath(
 
 /** Resolve and validate a note path that may be created. */
 export function resolveWritableNotePath(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
 ): string {
-  return prepareNotePath(repoNotesRoot, input, {
+  return prepareNotePath(projectsRoot, input, {
     createParents: true,
     allowMissing: true,
   });
@@ -228,10 +228,10 @@ export function resolveWritableNotePath(
 
 /** Read a regular note without following a leaf symlink. */
 export function readNoteFile(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
 ): ReadNoteFileResult {
-  const path = resolveExistingNotePath(repoNotesRoot, input);
+  const path = resolveExistingNotePath(projectsRoot, input);
   const fd = openSync(path, constants.O_RDONLY | NO_FOLLOW);
   try {
     const stat = fstatSync(fd);
@@ -277,15 +277,15 @@ function writeTemporaryFile(
 
 /** Atomically replace or create a validated note file. */
 export function atomicWriteNoteFile(
-  repoNotesRoot: string,
+  projectsRoot: string,
   input: string,
   content: string,
 ): string {
-  const path = resolveWritableNotePath(repoNotesRoot, input);
+  const path = resolveWritableNotePath(projectsRoot, input);
   const mode = existsSync(path) ? statSync(path).mode & 0o777 : 0o666;
   const temporary = writeTemporaryFile(path, content, mode);
   try {
-    resolveWritableNotePath(repoNotesRoot, path);
+    resolveWritableNotePath(projectsRoot, path);
     renameSync(temporary, path);
   } catch (error) {
     if (existsSync(temporary)) unlinkSync(temporary);
@@ -296,7 +296,7 @@ export function atomicWriteNoteFile(
 
 /** Create a complete draft without ever replacing an existing filename. */
 export function createExclusiveNoteFile(
-  repoNotesRoot: string,
+  projectsRoot: string,
   owner: string,
   repo: string,
   slug: string,
@@ -305,12 +305,12 @@ export function createExclusiveNoteFile(
   if (!isSafeRepositorySegment(owner) || !isSafeRepositorySegment(repo)) {
     throw new Error(`Invalid repository identity: ${owner}/${repo}`);
   }
-  ensurePhysicalParents(repoNotesRoot, owner, repo, true);
-  const directory = join(repoNotesRoot, owner, repo);
+  ensurePhysicalParents(projectsRoot, owner, repo, true);
+  const directory = join(projectsRoot, owner, repo);
   for (let suffix = 1; ; suffix += 1) {
     const filename = suffix === 1 ? `${slug}.md` : `${slug}-${suffix}.md`;
     const path = resolveWritableNotePath(
-      repoNotesRoot,
+      projectsRoot,
       join(directory, filename),
     );
     const temporary = writeTemporaryFile(path, content, 0o666);
@@ -330,8 +330,8 @@ export function createExclusiveNoteFile(
 }
 
 /** Delete a validated physical note file. */
-export function deleteNoteFile(repoNotesRoot: string, input: string): string {
-  const path = resolveExistingNotePath(repoNotesRoot, input);
+export function deleteNoteFile(projectsRoot: string, input: string): string {
+  const path = resolveExistingNotePath(projectsRoot, input);
   unlinkSync(path);
   return path;
 }

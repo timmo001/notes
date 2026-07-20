@@ -36,7 +36,7 @@ function opencodeNotePrompt(
   noteContent: string,
   mode: OpenCodeNoteMode,
 ): string {
-  const displayPath = repoNotesDisplayPath(entry);
+  const displayPath = projectsDisplayPath(entry);
   return [
     `Use the repository note ${entry.filename} included below as loaded context for this OpenCode session, following the note-reference next-step flow.`,
     `The note file path is ${entry.filePath}.`,
@@ -77,10 +77,10 @@ function opencodeNotePrompt(
   ].join("\n");
 }
 
-function repoNotesDisplayPath(entry: NoteEntry): string {
-  const marker = "/repo-notes/";
+function projectsDisplayPath(entry: NoteEntry): string {
+  const marker = "/projects/";
   const normalized = entry.filePath.replaceAll("\\", "/");
   const markerIndex = normalized.lastIndexOf(marker);
   if (markerIndex === -1) return entry.filename;
-  return `repo-notes/${normalized.slice(markerIndex + marker.length)}`;
+  return `projects/${normalized.slice(markerIndex + marker.length)}`;
 }

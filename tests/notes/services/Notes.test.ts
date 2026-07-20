@@ -5,10 +5,12 @@ import {
   mkdtempSync,
   mkdirSync,
   rmSync,
+  readFileSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { renderDraft } from "../../../src/notes/frontmatter.js";
 import { Notes } from "../../../src/notes/services/Notes.js";
 import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
@@ -16,6 +18,7 @@ import { Config } from "../../../src/services/Config.js";
 
 const temporaryDirectories: string[] = [];
 const identity = {
+  source: "remote" as const,
   owner: "timmo001",
   repo: "notes",
   remote: "origin",
@@ -33,8 +36,12 @@ function fixture(parent = tmpdir()) {
   git(root, "init");
   git(root, "config", "user.name", "Notes Test");
   git(root, "config", "user.email", "notes@example.invalid");
-  const path = join(root, "repo-notes", "timmo001", "notes", "note.md");
-  mkdirSync(join(root, "repo-notes", "timmo001", "notes"), {
+  const projectDir = mkdtempSync(join(parent, "notes-project-"));
+  temporaryDirectories.push(projectDir);
+  git(projectDir, "init");
+  git(projectDir, "remote", "add", "origin", identity.remoteUrl);
+  const path = join(root, "projects", "timmo001", "notes", "note.md");
+  mkdirSync(join(root, "projects", "timmo001", "notes"), {
     recursive: true,
   });
   writeFileSync(
@@ -45,15 +52,15 @@ function fixture(parent = tmpdir()) {
   git(root, "commit", "-m", "Initial note");
   const layer = Notes.layer.pipe(
     Layer.provideMerge(CommandExecutor.layer),
-    Layer.provideMerge(Layer.succeed(Config, { notesDir: root })),
+    Layer.provideMerge(Layer.succeed(Config, { notesDir: root, projectDir })),
   );
   return { root, path, layer };
 }
 
-function serviceLayer(root: string) {
+function serviceLayer(root: string, projectDir = process.cwd()) {
   return Notes.layer.pipe(
     Layer.provideMerge(CommandExecutor.layer),
-    Layer.provideMerge(Layer.succeed(Config, { notesDir: root })),
+    Layer.provideMerge(Layer.succeed(Config, { notesDir: root, projectDir })),
   );
 }
 
@@ -63,6 +70,190 @@ afterEach(() => {
 });
 
 describe("Notes service", () => {
+  test("prefers a remote identity when one can be parsed", async () => {
+    const { layer } = fixture();
+
+    const context = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({ command: "test" });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(context.repository).toEqual(identity);
+    expect(context.notesPath).toEndWith("projects/timmo001/notes");
+    expect(context.repoNotesRoot).toBe(context.projectsRoot);
+  });
+
+  test("uses the Git root name when no remote exists", async () => {
+    const { root } = fixture();
+    const projectDir = mkdtempSync(join(tmpdir(), "local-git-project-"));
+    temporaryDirectories.push(projectDir);
+    git(projectDir, "init");
+
+    const context = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({ command: "test" });
+      }).pipe(Effect.provide(serviceLayer(root, projectDir))),
+    );
+
+    expect(context.repository).toEqual({
+      source: "local",
+      owner: "local",
+      repo: basename(projectDir),
+    });
+    expect(context.notesPath).toBe(
+      join(root, "projects", "local", basename(projectDir)),
+    );
+    expect(context.warnings).toContain(
+      "No git remotes detected; using local project identity",
+    );
+  });
+
+  test("uses the working-directory name outside Git", async () => {
+    const { root } = fixture();
+    const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
+    temporaryDirectories.push(projectDir);
+
+    const context = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({ command: "test" });
+      }).pipe(Effect.provide(serviceLayer(root, projectDir))),
+    );
+
+    expect(context.repository).toEqual({
+      source: "local",
+      owner: "local",
+      repo: basename(projectDir),
+    });
+    expect(context.warnings).toEqual([]);
+  });
+
+  test("lists markdown notes newest-first with parsed metadata", async () => {
+    const { root, path, layer } = fixture();
+    const notesPath = join(root, "projects", "timmo001", "notes");
+    const malformedPath = join(notesPath, "newer.md");
+    writeFileSync(malformedPath, "not frontmatter");
+    writeFileSync(join(notesPath, "ignored.txt"), "ignored");
+    utimesSync(path, new Date(1_000), new Date(1_000));
+    utimesSync(malformedPath, new Date(2_000), new Date(2_000));
+
+    const entries = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).list();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(entries.map((entry) => entry.filename)).toEqual([
+      "newer.md",
+      "note.md",
+    ]);
+    expect(entries[0]).toMatchObject({
+      name: null,
+      description: null,
+      tags: [],
+      priority: null,
+    });
+    expect(entries[1]).toMatchObject({
+      name: "Note",
+      description: "Description",
+      tags: ["draft"],
+    });
+  });
+
+  test("lists non-empty repositories in owner and repository order", async () => {
+    const { root, layer } = fixture();
+    const otherPath = join(root, "projects", "alpha", "zeta");
+    mkdirSync(otherPath, { recursive: true });
+    writeFileSync(
+      join(otherPath, "other.md"),
+      renderDraft(
+        "note",
+        { ...identity, owner: "alpha", repo: "zeta" },
+        "date",
+        "Other",
+        "Other description",
+      ),
+    );
+    mkdirSync(join(root, "projects", "empty", "repo"), {
+      recursive: true,
+    });
+
+    const sections = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).listAll();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(sections.map((section) => section.repoSlug)).toEqual([
+      "alpha/zeta",
+      "timmo001/notes",
+    ]);
+    expect(sections[0]?.entries[0]).toMatchObject({
+      filename: "other.md",
+      repoSlug: "alpha/zeta",
+    });
+  });
+
+  test("includes note contents only for note-reference context", async () => {
+    const { layer } = fixture();
+
+    const reference = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({
+          command: "note-reference",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+    const ordinary = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({
+          command: "unrelated-command",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(reference.entries).toHaveLength(1);
+    expect(reference.contents?.[0]).toMatchObject({ filename: "note.md" });
+    expect(reference.contents?.[0]?.content).toContain("# Note");
+    expect(ordinary.entries).toEqual([]);
+    expect(ordinary.contents).toBeUndefined();
+  });
+
+  test("creates a unique slug when a note filename already exists", async () => {
+    const { layer } = fixture();
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).create(
+          "note",
+          "Note",
+          "New description",
+          async () => {},
+        );
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(result.created).toBeTrue();
+    expect(result.draft.entry.filename).toBe("note-2.md");
+    expect(result.git.commit).toMatchObject({ ok: true, committed: true });
+  });
+
+  test("updates priority without changing the note body", async () => {
+    const { path, layer } = fixture();
+    const bodyBefore = readFileSync(path, "utf8").split("---\n").at(-1);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).setPriority(path, "critical");
+      }).pipe(Effect.provide(layer)),
+    );
+    const content = readFileSync(path, "utf8");
+
+    expect(result.commit).toMatchObject({ ok: true, committed: true });
+    expect(content).toContain("priority: critical");
+    expect(content.split("---\n").at(-1)).toBe(bodyBefore);
+  });
+
   test("returns a revision and rejects a stale write", async () => {
     const { path, layer } = fixture();
     const initial = await Effect.runPromise(
@@ -187,14 +378,14 @@ describe("Notes service", () => {
       ["git", "show", "--name-status", "--format=", "HEAD"],
       { cwd: root },
     ).stdout.toString();
-    expect(changed).toContain("repo-notes/timmo001/notes/note.md");
+    expect(changed).toContain("projects/timmo001/notes/note.md");
   });
 
   test("initializes a fresh vault before acquiring its lock", async () => {
     const parent = mkdtempSync(join(tmpdir(), "notes-fresh-parent-"));
     temporaryDirectories.push(parent);
     const root = join(parent, "vault");
-    const path = join(root, "repo-notes", "timmo001", "notes", "note.md");
+    const path = join(root, "projects", "timmo001", "notes", "note.md");
     mkdirSync(root);
     git(root, "init");
     git(root, "config", "user.name", "Notes Test");
