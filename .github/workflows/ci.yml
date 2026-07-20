@@ -106,7 +106,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.aur-changes.outputs.app_changed == 'true'
     permissions:
       contents: read
-    uses: timmo001/workflows/.github/workflows/publish-aur.yml@6583610312ab4a83b2cdebf40608d838f631ed74 # master
+    uses: timmo001/workflows/.github/workflows/publish-aur.yml@ea21189dd7dc0a122ed85d343d8b529d766e414f # master
     with:
       package-name: repo-notes-git
       artifact-name: aur-repo-notes-git-${{ github.run_id }}-${{ github.run_attempt }}
