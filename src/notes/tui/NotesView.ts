@@ -542,18 +542,7 @@ export class NotesView {
     }
 
     const currentEntries = await this.callbacks.listNotes();
-    const currentVisible = currentEntries.filter((entry) =>
-      matchesFilter(entry, this.filter),
-    );
-    if (currentVisible.length > 0) {
-      return { entries: currentEntries, allRepos: false, fallback: false };
-    }
-
-    return {
-      entries: flattenNoteSections(await this.callbacks.listAllNotes()),
-      allRepos: true,
-      fallback: true,
-    };
+    return { entries: currentEntries, allRepos: false, fallback: false };
   }
 
   private applyFilter(): void {

@@ -128,6 +128,41 @@ describe("Notes service", () => {
     expect(context.warnings).toEqual([]);
   });
 
+  test("lists only the local project outside Git", async () => {
+    const { root } = fixture();
+    const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
+    temporaryDirectories.push(projectDir);
+    const localNotesPath = join(
+      root,
+      "projects",
+      "local",
+      basename(projectDir),
+    );
+    mkdirSync(localNotesPath, { recursive: true });
+    writeFileSync(
+      join(localNotesPath, "local.md"),
+      renderDraft(
+        "note",
+        {
+          source: "local",
+          owner: "local",
+          repo: basename(projectDir),
+        },
+        "date",
+        "Local",
+        "Local description",
+      ),
+    );
+
+    const entries = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).list();
+      }).pipe(Effect.provide(serviceLayer(root, projectDir))),
+    );
+
+    expect(entries.map((entry) => entry.filename)).toEqual(["local.md"]);
+  });
+
   test("lists markdown notes newest-first with parsed metadata", async () => {
     const { root, path, layer } = fixture();
     const notesPath = join(root, "projects", "timmo001", "notes");
