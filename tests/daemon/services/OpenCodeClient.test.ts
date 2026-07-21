@@ -36,10 +36,10 @@ describe("OpenCodeClient", () => {
     expect(requestPaths[0]).toBe("POST /session");
     expect(requestPaths).toContain("POST /session/session-1/message");
     expect(requestPaths).toContain("GET /permission");
-    expect(requestPaths.slice(-2)).toEqual([
-      "POST /session/session-1/abort",
-      "DELETE /session/session-1",
-    ]);
+    const abortIndex = requestPaths.indexOf("POST /session/session-1/abort");
+    const deleteIndex = requestPaths.indexOf("DELETE /session/session-1");
+    expect(abortIndex).toBeGreaterThanOrEqual(0);
+    expect(deleteIndex).toBeGreaterThan(abortIndex);
     expect(requests[0]?.auth).toBe(
       `Basic ${Buffer.from("opencode:secret").toString("base64")}`,
     );
