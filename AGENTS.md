@@ -17,6 +17,7 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Regenerate generated docs with `mise run docs:gen` after changing CLI or MCP metadata.
 - Do not hand-edit generated docs pages.
 - Keep portable Notes skills under `.agents/skills/`. Keep OpenCode plugins, commands, guards, and integration-specific skills in dotfiles/opencode-config.
+- Repository notes live under `projects/{owner}/{repo}`. When no repository can be resolved, use the local scope under `projects/local/{project}`; automated captures use `projects/local/captures`.
 
 ## Docs Dev Server
 
