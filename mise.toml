@@ -55,7 +55,7 @@ depends = ["test", "typecheck", "format:check", "capture:check"]
 [tasks."capture:install"]
 description = "Install capture PWA dependencies"
 dir = "capture"
-run = "bun install"
+run = "bun install && bun install --cwd astro-check"
 
 [tasks."capture:dev"]
 description = "Run the capture PWA locally"

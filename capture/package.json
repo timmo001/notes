@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler types --config wrangler.example.jsonc && astro dev",
-    "build": "wrangler types --config wrangler.example.jsonc && bunx tsc --noEmit && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc astro build",
+    "build": "wrangler types --config wrangler.example.jsonc && bunx tsc --noEmit && bun run check:astro && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc astro build",
+    "check:astro": "bun install --cwd astro-check && bunx astro sync && bun run --cwd astro-check check",
     "deploy": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler deploy --config dist/server/wrangler.json",
     "deploy:preview": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler versions upload --config dist/server/wrangler.json",
-    "format": "prettier --write \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
-    "format:check": "prettier --check \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
+    "format": "prettier --write \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"astro-check/package.json\" \"public/**/*.{js,json,webmanifest}\"",
+    "format:check": "prettier --check \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"astro-check/package.json\" \"public/**/*.{js,json,webmanifest}\"",
     "test": "bun test",
-    "typecheck": "wrangler types --config wrangler.example.jsonc && bunx tsc --noEmit",
+    "typecheck": "wrangler types --config wrangler.example.jsonc && bunx tsc --noEmit && bun run check:astro",
     "prepare": "effect-tsgo patch"
   },
   "dependencies": {
