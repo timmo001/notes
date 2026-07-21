@@ -55,5 +55,10 @@ describe("daemon schema", () => {
     expect(prompt.match(/<\/captured-note-base64>/g)).toHaveLength(1);
     expect(prompt).not.toContain("</captured-note-json>");
     expect(prompt).not.toContain("x".repeat(12_001));
+    expect(prompt).toContain("Complete the requested investigation");
+    expect(prompt).toContain("Do not write a note that only quotes");
+    expect(prompt).toContain(
+      "An implementation plan may be written inside the note",
+    );
   });
 });

@@ -39,7 +39,9 @@ pollIntervalSeconds: 30
 
 The daemon uses a separate loopback-only OpenCode server on port 4097. Its configuration and `notes-daemon` agent live under `.opencode-daemon/` in this repository rather than the interactive global OpenCode configuration. Its XDG config, data, state, and cache directories are isolated from interactive OpenCode sessions. The server runs in pure mode with external skills, project config, and default plugins disabled. Only the read-only GitHub MCP endpoint and Notes MCP server are configured.
 
-The dedicated agent fails closed for unknown tools. It allows built-in read/search operations, authenticated read-only GitHub tools, and Notes MCP list/read/write. External filesystem reads are denied except for `allowedReadPaths`; write/edit/patch tools remain denied for every path. It also denies questions, delegation, planning, shell execution, browser control, Chrome DevTools, and note deletion. Any unexpected permission or question request aborts the job instead of waiting for input.
+The dedicated agent fails closed for unknown tools. It allows built-in read/search operations, authenticated read-only GitHub tools, and Notes MCP list/read/write. External filesystem reads are denied except for `allowedReadPaths`; write/edit/patch tools remain denied for every path. It also denies questions, delegation, planning mode, shell execution, browser control, Chrome DevTools, and note deletion. Any unexpected permission or question request aborts the job instead of waiting for input.
+
+The agent must investigate before writing. Notes record the repository paths or primary sources inspected, evidence-based findings, and the requested output, such as an implementation plan. A capture cannot complete by merely paraphrasing its issue text; if the available read tools cannot support the investigation, the daemon leaves the issue open as failed.
 
 OpenCode infers the target repository from the capture and writes under `projects/{owner}/{repo}`. Captures without a resolvable repository use `projects/local/captures`. Completion comments report the note commit SHA rather than exposing a local filesystem path.
 
