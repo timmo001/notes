@@ -72,6 +72,12 @@ textarea:focus {
   box-shadow: 0 0 0 2px #777;
 }
 
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid #e3bd6b;
+  outline-offset: 2px;
+}
+
 .capture-field {
   position: relative;
 }
@@ -119,6 +125,109 @@ button {
   animation: pulse 1.2s infinite;
   background: #9d3f39;
   color: #fff;
+}
+
+.repository-picker {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.repository-trigger {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.6rem;
+  background: #252525;
+  color: #ddd;
+}
+
+.repository-trigger:hover {
+  background: #303030;
+}
+
+.repository-trigger svg {
+  width: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.repository-popover {
+  display: none;
+  width: min(26rem, calc(100vw - 1.5rem));
+  max-height: min(28rem, calc(100vh - 2rem));
+  padding: 0.65rem;
+  border: 1px solid #3b3b3b;
+  border-radius: 0.8rem;
+  margin: 0;
+  overflow: hidden;
+  background: #202020;
+  color: #eee;
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 45%);
+  inset: auto max(0.75rem, calc((100vw - min(48rem, 100vw - 2rem)) / 2)) auto
+    auto;
+}
+
+.repository-popover:popover-open {
+  display: block;
+}
+
+.repository-popover::backdrop {
+  background: rgb(0 0 0 / 25%);
+}
+
+.repository-search {
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #444;
+  border-radius: 0.6rem;
+  outline: 0;
+  background: #181818;
+  color: inherit;
+  font: inherit;
+}
+
+.repository-options {
+  display: grid;
+  max-height: 20rem;
+  gap: 0.2rem;
+  margin-top: 0.55rem;
+  overflow-y: auto;
+}
+
+.repository-option {
+  display: grid;
+  width: 100%;
+  gap: 0.15rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.repository-option:hover,
+.repository-option[aria-pressed="true"] {
+  background: #303030;
+}
+
+.repository-option small {
+  color: #999;
+}
+
+.repository-option[hidden],
+.repository-empty[hidden] {
+  display: none;
+}
+
+.repository-empty {
+  margin: 1.25rem 0;
+  color: #999;
+  text-align: center;
 }
 
 .status {

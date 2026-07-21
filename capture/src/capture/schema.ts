@@ -13,6 +13,9 @@ export const CaptureInput = Schema.Struct({
   ),
   capturedAt: Schema.DateTimeUtcFromString,
   source: Schema.Literals(["text", "speech"]),
+  repository: Schema.optional(
+    Schema.String.check(Schema.isPattern(/^[^/\s]+\/[^/\s]+$/)),
+  ),
 });
 
 export type Capture = typeof CaptureInput.Type;

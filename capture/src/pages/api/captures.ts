@@ -1,6 +1,11 @@
 import { env } from "cloudflare:workers";
 import { Effect } from "effect";
 import type { APIRoute } from "astro";
+import {
+  parseRepositoryOptions,
+  resolveRepository,
+  splitRepository,
+} from "../../capture/repositories.js";
 import { decodeCapture, type Capture } from "../../capture/schema.js";
 import { processCapture } from "../../capture/services/CaptureProcessor.js";
 import { createGitHubIssue } from "../../capture/services/GitHubIssues.js";
@@ -35,14 +40,33 @@ export const POST = (async ({ request }) => {
     return json({ error: "Invalid capture" }, 400);
   }
 
+  const defaultRepository = `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
+  let repositories;
+  try {
+    repositories = parseRepositoryOptions(env.CAPTURE_REPOSITORIES);
+  } catch {
+    console.error("Capture repository configuration is invalid");
+    return json({ error: "Capture is not configured correctly" }, 500);
+  }
+
+  let owner: string;
+  let repository: string;
+  try {
+    [owner, repository] = splitRepository(
+      resolveRepository(capture.repository, defaultRepository, repositories),
+    );
+  } catch {
+    return json({ error: "Invalid capture repository" }, 400);
+  }
+
   try {
     const issue = await Effect.runPromise(
       processCapture(capture, {
         queueLabel: env.QUEUE_LABEL,
         createIssue: (payload) =>
           createGitHubIssue(payload, {
-            owner: env.GITHUB_OWNER,
-            repository: env.GITHUB_REPO,
+            owner,
+            repository,
             token: env.GITHUB_TOKEN,
           }),
       }),

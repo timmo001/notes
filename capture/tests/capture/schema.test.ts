@@ -9,10 +9,12 @@ describe("decodeCapture", () => {
       text: "Keep this thought",
       capturedAt: "2026-07-21T12:00:00.000Z",
       source: "speech",
+      repository: "owner/repository",
     });
 
     expect(capture.text).toBe("Keep this thought");
     expect(capture.source).toBe("speech");
+    expect(capture.repository).toBe("owner/repository");
   });
 
   test("rejects empty captures", () => {

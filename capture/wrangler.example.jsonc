@@ -8,6 +8,7 @@
     "ACCESS_TEAM_DOMAIN": "example.cloudflareaccess.com",
     "GITHUB_OWNER": "example-owner",
     "GITHUB_REPO": "private-notes",
+    "CAPTURE_REPOSITORIES": "[{\"label\":\"Private notes\",\"repository\":\"example-owner/private-notes\"}]",
     "GITHUB_TOKEN": "set-as-a-production-secret",
     "QUEUE_LABEL": "agent:ready",
   },
