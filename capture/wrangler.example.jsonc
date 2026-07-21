@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "notes-capture",
+  "compatibility_date": "2026-07-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "ACCESS_AUD": "development",
+    "ACCESS_TEAM_DOMAIN": "example.cloudflareaccess.com",
+    "GITHUB_OWNER": "example-owner",
+    "GITHUB_REPO": "private-notes",
+    "GITHUB_TOKEN": "set-as-a-production-secret",
+    "QUEUE_LABEL": "agent:ready",
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+  },
+}

@@ -3,6 +3,11 @@ dist/
 dist-ts/
 docs/dist/
 docs/.astro/
+capture/.astro/
+capture/.wrangler/
+capture/.dev.vars
+capture/dist/
+capture/wrangler.local.jsonc
 .opencode/references/
 .env
 .env.*

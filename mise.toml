@@ -50,7 +50,67 @@ run = "bun run format:check"
 
 [tasks.check]
 description = "Test, type-check and verify formatting"
-depends = ["test", "typecheck", "format:check"]
+depends = ["test", "typecheck", "format:check", "capture:check"]
+
+[tasks."capture:install"]
+description = "Install capture PWA dependencies"
+dir = "capture"
+run = "bun install"
+
+[tasks."capture:dev"]
+description = "Run the capture PWA locally"
+depends = ["capture:install"]
+dir = "capture"
+run = "bun run dev"
+
+[tasks."capture:dev:serve"]
+description = "Run the capture PWA dev server in the background"
+depends = ["capture:install"]
+dir = "capture"
+run = "bunx astro dev --background"
+
+[tasks."capture:dev:status"]
+description = "Show capture PWA dev server status"
+dir = "capture"
+run = "bunx astro dev status"
+
+[tasks."capture:dev:logs"]
+description = "Show capture PWA dev server logs"
+dir = "capture"
+run = "bunx astro dev logs"
+
+[tasks."capture:dev:stop"]
+description = "Stop capture PWA dev server"
+dir = "capture"
+run = "bunx astro dev stop"
+
+[tasks."capture:test"]
+description = "Run capture PWA tests"
+depends = ["capture:install"]
+dir = "capture"
+run = "bun test"
+
+[tasks."capture:typecheck"]
+description = "Type-check the capture PWA"
+depends = ["capture:install"]
+dir = "capture"
+run = "bun run typecheck"
+
+[tasks."capture:format:check"]
+description = "Check capture PWA formatting"
+depends = ["capture:install"]
+dir = "capture"
+run = "bun run format:check"
+
+[tasks."capture:build"]
+description = "Build the capture PWA"
+depends = ["capture:install"]
+dir = "capture"
+run = "bun run build"
+
+[tasks."capture:check"]
+description = "Test, type-check and build the capture PWA"
+depends = ["capture:test", "capture:format:check", "capture:build"]
 
 [tasks."docs:install"]
 description = "Install docs dependencies"

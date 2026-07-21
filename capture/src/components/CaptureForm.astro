@@ -1,0 +1,49 @@
+<main>
+  <header>
+    <p class="eyebrow">Notes capture</p>
+    <h1>Leave yourself a useful thought.</h1>
+    <p class="lede">
+      Type it or dictate it. The selected machine will process it with OpenCode.
+    </p>
+  </header>
+
+  <form data-capture-form>
+    <label for="title">Title hint <span>optional</span></label>
+    <input
+      id="title"
+      name="title"
+      maxlength="120"
+      autocomplete="off"
+      placeholder="What is this about?"
+    />
+
+    <div class="field-heading">
+      <label for="capture">Capture</label>
+      <button class="record" type="button" data-record hidden>
+        <span class="record-dot"></span>
+        <span data-record-label>Dictate</span>
+      </button>
+    </div>
+    <textarea
+      id="capture"
+      name="capture"
+      rows="10"
+      maxlength="12000"
+      required
+      placeholder="An idea, reminder, question, or rough note..."></textarea>
+
+    <p class="status" data-status role="status" aria-live="polite">
+      Ready to capture.
+    </p>
+    <button class="submit" type="submit">Send to queue</button>
+  </form>
+
+  <footer>
+    <span>Private queue</span>
+    <span>Processed locally</span>
+  </footer>
+</main>
+
+<script>
+  import "../scripts/capture.js";
+</script>

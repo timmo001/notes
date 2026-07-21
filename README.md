@@ -8,6 +8,9 @@ harnesses.
 
 Full setup, CLI reference, MCP usage, and integration docs are published at <https://notes.timmo.dev>.
 
+An optional private capture PWA sends typed or browser-transcribed notes to a
+configured processing queue.
+
 Agents can use the portable [`notes-mcp` skill](.agents/skills/notes-mcp/SKILL.md) for safe MCP note workflows.
 
 Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank

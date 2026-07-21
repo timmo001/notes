@@ -1,0 +1,30 @@
+{
+  "name": "notes-capture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler types --config wrangler.example.jsonc && astro dev",
+    "build": "wrangler types --config wrangler.example.jsonc && astro check && astro build",
+    "deploy": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler deploy --config dist/server/wrangler.json",
+    "deploy:preview": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler versions upload --config dist/server/wrangler.json",
+    "format": "prettier --write \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.example.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
+    "format:check": "prettier --check \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.example.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
+    "test": "bun test",
+    "typecheck": "wrangler types --config wrangler.example.jsonc && astro check"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.1.4",
+    "astro": "^7.1.2",
+    "effect": "^4.0.0-beta.99",
+    "jose": "^6.1.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.6",
+    "@types/bun": "^1.3.14",
+    "prettier": "^3.9.5",
+    "prettier-plugin-astro": "^0.14.1",
+    "typescript": "^6.0.2",
+    "wrangler": "^4.112.0"
+  }
+}

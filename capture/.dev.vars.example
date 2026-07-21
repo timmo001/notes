@@ -1,0 +1,6 @@
+ACCESS_AUD=development
+ACCESS_TEAM_DOMAIN=example.cloudflareaccess.com
+GITHUB_OWNER=example-owner
+GITHUB_REPO=private-notes
+GITHUB_TOKEN=github_pat_replace_me
+QUEUE_LABEL=agent:ready
