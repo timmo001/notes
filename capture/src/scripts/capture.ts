@@ -98,7 +98,6 @@ if (repositoryPicker) {
     restoreRepository(
       storedRepository,
       options.flatMap((option) => option.dataset.repositoryOption ?? []),
-      repositoryValue.value,
     ),
   );
   preserveRepositorySelection = () => selectRepository(selectedRepository);
@@ -111,7 +110,7 @@ if (repositoryPicker) {
   for (const option of options) {
     option.addEventListener("click", () => {
       const repository = option.dataset.repositoryOption;
-      if (!repository) return;
+      if (repository === undefined) return;
       selectRepository(repository);
       try {
         localStorage.setItem(REPOSITORY_STORAGE_KEY, repository);

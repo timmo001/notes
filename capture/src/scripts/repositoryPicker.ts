@@ -15,9 +15,8 @@ export function filterRepositories(
 export function restoreRepository(
   storedRepository: string | null,
   allowedRepositories: readonly string[],
-  defaultRepository: string,
 ): string {
   return storedRepository && allowedRepositories.includes(storedRepository)
     ? storedRepository
-    : defaultRepository;
+    : "";
 }

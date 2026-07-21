@@ -3,13 +3,9 @@ import type { RepositoryOption } from "../capture/repositories.js";
 
 interface Props {
   repositories: readonly RepositoryOption[] | undefined;
-  defaultRepository: string;
 }
 
-const { repositories, defaultRepository } = Astro.props;
-const defaultOption =
-  repositories?.find(({ repository }) => repository === defaultRepository) ??
-  repositories?.[0];
+const { repositories } = Astro.props;
 ---
 
 <main>
@@ -19,6 +15,76 @@ const defaultOption =
   </header>
 
   <form data-capture-form>
+    {
+      repositories && (
+        <div class="repository-picker" data-repository-picker>
+          <input
+            type="hidden"
+            name="repository"
+            value=""
+            data-repository-value
+          />
+          <button
+            class="repository-trigger"
+            type="button"
+            popovertarget="repository-popover"
+            aria-label="Repository: Automatic"
+            data-repository-trigger
+          >
+            <span data-repository-label>Automatic</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m7 10 5 5 5-5" />
+            </svg>
+          </button>
+          <div
+            class="repository-popover"
+            id="repository-popover"
+            popover="auto"
+            data-repository-popover
+          >
+            <label class="sr-only" for="repository-search">
+              Search repositories
+            </label>
+            <input
+              class="repository-search"
+              id="repository-search"
+              type="search"
+              placeholder="Search repositories..."
+              autocomplete="off"
+              data-repository-search
+            />
+            <div class="repository-options" data-repository-options>
+              <button
+                class="repository-option"
+                type="button"
+                data-repository-option=""
+                data-repository-search-text="Automatic infer from context local captures"
+                aria-pressed="true"
+              >
+                <span>Automatic</span>
+                <small>Infer from context</small>
+              </button>
+              {repositories.map((option) => (
+                <button
+                  class="repository-option"
+                  type="button"
+                  data-repository-option={option.repository}
+                  data-repository-search-text={`${option.label} ${option.repository}`}
+                  aria-pressed="false"
+                >
+                  <span>{option.label}</span>
+                  <small>{option.repository}</small>
+                </button>
+              ))}
+            </div>
+            <p class="repository-empty" data-repository-empty hidden>
+              No matching repositories
+            </p>
+          </div>
+        </div>
+      )
+    }
+
     <div class="capture-field">
       <label class="sr-only" for="capture">Note</label>
       <textarea
@@ -44,70 +110,6 @@ const defaultOption =
         </svg>
       </button>
     </div>
-
-    {
-      repositories && defaultOption && (
-        <div class="repository-picker" data-repository-picker>
-          <input
-            type="hidden"
-            name="repository"
-            value={defaultOption.repository}
-            data-repository-value
-          />
-          <button
-            class="repository-trigger"
-            type="button"
-            popovertarget="repository-popover"
-            aria-label={`Repository: ${defaultOption.label}`}
-            data-repository-trigger
-          >
-            <span data-repository-label>{defaultOption.label}</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m7 10 5 5 5-5" />
-            </svg>
-          </button>
-          <div
-            class="repository-popover"
-            id="repository-popover"
-            popover="auto"
-            data-repository-popover
-          >
-            <label class="sr-only" for="repository-search">
-              Search repositories
-            </label>
-            <input
-              class="repository-search"
-              id="repository-search"
-              type="search"
-              placeholder="Search repositories..."
-              autocomplete="off"
-              data-repository-search
-            />
-            <div class="repository-options" data-repository-options>
-              {repositories.map((option) => (
-                <button
-                  class="repository-option"
-                  type="button"
-                  data-repository-option={option.repository}
-                  data-repository-search-text={`${option.label} ${option.repository}`}
-                  aria-pressed={
-                    option.repository === defaultOption.repository
-                      ? "true"
-                      : "false"
-                  }
-                >
-                  <span>{option.label}</span>
-                  <small>{option.repository}</small>
-                </button>
-              ))}
-            </div>
-            <p class="repository-empty" data-repository-empty hidden>
-              No matching repositories
-            </p>
-          </div>
-        </div>
-      )
-    }
 
     <p class="status" data-status role="status" aria-live="polite"></p>
     <button class="submit" type="submit">Add note</button>

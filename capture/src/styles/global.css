@@ -133,7 +133,9 @@ button {
 }
 
 .repository-trigger {
+  anchor-name: --repository-trigger;
   display: flex;
+  min-width: 10rem;
   max-width: 100%;
   align-items: center;
   gap: 0.4rem;
@@ -148,6 +150,7 @@ button {
 }
 
 .repository-trigger svg {
+  margin-left: auto;
   width: 1rem;
   fill: none;
   stroke: currentColor;
@@ -157,19 +160,19 @@ button {
 }
 
 .repository-popover {
+  position-anchor: --repository-trigger;
+  position-area: bottom span-left;
   display: none;
   width: min(26rem, calc(100vw - 1.5rem));
   max-height: min(28rem, calc(100vh - 2rem));
   padding: 0.65rem;
   border: 1px solid #3b3b3b;
   border-radius: 0.8rem;
-  margin: 0;
+  margin: 0.5rem 0 0;
   overflow: hidden;
   background: #202020;
   color: #eee;
   box-shadow: 0 1rem 3rem rgb(0 0 0 / 45%);
-  inset: auto max(0.75rem, calc((100vw - min(48rem, 100vw - 2rem)) / 2)) auto
-    auto;
 }
 
 .repository-popover:popover-open {

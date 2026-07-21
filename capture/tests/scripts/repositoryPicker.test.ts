@@ -23,11 +23,9 @@ describe("filterRepositories", () => {
 describe("restoreRepository", () => {
   test("restores only an allowed stored repository", () => {
     const allowed = options.map(({ repository }) => repository);
-    expect(restoreRepository("owner/app", allowed, "owner/notes")).toBe(
-      "owner/app",
-    );
-    expect(restoreRepository("owner/old", allowed, "owner/notes")).toBe(
-      "owner/notes",
-    );
+    expect(restoreRepository("owner/app", allowed)).toBe("owner/app");
+    expect(restoreRepository("owner/old", allowed)).toBe("");
+    expect(restoreRepository("", allowed)).toBe("");
+    expect(restoreRepository(null, allowed)).toBe("");
   });
 });

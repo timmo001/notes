@@ -4,13 +4,9 @@ import CaptureForm from "../components/CaptureForm.astro";
 import { parseRepositoryOptions } from "../capture/repositories.js";
 import AppLayout from "../layouts/AppLayout.astro";
 
-const defaultRepository = `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
 const repositories = parseRepositoryOptions(env.CAPTURE_REPOSITORIES);
 ---
 
 <AppLayout title="Capture | Notes">
-  <CaptureForm
-    repositories={repositories}
-    defaultRepository={defaultRepository}
-  />
+  <CaptureForm repositories={repositories} />
 </AppLayout>
