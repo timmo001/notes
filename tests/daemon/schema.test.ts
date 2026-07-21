@@ -18,6 +18,12 @@ describe("daemon schema", () => {
       workerActor: "automation-user",
       opencodeUrl: "http://127.0.0.1:4096",
       opencodeDirectory: "~/.config/dotfiles",
+      opencodeAgent: "notes-daemon",
+      allowedReadPaths: ["~/repos/**", "~/.config/dotfiles/**"],
+      sessionTimeoutSeconds: 300,
+      passTimeoutSeconds: 900,
+      commandTimeoutSeconds: 30,
+      consecutiveFailureLimit: 3,
       pollIntervalSeconds: 30,
     });
     expect(config.repository).toBe("owner/repo");

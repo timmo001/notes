@@ -19,15 +19,30 @@ repositoryPath: ~/Documents/notes
 queueLabel: agent:ready
 workerId: desktop
 workerActor: github-user
-opencodeUrl: http://127.0.0.1:4096
+opencodeUrl: http://127.0.0.1:4097
 opencodeDirectory: ~/.config/dotfiles
+opencodeAgent: notes-daemon
+allowedReadPaths:
+  - ~/repos/**
+  - ~/.config/dotfiles/**
+  - ~/.config/bootstrap/**
+  - ~/.config/waybar/**
+  - ~/.config/uwsm/**
+sessionTimeoutSeconds: 300
+passTimeoutSeconds: 900
+commandTimeoutSeconds: 30
+consecutiveFailureLimit: 3
 pollIntervalSeconds: 30
 ```
 
 `repositoryPath` must be a local checkout of `repository` with an `origin` remote that can create and delete `refs/daemon-locks/issues/*`. The GitHub CLI must be authenticated with issue and repository write access.
 
-The daemon creates an OpenCode session rooted at `opencodeDirectory`. It denies tools by default and enables only read-only research plus Notes MCP note operations, then sends note text as base64-encoded untrusted data. Plain HTTP OpenCode URLs are accepted only for loopback hosts; use HTTPS for remote servers.
+The daemon uses a separate loopback-only OpenCode server on port 4097. Its configuration and `notes-daemon` agent live under `.opencode-daemon/` in this repository rather than the interactive global OpenCode configuration. Its XDG config, data, state, and cache directories are isolated from interactive OpenCode sessions. The server runs in pure mode with external skills, project config, and default plugins disabled. Only the read-only GitHub MCP endpoint and Notes MCP server are configured.
+
+The dedicated agent fails closed for unknown tools. It allows built-in read/search operations, authenticated read-only GitHub tools, and Notes MCP list/read/write. External filesystem reads are denied except for `allowedReadPaths`; write/edit/patch tools remain denied for every path. It also denies questions, delegation, planning, shell execution, browser control, Chrome DevTools, and note deletion. Any unexpected permission or question request aborts the job instead of waiting for input.
 
 OpenCode infers the target repository from the capture and writes under `projects/{owner}/{repo}`. Captures without a resolvable repository use `projects/local/captures`. Completion comments report the note commit SHA rather than exposing a local filesystem path.
 
 Lock refs are ownership checked before GitHub mutations and deleted with an expected-OID lease. The first release does not automatically take over stale locks. Remove one manually only after confirming its owner is no longer processing the issue.
+
+Session, queue-pass, and external command timeouts are configured in daemon YAML. OpenCode sessions are aborted and deleted on success, failure, timeout, or interruption. Persistent pass failures exit after the configured threshold so systemd can restart the daemon.

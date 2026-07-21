@@ -20,5 +20,6 @@ export const loadDaemonConfig = Effect.fn("NotesDaemon.loadConfig")(function* (
     ...decoded,
     repositoryPath: expandHomePath(decoded.repositoryPath),
     opencodeDirectory: expandHomePath(decoded.opencodeDirectory),
+    allowedReadPaths: decoded.allowedReadPaths.map(expandHomePath),
   } satisfies DaemonConfigValue;
 });

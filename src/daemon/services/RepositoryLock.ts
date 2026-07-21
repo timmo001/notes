@@ -48,14 +48,13 @@ export class RepositoryLock extends Context.Service<
       Effect.gen(function* () {
         const executor = yield* CommandExecutor;
         const runGit = (operation: string, args: readonly string[]) =>
-          executor
-            .run("git", args, { cwd: config.repositoryPath })
-            .pipe(
-              Effect.mapError(
-                (error) =>
-                  new RepositoryLockError({ operation, message: error.stderr }),
-              ),
-            );
+          executor.run("git", args, { cwd: config.repositoryPath }).pipe(
+            Effect.timeout(`${config.commandTimeoutSeconds} seconds`),
+            Effect.mapError(
+              (error) =>
+                new RepositoryLockError({ operation, message: String(error) }),
+            ),
+          );
         const remoteOid = Effect.fn("RepositoryLock.remoteOid")(function* (
           ref: string,
         ) {
@@ -86,9 +85,18 @@ export class RepositoryLock extends Context.Service<
                 "origin",
                 `${oid}:${ref}`,
               ];
-              const pushed = yield* executor.exitCode("git", pushArgs, {
-                cwd: config.repositoryPath,
-              });
+              const pushed = yield* executor
+                .exitCode("git", pushArgs, { cwd: config.repositoryPath })
+                .pipe(
+                  Effect.timeout(`${config.commandTimeoutSeconds} seconds`),
+                  Effect.mapError(
+                    (error) =>
+                      new RepositoryLockError({
+                        operation: "acquire",
+                        message: String(error),
+                      }),
+                  ),
+                );
               if (pushed !== 0) {
                 const actual = yield* remoteOid(ref);
                 if (actual === oid) return { issueNumber, ref, oid, nonce };

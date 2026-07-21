@@ -1,0 +1,30 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "notes-daemon",
+  "share": "disabled",
+  "autoupdate": false,
+  "snapshot": false,
+  "formatter": false,
+  "lsp": false,
+  "instructions": [],
+  "mcp": {
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/x/all/readonly",
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {env:DOT_GH_MCP_BEARER}"
+      },
+      "enabled": true
+    },
+    "notes": {
+      "type": "local",
+      "command": ["notes", "mcp"],
+      "enabled": true
+    }
+  },
+  "permission": "deny",
+  "experimental": {
+    "mcp_timeout": 30000
+  }
+}

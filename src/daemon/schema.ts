@@ -53,6 +53,26 @@ export const DaemonConfig = Schema.Struct({
     }),
   ),
   opencodeDirectory: Schema.String.check(Schema.isNonEmpty()),
+  opencodeAgent: Schema.Literal("notes-daemon"),
+  allowedReadPaths: Schema.Array(
+    Schema.String.check(Schema.isNonEmpty()),
+  ).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
+  sessionTimeoutSeconds: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(30),
+    Schema.isLessThanOrEqualTo(900),
+  ),
+  passTimeoutSeconds: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(60),
+    Schema.isLessThanOrEqualTo(1800),
+  ),
+  commandTimeoutSeconds: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(5),
+    Schema.isLessThanOrEqualTo(120),
+  ),
+  consecutiveFailureLimit: Schema.Int.check(
+    Schema.isGreaterThanOrEqualTo(1),
+    Schema.isLessThanOrEqualTo(10),
+  ),
   pollIntervalSeconds: Schema.Int.check(Schema.isGreaterThanOrEqualTo(10)),
 });
 

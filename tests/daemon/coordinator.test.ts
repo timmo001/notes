@@ -190,7 +190,7 @@ describe("runProcessingPass", () => {
     expect(closeCalls).toBe(0);
   });
 
-  test("reports release failure without aborting the pass", async () => {
+  test("escalates release failure to pass supervision", async () => {
     const issues = [issue(), { ...issue(), number: 2 }];
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
@@ -231,13 +231,10 @@ describe("runProcessingPass", () => {
     );
 
     const result = await Effect.runPromise(
-      runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
+      Effect.exit(
+        runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
+      ),
     );
-    expect(result).toEqual({
-      observed: 2,
-      completed: 1,
-      skipped: 0,
-      failed: 1,
-    });
+    expect(result._tag).toBe("Failure");
   });
 });

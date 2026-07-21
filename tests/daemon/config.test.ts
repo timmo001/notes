@@ -27,11 +27,23 @@ describe("loadDaemonConfig", () => {
         "workerActor: worker",
         "opencodeUrl: http://127.0.0.1:4096",
         `opencodeDirectory: ${root}`,
+        "opencodeAgent: notes-daemon",
+        "allowedReadPaths:",
+        "  - ~/repos/**",
+        "  - ~/.config/dotfiles/**",
+        "sessionTimeoutSeconds: 300",
+        "passTimeoutSeconds: 900",
+        "commandTimeoutSeconds: 30",
+        "consecutiveFailureLimit: 3",
         "pollIntervalSeconds: 30",
       ].join("\n"),
     );
 
     const config = await Effect.runPromise(loadDaemonConfig(path));
     expect(config.repositoryPath).toBe(root);
+    expect(config.allowedReadPaths).toEqual([
+      `${process.env.HOME}/repos/**`,
+      `${process.env.HOME}/.config/dotfiles/**`,
+    ]);
   });
 });

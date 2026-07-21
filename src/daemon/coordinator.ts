@@ -144,7 +144,13 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
           ),
         ),
   );
-  return (yield* Ref.get(releaseFailed)) ? ("failed" as const) : outcome;
+  if (yield* Ref.get(releaseFailed)) {
+    return yield* new DaemonProcessingError({
+      issueNumber: issue.number,
+      message: `Failed to release issue lock ${lease.ref}`,
+    });
+  }
+  return outcome;
 });
 
 /** Process one snapshot of the configured issue queue. */

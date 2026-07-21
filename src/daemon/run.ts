@@ -1,4 +1,4 @@
-import { Effect, Layer, Schedule } from "effect";
+import { Effect, Layer, Ref, Schedule } from "effect";
 import { runProcessingPass } from "./coordinator.js";
 import { loadDaemonConfig } from "./config.js";
 import { IssueQueue } from "./services/IssueQueue.js";
@@ -22,6 +22,7 @@ export const runDaemon = Effect.fn("NotesDaemon.run")(function* (
     OpenCodeClient.layer(config, password, username),
   ).pipe(Layer.provide(CommandExecutor.layer));
   const pass = runProcessingPass(config.queueLabel, config.workerActor).pipe(
+    Effect.timeout(`${config.passTimeoutSeconds} seconds`),
     Effect.tap((result) =>
       Effect.sync(() =>
         console.log(
@@ -33,10 +34,21 @@ export const runDaemon = Effect.fn("NotesDaemon.run")(function* (
   );
 
   if (once) return yield* pass;
-  return yield* pass.pipe(
+  const consecutiveFailures = yield* Ref.make(0);
+  const supervisedPass = pass.pipe(
+    Effect.tap(() => Ref.set(consecutiveFailures, 0)),
     Effect.catch((error) =>
-      Effect.sync(() => console.error("[notes-daemon] pass failed", error)),
+      Effect.gen(function* () {
+        console.error("[notes-daemon] pass failed", error);
+        const failures = yield* Ref.updateAndGet(
+          consecutiveFailures,
+          (count) => count + 1,
+        );
+        if (failures >= config.consecutiveFailureLimit) return yield* error;
+      }),
     ),
+  );
+  return yield* supervisedPass.pipe(
     Effect.repeat(
       Schedule.spaced(`${config.pollIntervalSeconds} seconds`).pipe(
         Schedule.jittered,

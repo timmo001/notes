@@ -34,18 +34,20 @@ export class IssueQueue extends Context.Service<
       IssueQueue,
       Effect.gen(function* () {
         const executor = yield* CommandExecutor;
+        const run = (args: readonly string[]) =>
+          executor
+            .run("gh", args)
+            .pipe(Effect.timeout(`${config.commandTimeoutSeconds} seconds`));
         const json = Effect.fn("IssueQueue.ghJson")(function* (
           operation: string,
           args: readonly string[],
         ) {
-          const output = yield* executor
-            .run("gh", args)
-            .pipe(
-              Effect.mapError(
-                (error) =>
-                  new IssueQueueError({ operation, message: error.stderr }),
-              ),
-            );
+          const output = yield* run(args).pipe(
+            Effect.mapError(
+              (error) =>
+                new IssueQueueError({ operation, message: String(error) }),
+            ),
+          );
           return yield* Effect.try({
             try: () => JSON.parse(output) as unknown,
             catch: (error) =>
@@ -98,29 +100,34 @@ export class IssueQueue extends Context.Service<
             ),
           get,
           comment: (number, body) =>
-            executor
-              .run("gh", [
+            run([
+              "issue",
+              "comment",
+              String(number),
+              "--repo",
+              config.repository,
+              "--body",
+              body,
+            ]).pipe(
+              Effect.asVoid,
+              Effect.mapError(
+                (error) =>
+                  new IssueQueueError({
+                    operation: "comment",
+                    message: String(error),
+                  }),
+              ),
+            ),
+          complete: (number) =>
+            Effect.gen(function* () {
+              yield* run([
                 "issue",
-                "comment",
+                "close",
                 String(number),
                 "--repo",
                 config.repository,
-                "--body",
-                body,
-              ])
-              .pipe(
-                Effect.asVoid,
-                Effect.mapError(
-                  (error) =>
-                    new IssueQueueError({
-                      operation: "comment",
-                      message: error.stderr,
-                    }),
-                ),
-              ),
-          complete: (number) =>
-            Effect.gen(function* () {
-              yield* executor.run("gh", [
+              ]);
+              yield* run([
                 "issue",
                 "edit",
                 String(number),
@@ -129,20 +136,13 @@ export class IssueQueue extends Context.Service<
                 "--remove-label",
                 config.queueLabel,
               ]);
-              yield* executor.run("gh", [
-                "issue",
-                "close",
-                String(number),
-                "--repo",
-                config.repository,
-              ]);
             }).pipe(
               Effect.asVoid,
               Effect.mapError(
                 (error) =>
                   new IssueQueueError({
                     operation: "complete",
-                    message: error.stderr,
+                    message: String(error),
                   }),
               ),
             ),
