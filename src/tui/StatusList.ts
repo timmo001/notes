@@ -96,6 +96,8 @@ export class StatusList<T> extends ScrollBoxRenderable {
         )
       : 0;
     this.buildRows();
+    const row = this.rows[this.selectedIndex];
+    if (row) this.scrollChildIntoView(row.container.id);
     this.emitSelectionChanged();
   }
 

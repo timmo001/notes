@@ -8,6 +8,7 @@ import type {
   NoteGitResult,
   NotePriority,
   NoteRepoSection,
+  NotesTuiScope,
   NotesViewFilter,
 } from "../types.js";
 import { NotesView } from "./NotesView.js";
@@ -30,8 +31,8 @@ export interface AppDeps {
   readonly renderer: CliRenderer;
   /** Active colour theme. */
   readonly theme: Theme;
-  /** List note entries for the current repository. */
-  readonly listNotes: () => Promise<readonly NoteEntry[]>;
+  /** Resolve the initial repository scope and its note entries. */
+  readonly loadTuiScope: () => Promise<NotesTuiScope>;
   /** List note entries grouped by every repository notes directory. */
   readonly listAllNotes: () => Promise<readonly NoteRepoSection[]>;
   /** Read the full markdown content for a note file. */
@@ -65,7 +66,7 @@ export class App {
 
   constructor(deps: AppDeps, options: AppOptions = {}) {
     this.notesView = new NotesView(deps.renderer, deps.theme, {
-      listNotes: deps.listNotes,
+      loadTuiScope: deps.loadTuiScope,
       listAllNotes: deps.listAllNotes,
       readNote: deps.readNote,
       deleteNote: deps.deleteNote,

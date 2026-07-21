@@ -163,6 +163,81 @@ describe("Notes service", () => {
     expect(entries.map((entry) => entry.filename)).toEqual(["local.md"]);
   });
 
+  test("uses the current repository for TUI startup when a remote resolves", async () => {
+    const { layer } = fixture();
+
+    const scope = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).tuiScope();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(scope).toMatchObject({
+      scope: "current",
+      repoSlug: "timmo001/notes",
+      entries: [{ filename: "note.md", repoSlug: "timmo001/notes" }],
+    });
+  });
+
+  test("uses all repositories for TUI startup without a remote", async () => {
+    const { root } = fixture();
+    const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
+    temporaryDirectories.push(projectDir);
+    const repoSlug = `local/${basename(projectDir)}`;
+    const localNotesPath = join(
+      root,
+      "projects",
+      "local",
+      basename(projectDir),
+    );
+    mkdirSync(localNotesPath, { recursive: true });
+    writeFileSync(
+      join(localNotesPath, "local.md"),
+      renderDraft(
+        "note",
+        { source: "local", owner: "local", repo: basename(projectDir) },
+        "date",
+        "Local",
+        "Local description",
+      ),
+    );
+
+    const scope = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).tuiScope();
+      }).pipe(Effect.provide(serviceLayer(root, projectDir))),
+    );
+
+    expect(scope).toMatchObject({ scope: "all", repoSlug });
+    if (scope.scope !== "all") throw new Error("Expected all-repository scope");
+    expect(scope.sections.map((section) => section.repoSlug)).toEqual([
+      repoSlug,
+      "timmo001/notes",
+    ]);
+    expect(
+      scope.sections.find((section) => section.repoSlug === repoSlug)?.entries,
+    ).toMatchObject([{ filename: "local.md", repoSlug }]);
+  });
+
+  test("uses local TUI fallback when the remote cannot be parsed", async () => {
+    const { root } = fixture();
+    const projectDir = mkdtempSync(join(tmpdir(), "local-git-project-"));
+    temporaryDirectories.push(projectDir);
+    git(projectDir, "init");
+    git(projectDir, "remote", "add", "origin", "not-a-repository-url");
+
+    const scope = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).tuiScope();
+      }).pipe(Effect.provide(serviceLayer(root, projectDir))),
+    );
+
+    expect(scope).toMatchObject({
+      scope: "all",
+      repoSlug: `local/${basename(projectDir)}`,
+    });
+  });
+
   test("lists markdown notes newest-first with parsed metadata", async () => {
     const { root, path, layer } = fixture();
     const notesPath = join(root, "projects", "timmo001", "notes");

@@ -51,6 +51,7 @@ import {
   type NotePushResult,
   type NoteReadResult,
   type NoteRepoSection,
+  type NotesTuiScope,
   type NoteWriteOptions,
   type NoteWriteResult,
   type RepoNoteIdentity,
@@ -86,6 +87,7 @@ interface NotesService {
   ) => Effect.Effect<string, NotesError>;
   readonly list: () => Effect.Effect<readonly NoteEntry[], NotesError>;
   readonly listAll: () => Effect.Effect<readonly NoteRepoSection[], NotesError>;
+  readonly tuiScope: () => Effect.Effect<NotesTuiScope, NotesError>;
   readonly read: (
     filePath: string,
   ) => Effect.Effect<NoteReadResult, NotesError>;
@@ -755,6 +757,30 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 `notes list --all: failed to list notes: ${errorMessage(error)}`,
               ),
           }),
+        tuiScope: Effect.fn("Notes.tuiScope")(function* () {
+          const { identity } = yield* resolveIdentity();
+          const repoSlug = `${identity.owner}/${identity.repo}`;
+          if (identity.source === "local") {
+            const sections = yield* Effect.try({
+              try: () => listNoteRepoSections(projectsRoot),
+              catch: (error) =>
+                fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
+            });
+            return { scope: "all" as const, repoSlug, sections };
+          }
+
+          const notesPath = join(projectsRoot, identity.owner, identity.repo);
+          const entries = yield* Effect.try({
+            try: () =>
+              listNoteEntries(projectsRoot, notesPath).map((entry) => ({
+                ...entry,
+                repoSlug,
+              })),
+            catch: (error) =>
+              fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
+          });
+          return { scope: "current" as const, repoSlug, entries };
+        }),
         read: (filePath) =>
           Effect.try({
             try: () => {

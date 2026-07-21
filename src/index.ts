@@ -401,7 +401,7 @@ async function runTui(mode: TuiMode): Promise<void> {
       {
         renderer,
         theme,
-        listNotes: () => runPromise(notes.list()),
+        loadTuiScope: () => runPromise(notes.tuiScope()),
         listAllNotes: () => runPromise(notes.listAll()),
         readNote: (filePath) =>
           runPromise(notes.read(filePath)).then((result) => result.content),

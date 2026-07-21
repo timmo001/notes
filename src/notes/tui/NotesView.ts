@@ -31,6 +31,7 @@ import type {
   NoteGitResult,
   NotePriority,
   NoteRepoSection,
+  NotesTuiScope,
   NotesViewFilter,
 } from "../types.js";
 import {
@@ -95,8 +96,8 @@ const DELETE_PROMPT_HEIGHT = 7;
 
 /** Configuration callbacks for the repository notes view. */
 export interface NotesViewOptions {
-  /** List note entries for the current repository. */
-  readonly listNotes: () => Promise<readonly NoteEntry[]>;
+  /** Resolve the initial repository scope and its note entries. */
+  readonly loadTuiScope: () => Promise<NotesTuiScope>;
   /** List note entries grouped by every repository notes directory. */
   readonly listAllNotes: () => Promise<readonly NoteRepoSection[]>;
   /** Read the full markdown content for a note file. */
@@ -162,7 +163,7 @@ export class NotesView {
   private filter: NotesViewFilter | null = null;
   private activePane: NotesPane = "list";
   private sortMode: NoteSortMode = "name-asc";
-  private groupMode: NoteGroupMode = "priority";
+  private groupMode: NoteGroupMode = "repo";
   private searchActive = false;
   private searchQuery = "";
   private searchIndex: Fuse<NoteEntry> | null = null;
@@ -170,6 +171,7 @@ export class NotesView {
   private visibleEntries: readonly NoteEntry[] = [];
   private showingAllRepos = false;
   private usingAllReposFallback = false;
+  private preferredInitialRepoSlug: string | null = null;
   private selectedFilePath: string | null = null;
   private selectedEntry: NoteEntry | null = null;
   private loadedNoteContent: string | null = null;
@@ -512,6 +514,7 @@ export class NotesView {
       this.searchIndex = null;
       this.showingAllRepos = loaded.allRepos;
       this.usingAllReposFallback = loaded.fallback;
+      this.preferredInitialRepoSlug = loaded.preferredRepoSlug ?? null;
       this.titleBar.content = this.formatTitle();
       this.applyFilter();
       this.updateStatusBar();
@@ -532,6 +535,7 @@ export class NotesView {
     readonly entries: readonly NoteEntry[];
     readonly allRepos: boolean;
     readonly fallback: boolean;
+    readonly preferredRepoSlug?: string;
   }> {
     if (this.filter?.includeAllRepos) {
       return {
@@ -541,8 +545,16 @@ export class NotesView {
       };
     }
 
-    const currentEntries = await this.callbacks.listNotes();
-    return { entries: currentEntries, allRepos: false, fallback: false };
+    const scope = await this.callbacks.loadTuiScope();
+    if (scope.scope === "all") {
+      return {
+        entries: flattenNoteSections(scope.sections),
+        allRepos: true,
+        fallback: true,
+        preferredRepoSlug: scope.repoSlug,
+      };
+    }
+    return { entries: scope.entries, allRepos: false, fallback: false };
   }
 
   private applyFilter(): void {
@@ -554,9 +566,17 @@ export class NotesView {
     this.visibleEntries = searching
       ? this.searchEntries(tagFiltered, query)
       : this.sortEntries(tagFiltered);
+    const preferredFilePath =
+      this.selectedFilePath ??
+      (this.preferredInitialRepoSlug
+        ? this.visibleEntries.find(
+            (entry) => entry.repoSlug === this.preferredInitialRepoSlug,
+          )?.filePath
+        : undefined);
+    this.preferredInitialRepoSlug = null;
     this.noteList.setItems(
       this.visibleEntries.map((entry) => this.listItem(entry, !searching)),
-      this.selectedFilePath,
+      preferredFilePath,
     );
     this.titleBar.content = this.formatTitle();
     this.updatePaneTitles();
@@ -655,6 +675,10 @@ export class NotesView {
     return this.groupMode === "priority";
   }
 
+  private groupingByRepo(): boolean {
+    return this.groupMode === "repo";
+  }
+
   private sortEntries(entries: readonly NoteEntry[]): readonly NoteEntry[] {
     const compare = sortComparator(this.sortMode);
     if (this.groupingByPriority()) {
@@ -665,7 +689,7 @@ export class NotesView {
       });
     }
 
-    if (!this.showingAllRepos) return [...entries].sort(compare);
+    if (!this.groupingByRepo()) return [...entries].sort(compare);
     const sectionOrder = new Map<string, number>();
     for (const entry of entries) {
       const key = entry.repoSlug ?? "";
@@ -1096,7 +1120,7 @@ export class NotesView {
   ): string | undefined {
     if (!showSection) return undefined;
     if (this.groupingByPriority()) return priorityLabel(notePriority(entry));
-    return this.showingAllRepos ? entry.repoSlug : undefined;
+    return this.groupingByRepo() ? entry.repoSlug : undefined;
   }
 
   private updateHeader(entry: NoteEntry): void {
@@ -1133,9 +1157,9 @@ export class NotesView {
     const detail =
       this.searchActive || query.length > 0
         ? `search "${query}"`
-        : this.groupingByPriority()
-          ? `group:priority | ${sortModeLabel(this.sortMode)}`
-          : sortModeLabel(this.sortMode);
+        : this.groupMode === "none"
+          ? sortModeLabel(this.sortMode)
+          : `group:${this.groupMode} | ${sortModeLabel(this.sortMode)}`;
     this.listTitle.content = formatPaneTitle(
       this.theme,
       `${notesDisplayTitle(this.filter, this.showingAllRepos)} | ${detail}`,

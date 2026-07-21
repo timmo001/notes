@@ -26,10 +26,14 @@ export interface LocalRepoNoteIdentity {
 export type NotePriority = "low" | "medium" | "high" | "critical";
 
 /** Grouping dimension applied to the notes list. */
-export type NoteGroupMode = "none" | "priority";
+export type NoteGroupMode = "repo" | "priority" | "none";
 
 /** Group modes cycled by the notes view grouping key, in order. */
-export const GROUP_CYCLE: readonly NoteGroupMode[] = ["priority", "none"];
+export const GROUP_CYCLE: readonly NoteGroupMode[] = [
+  "repo",
+  "priority",
+  "none",
+];
 
 /** Priority levels ordered highest-first for display and sorting. */
 export const PRIORITY_LEVELS: readonly NotePriority[] = [
@@ -75,6 +79,19 @@ export interface NoteRepoSection {
   /** Note entries in this repository, sorted newest-first. */
   readonly entries: readonly NoteEntry[];
 }
+
+/** Initial repository scope resolved for the interactive notes view. */
+export type NotesTuiScope =
+  | {
+      readonly scope: "current";
+      readonly repoSlug: string;
+      readonly entries: readonly NoteEntry[];
+    }
+  | {
+      readonly scope: "all";
+      readonly repoSlug: string;
+      readonly sections: readonly NoteRepoSection[];
+    };
 
 /** Filter applied when opening the interactive notes view. */
 export interface NotesViewFilter {
