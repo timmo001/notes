@@ -472,10 +472,16 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         readonly ok: boolean;
         readonly committed: boolean;
         readonly text: string;
+        readonly sha?: string;
         readonly error?: string;
       }): NoteCommitResult =>
         outcome.ok
-          ? { ok: true, committed: outcome.committed, text: outcome.text }
+          ? {
+              ok: true,
+              committed: outcome.committed,
+              text: outcome.text,
+              sha: outcome.sha,
+            }
           : { ok: false, committed: false, error: outcome.error };
 
       const prepareMutation = Effect.fn("Notes.prepareMutation")(function* () {
@@ -542,18 +548,25 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             paths: [relativePath],
           }),
         );
-        return outcome.ok
-          ? {
-              ok: true as const,
-              committed: outcome.committed,
-              text: outcome.text,
-            }
-          : {
-              ok: false as const,
-              committed: false,
-              text: "",
-              error: `git commit failed: ${outcome.error ?? "unknown error"}`,
-            };
+        if (outcome.ok) {
+          const sha = outcome.committed
+            ? yield* commandResult("git", ["rev-parse", "HEAD"], {
+                cwd: notesRoot,
+              })
+            : undefined;
+          return {
+            ok: true as const,
+            committed: outcome.committed,
+            text: outcome.text,
+            ...(sha?.ok && { sha: sha.text }),
+          };
+        }
+        return {
+          ok: false as const,
+          committed: false,
+          text: "",
+          error: `git commit failed: ${outcome.error ?? "unknown error"}`,
+        };
       });
 
       const hasRemote = Effect.fn("Notes.hasRemote")(function* () {

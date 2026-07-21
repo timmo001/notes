@@ -241,6 +241,32 @@ export const cliCommands: readonly CliCommandSpec[] = [
     examples: ["notes mcp"],
   },
   {
+    name: "daemon",
+    summary: "Process captured notes through local OpenCode",
+    usage: "--config <path> [--once]",
+    description: [
+      "Poll a configured GitHub issue queue, claim work through custom Git refs, and post local OpenCode results.",
+      "The OpenCode server password is read from OPENCODE_SERVER_PASSWORD.",
+    ],
+    options: [
+      {
+        name: "--config",
+        valueName: "path",
+        completion: "file",
+        description: "Daemon YAML configuration path",
+      },
+      {
+        name: "--once",
+        description: "Process one queue snapshot and exit",
+      },
+      helpOption,
+    ],
+    examples: [
+      "notes daemon --config ~/.config/notes/daemon.yml",
+      "notes daemon --config ~/.config/notes/daemon.yml --once",
+    ],
+  },
+  {
     name: "completions",
     summary: "Generate shell completions",
     usage: "[bash|fish|zsh]",
@@ -276,6 +302,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
           { value: "delete" },
           { value: "handoffs" },
           { value: "mcp" },
+          { value: "daemon" },
           { value: "completions" },
         ],
       },

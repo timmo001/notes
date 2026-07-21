@@ -135,6 +135,8 @@ export interface NoteCommitResult {
   readonly ok: boolean;
   /** Whether this operation created a commit. */
   readonly committed: boolean;
+  /** Commit SHA created for this mutation. */
+  readonly sha?: string;
   /** Command output when available. */
   readonly text?: string;
   /** Non-fatal error message when commit failed. */

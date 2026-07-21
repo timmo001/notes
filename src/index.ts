@@ -17,6 +17,7 @@ import {
 import { CommandExecutor } from "./services/CommandExecutor.js";
 import { Config } from "./services/Config.js";
 import { mcpServer, mcpTeardown } from "./mcp/commands/Mcp.js";
+import { runDaemon } from "./daemon/run.js";
 import { Notes, NotesError } from "./notes/services/Notes.js";
 import {
   formatNoteLabel,
@@ -504,6 +505,20 @@ function runNative(parsed: ParsedArgs, command: string): void {
     NodeRuntime.runMain(mcpServer.pipe(Effect.provide(CliLayers)), {
       teardown: mcpTeardown,
     });
+    return;
+  }
+
+  if (command === "daemon") {
+    try {
+      validateOptions(parsed.rest, { "--config": "value", "--once": "flag" });
+      const configPath = optionValue(parsed.rest, "--config");
+      if (!configPath) failUsage("notes daemon requires --config <path>");
+      NodeRuntime.runMain(
+        runDaemon(configPath, hasOption(parsed.rest, "--once")),
+      );
+    } catch (error) {
+      failUsage(error instanceof Error ? error.message : String(error));
+    }
     return;
   }
 

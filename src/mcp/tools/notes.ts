@@ -96,11 +96,15 @@ function formatMutationOutput(
   result: NoteWriteResult | NoteDeleteResult,
 ): string {
   const outcome = noteGitOutcome(result);
-  return outcome.complete
+  const commit = result.commit.sha
+    ? `\n\nCommit: \`${result.commit.sha}\``
+    : "";
+  const output = outcome.complete
     ? result.push
       ? `${result.output}\n\nPushed: ${result.push.message}`
       : result.output
     : `${result.output}\n\nPartial success: ${outcome.detail}`;
+  return `${output}${commit}`;
 }
 
 function notifyMutation(

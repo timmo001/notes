@@ -189,6 +189,31 @@ Start a Model Context Protocol server exposing note read, list, write, and delet
 notes mcp
 ```
 
+## `notes daemon`
+
+Process captured notes through local OpenCode
+
+```text
+notes daemon --config <path> [--once]
+```
+
+Poll a configured GitHub issue queue, claim work through custom Git refs, and post local OpenCode results.
+The OpenCode server password is read from OPENCODE_SERVER_PASSWORD.
+
+**Options**
+
+| Option              | Description                         |
+| ------------------- | ----------------------------------- |
+| `--config` `<path>` | Daemon YAML configuration path      |
+| `--once`            | Process one queue snapshot and exit |
+
+**Examples**
+
+```bash
+notes daemon --config ~/.config/notes/daemon.yml
+notes daemon --config ~/.config/notes/daemon.yml --once
+```
+
 ## `notes completions`
 
 Generate shell completions
@@ -223,9 +248,9 @@ notes help [command]
 
 **Arguments**
 
-| Argument    | Description                                                                                                                        |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `read`, `write`, `delete`, `handoffs`, `mcp`, `completions`. |
+| Argument    | Description                                                                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `read`, `write`, `delete`, `handoffs`, `mcp`, `daemon`, `completions`. |
 
 **Examples**
 
