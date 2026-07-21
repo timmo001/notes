@@ -43,7 +43,7 @@ export function collectSpeechResult(
 ): SpeechResult {
   let finalText = "";
   let interimText = "";
-  for (let index = event.resultIndex; index < event.results.length; index++) {
+  for (let index = 0; index < event.results.length; index++) {
     const result = event.results[index];
     if (!result) continue;
     if (result.isFinal) finalText += result[0].transcript;

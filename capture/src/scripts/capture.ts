@@ -93,8 +93,15 @@ form.addEventListener("submit", async (event) => {
     ) {
       throw new Error("Capture request failed");
     }
+    const issueUrl = new URL(result.url);
+    if (issueUrl.protocol !== "https:" || issueUrl.hostname !== "github.com") {
+      throw new Error("Unexpected issue URL");
+    }
     form.reset();
-    status.innerHTML = `<a href="${result.url}">Note added</a>`;
+    const link = document.createElement("a");
+    link.href = issueUrl.href;
+    link.textContent = "Note added";
+    status.replaceChildren(link);
   } catch {
     status.textContent =
       "Could not queue this capture. Your text is still here.";

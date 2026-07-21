@@ -17,4 +17,20 @@ describe("collectSpeechResult", () => {
       interimText: "working",
     });
   });
+
+  test("preserves earlier results when recognition advances", () => {
+    const result = collectSpeechResult({
+      resultIndex: 1,
+      results: {
+        length: 2,
+        0: { isFinal: true, 0: { transcript: "earlier" } },
+        1: { isFinal: false, 0: { transcript: "current" } },
+      },
+    } as never);
+
+    expect(result).toEqual({
+      finalText: "earlier",
+      interimText: "current",
+    });
+  });
 });

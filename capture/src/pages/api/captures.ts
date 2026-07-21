@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Effect } from "effect";
 import type { APIRoute } from "astro";
-import { decodeCapture } from "../../capture/schema.js";
+import { decodeCapture, type Capture } from "../../capture/schema.js";
 import { processCapture } from "../../capture/services/CaptureProcessor.js";
 import { createGitHubIssue } from "../../capture/services/GitHubIssues.js";
 
@@ -23,12 +23,19 @@ export const POST = (async ({ request }) => {
     return json({ error: "Capture is too large" }, 413);
   }
 
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > MAX_REQUEST_BYTES) {
+    return json({ error: "Capture is too large" }, 413);
+  }
+
+  let capture: Capture;
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > MAX_REQUEST_BYTES) {
-      return json({ error: "Capture is too large" }, 413);
-    }
-    const capture = decodeCapture(JSON.parse(raw));
+    capture = decodeCapture(JSON.parse(raw));
+  } catch {
+    return json({ error: "Invalid capture" }, 400);
+  }
+
+  try {
     const issue = await Effect.runPromise(
       processCapture(capture, {
         queueLabel: env.QUEUE_LABEL,
@@ -42,7 +49,9 @@ export const POST = (async ({ request }) => {
     );
     return json(issue, 201);
   } catch (error) {
-    console.error("Capture submission failed", error);
-    return json({ error: "The capture could not be queued" }, 400);
+    console.error("Capture submission failed", {
+      requestId: capture.requestId,
+    });
+    return json({ error: "The capture could not be queued" }, 502);
   }
 }) satisfies APIRoute;

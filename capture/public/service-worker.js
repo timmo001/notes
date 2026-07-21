@@ -1,9 +1,9 @@
-const CACHE_NAME = "notes-capture-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/icon.svg"];
+const CACHE_NAME = "notes-capture-v2";
+const PUBLIC_ASSETS = ["/manifest.webmanifest", "/icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)),
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PUBLIC_ASSETS)),
   );
 });
 
@@ -22,8 +22,14 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  if (
+    event.request.method !== "GET" ||
+    !PUBLIC_ASSETS.includes(new URL(event.request.url).pathname)
+  )
+    return;
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request)),
+    caches
+      .match(event.request)
+      .then((cached) => cached ?? fetch(event.request)),
   );
 });
