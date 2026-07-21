@@ -6,12 +6,10 @@ import {
 
 const form = document.querySelector<HTMLFormElement>("[data-capture-form]");
 const textarea = document.querySelector<HTMLTextAreaElement>("#capture");
-const title = document.querySelector<HTMLInputElement>("#title");
 const record = document.querySelector<HTMLButtonElement>("[data-record]");
-const recordLabel = document.querySelector<HTMLElement>("[data-record-label]");
 const status = document.querySelector<HTMLElement>("[data-status]");
 
-if (!form || !textarea || !title || !record || !recordLabel || !status) {
+if (!form || !textarea || !record || !status) {
   throw new Error("Capture form is incomplete");
 }
 
@@ -39,9 +37,9 @@ if (Constructor) {
   recognition.onend = () => {
     listening = false;
     record.classList.remove("is-recording");
-    recordLabel.textContent = "Dictate";
-    status.textContent =
-      "Dictation stopped. Edit the transcript before sending.";
+    record.setAttribute("aria-label", "Start dictation");
+    record.title = "Start dictation";
+    status.textContent = "";
   };
   recognition.onerror = () => {
     status.textContent = "Dictation was unavailable. You can keep typing.";
@@ -55,8 +53,9 @@ if (Constructor) {
     transcriptBeforeRecording = textarea.value.trim();
     listening = true;
     record.classList.add("is-recording");
-    recordLabel.textContent = "Stop";
-    status.textContent = "Listening...";
+    record.setAttribute("aria-label", "Stop dictation");
+    record.title = "Stop dictation";
+    status.textContent = "Listening";
     recognition.start();
   });
 }
@@ -71,7 +70,7 @@ form.addEventListener("submit", async (event) => {
   if (!submit || !textarea.value.trim()) return;
 
   submit.disabled = true;
-  status.textContent = "Sending to the private queue...";
+  status.textContent = "Adding note...";
   try {
     const response = await fetch("/api/captures", {
       method: "POST",
@@ -80,7 +79,6 @@ form.addEventListener("submit", async (event) => {
         version: 1,
         requestId: crypto.randomUUID(),
         text: textarea.value,
-        titleHint: title.value.trim() || undefined,
         capturedAt: new Date().toISOString(),
         source,
       }),
@@ -96,7 +94,7 @@ form.addEventListener("submit", async (event) => {
       throw new Error("Capture request failed");
     }
     form.reset();
-    status.innerHTML = `Queued as <a href="${result.url}">a private issue</a>.`;
+    status.innerHTML = `<a href="${result.url}">Note added</a>`;
   } catch {
     status.textContent =
       "Could not queue this capture. Your text is still here.";

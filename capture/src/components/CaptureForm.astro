@@ -1,47 +1,39 @@
 <main>
   <header>
-    <p class="eyebrow">Notes capture</p>
-    <h1>Leave yourself a useful thought.</h1>
-    <p class="lede">
-      Type it or dictate it. The selected machine will process it with OpenCode.
-    </p>
+    <h1>Capture a note</h1>
+    <p>Type or dictate a note. It will be added to your notes repository.</p>
   </header>
 
   <form data-capture-form>
-    <label for="title">Title hint <span>optional</span></label>
-    <input
-      id="title"
-      name="title"
-      maxlength="120"
-      autocomplete="off"
-      placeholder="What is this about?"
-    />
-
-    <div class="field-heading">
-      <label for="capture">Capture</label>
-      <button class="record" type="button" data-record hidden>
-        <span class="record-dot"></span>
-        <span data-record-label>Dictate</span>
+    <div class="capture-field">
+      <label class="sr-only" for="capture">Note</label>
+      <textarea
+        id="capture"
+        name="capture"
+        rows="10"
+        maxlength="12000"
+        required
+        autofocus
+        placeholder="Write a note..."></textarea>
+      <button
+        class="record"
+        type="button"
+        data-record
+        hidden
+        aria-label="Start dictation"
+        title="Start dictation"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Z"
+          ></path>
+          <path d="M19 11a7 7 0 0 1-14 0M12 18v3M9 21h6"></path>
+        </svg>
       </button>
     </div>
-    <textarea
-      id="capture"
-      name="capture"
-      rows="10"
-      maxlength="12000"
-      required
-      placeholder="An idea, reminder, question, or rough note..."></textarea>
 
-    <p class="status" data-status role="status" aria-live="polite">
-      Ready to capture.
-    </p>
-    <button class="submit" type="submit">Send to queue</button>
+    <p class="status" data-status role="status" aria-live="polite"></p>
+    <button class="submit" type="submit">Add note</button>
   </form>
-
-  <footer>
-    <span>Private queue</span>
-    <span>Processed locally</span>
-  </footer>
 </main>
 
 <script>
