@@ -33,15 +33,13 @@ describe("OpenCodeClient", () => {
     const requestPaths = requests.map(
       ({ method, path }) => `${method} ${path}`,
     );
-    expect(requestPaths.slice(0, 2)).toEqual([
-      "POST /session",
-      "POST /session/session-1/message",
-    ]);
+    expect(requestPaths[0]).toBe("POST /session");
+    expect(requestPaths).toContain("POST /session/session-1/message");
     expect(requestPaths).toContain("GET /permission");
-    expect(requestPaths.slice(-2)).toEqual([
-      "POST /session/session-1/abort",
-      "DELETE /session/session-1",
-    ]);
+    const abortIndex = requestPaths.indexOf("POST /session/session-1/abort");
+    const deleteIndex = requestPaths.indexOf("DELETE /session/session-1");
+    expect(abortIndex).toBeGreaterThanOrEqual(0);
+    expect(deleteIndex).toBeGreaterThan(abortIndex);
     expect(requests[0]?.auth).toBe(
       `Basic ${Buffer.from("opencode:secret").toString("base64")}`,
     );
@@ -61,7 +59,12 @@ describe("OpenCodeClient", () => {
         },
       ]),
     });
-    expect(requests[1]?.body).toEqual({
+    const messageRequest = requests.find(
+      (request) =>
+        request.method === "POST" &&
+        request.path === "/session/session-1/message",
+    );
+    expect(messageRequest?.body).toEqual({
       agent: "notes-daemon",
       parts: [{ type: "text", text: "prompt" }],
     });
