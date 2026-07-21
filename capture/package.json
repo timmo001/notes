@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler types --config wrangler.example.jsonc && astro dev",
-    "build": "wrangler types --config wrangler.example.jsonc && astro check && astro build",
+    "build": "wrangler types --config wrangler.example.jsonc && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc astro check && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc astro build",
     "deploy": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler deploy --config dist/server/wrangler.json",
     "deploy:preview": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler versions upload --config dist/server/wrangler.json",
-    "format": "prettier --write \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.example.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
-    "format:check": "prettier --check \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.example.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
+    "format": "prettier --write \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
+    "format:check": "prettier --check \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
     "test": "bun test",
     "typecheck": "wrangler types --config wrangler.example.jsonc && astro check"
   },
