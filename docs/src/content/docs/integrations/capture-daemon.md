@@ -3,7 +3,7 @@ title: Capture daemon
 description: Process queued web captures through a local OpenCode server.
 ---
 
-The notes daemon polls a private GitHub issue queue, atomically claims each issue through a custom Git ref, submits its captured text to a local password-protected OpenCode server, and posts the result before closing the issue.
+The notes daemon polls a private GitHub issue queue, claims each issue with a temporary processing label, submits its captured text to a local password-protected OpenCode server, and posts the result before closing the issue.
 
 Run one pass while testing configuration:
 
@@ -50,6 +50,8 @@ The daemon uses a separate loopback-only OpenCode server on port 4097. Its confi
 The dedicated agent fails closed for unknown tools. It allows built-in read/search operations, authenticated read-only GitHub tools, and Notes MCP list/read/write. External filesystem reads are denied except for `allowedReadPaths`; write/edit/patch tools remain denied for every path. It also denies questions, delegation, planning mode, shell execution, browser control, Chrome DevTools, and note deletion. Any unexpected permission or question request aborts the job instead of waiting for input.
 
 The agent must investigate before writing. Notes record the repository paths or primary sources inspected, evidence-based findings, and the requested output, such as an implementation plan. A capture cannot complete by merely paraphrasing its issue text; if the available read tools cannot support the investigation, the daemon leaves the issue open as failed.
+
+A failed issue receives one bounded, sanitised error summary when the daemon has an actionable typed error. Unknown failures use a generic public message. Complete error objects remain in daemon logs rather than exposing stack traces, credentials, request bodies, or filesystem paths in GitHub comments.
 
 OpenCode infers the target repository from the capture and writes under `projects/{owner}/{repo}`. Captures without a resolvable repository use `projects/local/captures`. Completion comments report the note commit SHA rather than exposing a local filesystem path.
 

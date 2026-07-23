@@ -7,16 +7,64 @@ import {
   issuePrompt,
   type QueueIssue,
 } from "./schema.js";
-import { IssueQueue } from "./services/IssueQueue.js";
-import { OpenCodeClient } from "./services/OpenCodeClient.js";
+import { IssueQueue, IssueQueueError } from "./services/IssueQueue.js";
+import {
+  OpenCodeClient,
+  OpenCodeClientError,
+} from "./services/OpenCodeClient.js";
 
 const MAX_RESULT_LENGTH = 20_000;
+const MAX_PUBLIC_ERROR_LENGTH = 1_000;
 
 /** Failure raised when daemon processing loses ownership or returns invalid output. */
 export class DaemonProcessingError extends Schema.TaggedErrorClass<DaemonProcessingError>()(
   "DaemonProcessingError",
   { issueNumber: Schema.Int, message: Schema.String },
 ) {}
+
+function sanitizePublicErrorText(value: string, redactPaths = false): string {
+  const sanitized = value
+    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/`/g, "'")
+    .replace(
+      /\b(authorization)\s*[:=]\s*(?:basic|bearer)?\s*[^\s,;]+/gi,
+      "$1: [redacted]",
+    )
+    .replace(/\b(basic|bearer)\s+[^\s,;]+/gi, "$1 [redacted]")
+    .replace(
+      /\b(password|passwd|token|secret|api[-_]?key)\s*[:=]\s*[^\s,;]+/gi,
+      "$1: [redacted]",
+    );
+  if (!redactPaths) return sanitized.trim();
+
+  return sanitized
+    .replace(/\bfile:\/\/\/?[^\s,;]+/gi, "[redacted path]")
+    .replace(/(^|[\s('"=])[A-Za-z]:\\[^\s,;)]+/g, "$1[redacted path]")
+    .replace(/(^|[\s('"=])\/(?!\/)[^\s,;)]+/g, "$1[redacted path]")
+    .trim();
+}
+
+function publicErrorSummary(error: unknown): string {
+  let operation: string | undefined;
+  let message: string;
+  if (
+    error instanceof OpenCodeClientError ||
+    error instanceof IssueQueueError
+  ) {
+    operation = sanitizePublicErrorText(error.operation);
+    message = sanitizePublicErrorText(error.message, true);
+  } else if (error instanceof DaemonProcessingError) {
+    message = sanitizePublicErrorText(error.message, true);
+  } else {
+    return "Unexpected daemon error";
+  }
+
+  const summary = operation
+    ? `**Error:** \`${operation}\`: ${message}`
+    : `**Error:** ${message}`;
+  return summary.slice(0, MAX_PUBLIC_ERROR_LENGTH);
+}
 
 /** Result of one queue processing pass. */
 export interface ProcessingPassResult {
@@ -125,7 +173,7 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
             ) {
               yield* queue.comment(
                 issue.number,
-                `${FAILURE_MARKER}\n\nProcessing failed and the issue was left open.`,
+                `${FAILURE_MARKER}\n\nProcessing failed and the issue was left open.\n\n${publicErrorSummary(error)}`,
               );
             }
             return "failed" as const;

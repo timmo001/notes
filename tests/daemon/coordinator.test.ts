@@ -254,10 +254,117 @@ describe("runProcessingPass", () => {
       expect(
         current.comments.filter(({ body }) => body.includes(FAILURE_MARKER)),
       ).toHaveLength(1);
+      expect(current.state).toBe("open");
+      expect(current.comments[0]?.body).toContain("`process.models`");
+      expect(current.comments[0]?.body).toContain("provider unavailable");
       expect(errors).toHaveLength(2);
       expect(errors[0]?.[0]).toContain("issue=1 processing failed");
+      expect(errors[0]?.[1]).toBeInstanceOf(OpenCodeClientError);
     } finally {
       console.error = originalError;
     }
+  });
+
+  test("sanitizes and bounds a known processing error", async () => {
+    let current = issue();
+    const layer = Layer.mergeAll(
+      Layer.succeed(IssueQueue, {
+        list: () => Effect.succeed([current]),
+        get: () => Effect.succeed(current),
+        claim: () => Effect.succeed(claimLabel),
+        owns: () => Effect.succeed(true),
+        release: () => Effect.void,
+        comment: (_number, body) =>
+          Effect.sync(() => {
+            current = {
+              ...current,
+              comments: [...current.comments, { author: "worker", body }],
+            };
+          }),
+        complete: () => Effect.die("complete should not run"),
+      }),
+      Layer.succeed(OpenCodeClient, {
+        process: () =>
+          Effect.fail(
+            new OpenCodeClientError({
+              operation: "POST /session/`id`/message",
+              message: [
+                "provider\nfailed",
+                "Authorization: Bearer exposed-auth",
+                "token=exposed-token",
+                "password:exposed-password",
+                "at (/home/user/private/config.json:10)",
+                "at (C:\\Users\\user\\private.txt:20)",
+                "x".repeat(2_000),
+              ].join(" "),
+            }),
+          ),
+      }),
+    );
+
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      await Effect.runPromise(
+        runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
+      );
+    } finally {
+      console.error = originalError;
+    }
+
+    const summary = current.comments[0]?.body.split("\n\n")[2] ?? "";
+    expect(summary.length).toBeLessThanOrEqual(1_000);
+    expect(summary).toContain("`POST /session/'id'/message`");
+    expect(summary).toContain("provider failed");
+    expect(summary).toContain("Authorization: [redacted]");
+    expect(summary).toContain("token: [redacted]");
+    expect(summary).toContain("password: [redacted]");
+    expect(summary).toContain("[redacted path]");
+    expect(summary).not.toContain("exposed-");
+    expect(summary).not.toContain("/home/user/private/config.json");
+    expect(summary).not.toContain("C:\\Users\\user\\private.txt");
+    expect(summary).not.toContain("\n");
+    expect(current.state).toBe("open");
+  });
+
+  test("publishes a generic summary for an unknown processing error", async () => {
+    let current = issue();
+    const unexpected = new Error("private implementation detail");
+    const errors: unknown[][] = [];
+    const layer = Layer.mergeAll(
+      Layer.succeed(IssueQueue, {
+        list: () => Effect.succeed([current]),
+        get: () => Effect.succeed(current),
+        claim: () => Effect.succeed(claimLabel),
+        owns: () => Effect.succeed(true),
+        release: () => Effect.void,
+        comment: (_number, body) =>
+          Effect.sync(() => {
+            current = {
+              ...current,
+              comments: [...current.comments, { author: "worker", body }],
+            };
+          }),
+        complete: () => Effect.die("complete should not run"),
+      }),
+      Layer.succeed(OpenCodeClient, {
+        process: () => Effect.fail(unexpected as never),
+      }),
+    );
+
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => errors.push(args);
+    try {
+      await Effect.runPromise(
+        runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
+      );
+    } finally {
+      console.error = originalError;
+    }
+
+    expect(current.comments[0]?.body).toContain("Unexpected daemon error");
+    expect(current.comments[0]?.body).not.toContain(unexpected.message);
+    expect(current.state).toBe("open");
+    expect(errors[0]?.[1]).toBe(unexpected);
   });
 });
