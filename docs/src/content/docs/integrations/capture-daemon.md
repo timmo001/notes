@@ -23,10 +23,11 @@ opencodeUrl: http://127.0.0.1:4097
 opencodeDirectory: ~/.config/dotfiles
 opencodeAgent: notes-daemon
 opencodeModels:
-  - providerID: opencode
-    modelID: big-pickle
   - providerID: github-copilot
     modelID: gpt-5.6-sol
+    variant: low
+  - providerID: github-copilot
+    modelID: claude-opus-4.8
     variant: low
 allowedReadPaths:
   - ~/repos/**
