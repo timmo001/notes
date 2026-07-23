@@ -14,6 +14,19 @@ export interface IssueQueueService {
   readonly list: () => Effect.Effect<readonly QueueIssue[], IssueQueueError>;
   /** Re-read one issue before a side effect. */
   readonly get: (number: number) => Effect.Effect<QueueIssue, IssueQueueError>;
+  /** Claim an issue with this worker process's visible processing label. */
+  readonly claim: (
+    number: number,
+  ) => Effect.Effect<string | null, IssueQueueError>;
+  /** Confirm that this worker process remains the sole visible claimant. */
+  readonly owns: (
+    number: number,
+    claimLabel: string,
+  ) => Effect.Effect<boolean, IssueQueueError>;
+  /** Delete this worker process's processing label. */
+  readonly release: (
+    claimLabel: string,
+  ) => Effect.Effect<void, IssueQueueError>;
   /** Add a durable daemon result comment. */
   readonly comment: (
     number: number,
@@ -68,6 +81,9 @@ export class IssueQueue extends Context.Service<
             "number,title,body,state,labels,comments",
           ]).pipe(Effect.flatMap(decodeIssue));
         });
+        const claimLabel = `agent:processing:${config.workerId}:${crypto.randomUUID().slice(0, 8)}`;
+        const processingLabels = (issue: QueueIssue) =>
+          issue.labels.filter((label) => label.startsWith("agent:processing:"));
 
         return IssueQueue.of({
           list: () =>
@@ -99,6 +115,77 @@ export class IssueQueue extends Context.Service<
               ),
             ),
           get,
+          claim: (number) =>
+            Effect.gen(function* () {
+              if (processingLabels(yield* get(number)).length > 0) return null;
+              yield* run([
+                "label",
+                "create",
+                claimLabel,
+                "--repo",
+                config.repository,
+                "--color",
+                "D9AF59",
+                "--description",
+                `Claimed by notes daemon worker ${config.workerId}`,
+                "--force",
+              ]);
+              yield* run([
+                "issue",
+                "edit",
+                String(number),
+                "--repo",
+                config.repository,
+                "--add-label",
+                claimLabel,
+              ]);
+              const labels = processingLabels(yield* get(number));
+              if (labels.length === 1 && labels[0] === claimLabel)
+                return claimLabel;
+              yield* run([
+                "label",
+                "delete",
+                claimLabel,
+                "--repo",
+                config.repository,
+                "--yes",
+              ]);
+              return null;
+            }).pipe(
+              Effect.mapError((error) =>
+                error instanceof IssueQueueError
+                  ? error
+                  : new IssueQueueError({
+                      operation: "claim",
+                      message: String(error),
+                    }),
+              ),
+            ),
+          owns: (number, label) =>
+            get(number).pipe(
+              Effect.map((issue) => {
+                const labels = processingLabels(issue);
+                return labels.length === 1 && labels[0] === label;
+              }),
+            ),
+          release: (label) =>
+            run([
+              "label",
+              "delete",
+              label,
+              "--repo",
+              config.repository,
+              "--yes",
+            ]).pipe(
+              Effect.asVoid,
+              Effect.mapError(
+                (error) =>
+                  new IssueQueueError({
+                    operation: "release",
+                    message: String(error),
+                  }),
+              ),
+            ),
           comment: (number, body) =>
             run([
               "issue",

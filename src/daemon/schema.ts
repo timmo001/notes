@@ -43,9 +43,12 @@ export interface OpenCodeModel extends Schema.Schema.Type<
 /** Configuration shared by each notes daemon installation. */
 export const DaemonConfig = Schema.Struct({
   repository: Schema.String.check(Schema.isPattern(/^[^/\s]+\/[^/\s]+$/)),
-  repositoryPath: Schema.String.check(Schema.isNonEmpty()),
   queueLabel: Schema.String.check(Schema.isNonEmpty()),
-  workerId: Schema.String.check(Schema.isNonEmpty()),
+  workerId: Schema.String.check(
+    Schema.isNonEmpty(),
+    Schema.isMaxLength(24),
+    Schema.isPattern(/^[A-Za-z0-9_-]+$/),
+  ),
   workerActor: Schema.String.check(Schema.isNonEmpty()),
   opencodeUrl: Schema.String.check(
     Schema.makeFilter((value: string) => {

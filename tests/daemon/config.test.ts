@@ -21,7 +21,6 @@ describe("loadDaemonConfig", () => {
       path,
       [
         "repository: owner/repo",
-        `repositoryPath: ${root}`,
         "queueLabel: agent:ready",
         "workerId: desktop",
         "workerActor: worker",
@@ -43,7 +42,6 @@ describe("loadDaemonConfig", () => {
     );
 
     const config = await Effect.runPromise(loadDaemonConfig(path));
-    expect(config.repositoryPath).toBe(root);
     expect(config.allowedReadPaths).toEqual([
       `${process.env.HOME}/repos/**`,
       `${process.env.HOME}/.config/dotfiles/**`,

@@ -13,7 +13,6 @@ describe("daemon schema", () => {
   test("decodes daemon configuration", () => {
     const config = Schema.decodeUnknownSync(DaemonConfig)({
       repository: "owner/repo",
-      repositoryPath: "~/notes",
       queueLabel: "agent:ready",
       workerId: "desktop",
       workerActor: "automation-user",
@@ -47,7 +46,6 @@ describe("daemon schema", () => {
     expect(() =>
       Schema.decodeUnknownSync(DaemonConfig)({
         repository: "owner/repo",
-        repositoryPath: "~/notes",
         queueLabel: "agent:ready",
         workerId: "desktop",
         workerActor: "automation-user",

@@ -15,7 +15,6 @@ Omit `--once` for the supervised polling loop. Set `OPENCODE_SERVER_PASSWORD` in
 
 ```yaml
 repository: owner/private-notes
-repositoryPath: ~/Documents/notes
 queueLabel: agent:ready
 workerId: desktop
 workerActor: github-user
@@ -42,7 +41,7 @@ consecutiveFailureLimit: 3
 pollIntervalSeconds: 30
 ```
 
-`repositoryPath` must be a local checkout of `repository` with an `origin` remote that can create and delete `refs/daemon-locks/issues/*`. The GitHub CLI must be authenticated with issue and repository write access.
+The GitHub CLI must be authenticated with issue and repository write access. Each daemon process claims an issue with a visible `agent:processing:<workerId>:<id>` label and deletes that temporary label when processing finishes. A process proceeds only while its label is the sole processing label on the issue.
 
 The daemon uses a separate loopback-only OpenCode server on port 4097. Its configuration and `notes-daemon` agent live under `.opencode-daemon/` in this repository rather than the interactive global OpenCode configuration. Its XDG config, data, state, and cache directories are isolated from interactive OpenCode sessions. The server runs in pure mode with external skills, project config, and default plugins disabled. Only the read-only GitHub MCP endpoint and Notes MCP server are configured.
 
@@ -54,6 +53,6 @@ The agent must investigate before writing. Notes record the repository paths or 
 
 OpenCode infers the target repository from the capture and writes under `projects/{owner}/{repo}`. Captures without a resolvable repository use `projects/local/captures`. Completion comments report the note commit SHA rather than exposing a local filesystem path.
 
-Lock refs are ownership checked before GitHub mutations and deleted with an expected-OID lease. The first release does not automatically take over stale locks. Remove one manually only after confirming its owner is no longer processing the issue.
+Claim labels are ownership checked before GitHub mutations. The daemon does not automatically take over stale claims; remove an `agent:processing:*` label manually only after confirming its worker is no longer processing the issue.
 
 Session, queue-pass, and external command timeouts are configured in daemon YAML. OpenCode sessions are aborted and deleted on success, failure, timeout, or interruption. Persistent pass failures exit after the configured threshold so systemd can restart the daemon.

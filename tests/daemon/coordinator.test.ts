@@ -6,16 +6,16 @@ import {
   FAILURE_MARKER,
   type QueueIssue,
 } from "../../src/daemon/schema.js";
-import { IssueQueue } from "../../src/daemon/services/IssueQueue.js";
+import {
+  IssueQueue,
+  IssueQueueError,
+} from "../../src/daemon/services/IssueQueue.js";
 import {
   OpenCodeClient,
   OpenCodeClientError,
 } from "../../src/daemon/services/OpenCodeClient.js";
-import {
-  RepositoryLock,
-  RepositoryLockError,
-  type IssueLease,
-} from "../../src/daemon/services/RepositoryLock.js";
+
+const claimLabel = "agent:processing:desktop:12345678";
 
 function issue(comments: QueueIssue["comments"] = []): QueueIssue {
   return {
@@ -31,17 +31,17 @@ function issue(comments: QueueIssue["comments"] = []): QueueIssue {
 describe("runProcessingPass", () => {
   test("comments, closes, and releases a claimed issue", async () => {
     let current = issue();
-    const released: IssueLease[] = [];
-    const lease: IssueLease = {
-      issueNumber: 1,
-      ref: "refs/daemon-locks/issues/1",
-      oid: "abc",
-      nonce: "n1",
-    };
+    const released: string[] = [];
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
         get: () => Effect.succeed(current),
+        claim: () => Effect.succeed(claimLabel),
+        owns: () => Effect.succeed(true),
+        release: (label) =>
+          Effect.sync(() => {
+            released.push(label);
+          }),
         comment: (_number, body) =>
           Effect.sync(() => {
             current = {
@@ -52,14 +52,6 @@ describe("runProcessingPass", () => {
         complete: () =>
           Effect.sync(() => {
             current = { ...current, state: "closed", labels: [] };
-          }),
-      }),
-      Layer.succeed(RepositoryLock, {
-        acquire: (): Effect.Effect<IssueLease | null> => Effect.succeed(lease),
-        owns: () => Effect.succeed(true),
-        release: (value) =>
-          Effect.sync(() => {
-            released.push(value);
           }),
       }),
       Layer.succeed(OpenCodeClient, {
@@ -78,7 +70,7 @@ describe("runProcessingPass", () => {
     });
     expect(current.state).toBe("closed");
     expect(current.comments[0]?.body).toContain(COMPLETION_MARKER);
-    expect(released).toEqual([lease]);
+    expect(released).toEqual([claimLabel]);
   });
 
   test("skips when another daemon owns the issue", async () => {
@@ -87,13 +79,11 @@ describe("runProcessingPass", () => {
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
         get: () => Effect.succeed(current),
-        comment: () => Effect.die("comment should not run"),
-        complete: () => Effect.die("complete should not run"),
-      }),
-      Layer.succeed(RepositoryLock, {
-        acquire: () => Effect.succeed(null),
+        claim: () => Effect.succeed(null),
         owns: () => Effect.succeed(false),
         release: () => Effect.void,
+        comment: () => Effect.die("comment should not run"),
+        complete: () => Effect.die("complete should not run"),
       }),
       Layer.succeed(OpenCodeClient, {
         process: () => Effect.die("OpenCode should not run"),
@@ -116,26 +106,18 @@ describe("runProcessingPass", () => {
       { author: "worker", body: `${COMPLETION_MARKER}\n\nAlready done` },
     ]);
     let opencodeCalls = 0;
-    const lease: IssueLease = {
-      issueNumber: 1,
-      ref: "refs/daemon-locks/issues/1",
-      oid: "abc",
-      nonce: "n1",
-    };
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
         get: () => Effect.succeed(current),
+        claim: () => Effect.succeed(claimLabel),
+        owns: () => Effect.succeed(true),
+        release: () => Effect.void,
         comment: () => Effect.die("comment should not run"),
         complete: () =>
           Effect.sync(() => {
             current = { ...current, state: "closed", labels: [] };
           }),
-      }),
-      Layer.succeed(RepositoryLock, {
-        acquire: (): Effect.Effect<IssueLease | null> => Effect.succeed(lease),
-        owns: () => Effect.succeed(true),
-        release: () => Effect.void,
       }),
       Layer.succeed(OpenCodeClient, {
         process: () =>
@@ -157,16 +139,13 @@ describe("runProcessingPass", () => {
   test("does not close an issue dequeued after the result comment", async () => {
     let current = issue();
     let closeCalls = 0;
-    const lease: IssueLease = {
-      issueNumber: 1,
-      ref: "refs/daemon-locks/issues/1",
-      oid: "abc",
-      nonce: "n1",
-    };
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
         get: () => Effect.succeed(current),
+        claim: () => Effect.succeed(claimLabel),
+        owns: () => Effect.succeed(true),
+        release: () => Effect.void,
         comment: (_number, body) =>
           Effect.sync(() => {
             current = {
@@ -179,11 +158,6 @@ describe("runProcessingPass", () => {
           Effect.sync(() => {
             closeCalls += 1;
           }),
-      }),
-      Layer.succeed(RepositoryLock, {
-        acquire: (): Effect.Effect<IssueLease | null> => Effect.succeed(lease),
-        owns: () => Effect.succeed(true),
-        release: () => Effect.void,
       }),
       Layer.succeed(OpenCodeClient, {
         process: () => Effect.succeed("Processed result"),
@@ -203,6 +177,15 @@ describe("runProcessingPass", () => {
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed(issues),
         get: (number) => Effect.succeed(issues[number - 1]!),
+        claim: () => Effect.succeed(claimLabel),
+        owns: () => Effect.succeed(true),
+        release: () =>
+          Effect.fail(
+            new IssueQueueError({
+              operation: "release",
+              message: "failed",
+            }),
+          ),
         comment: (number, body) =>
           Effect.sync(() => {
             const current = issues[number - 1]!;
@@ -212,25 +195,6 @@ describe("runProcessingPass", () => {
             };
           }),
         complete: () => Effect.void,
-      }),
-      Layer.succeed(RepositoryLock, {
-        acquire: (number): Effect.Effect<IssueLease | null> =>
-          Effect.succeed({
-            issueNumber: number,
-            ref: `refs/daemon-locks/issues/${number}`,
-            oid: String(number),
-            nonce: String(number),
-          }),
-        owns: () => Effect.succeed(true),
-        release: (lease) =>
-          lease.issueNumber === 1
-            ? Effect.fail(
-                new RepositoryLockError({
-                  operation: "release",
-                  message: "failed",
-                }),
-              )
-            : Effect.void,
       }),
       Layer.succeed(OpenCodeClient, {
         process: () => Effect.succeed("Processed result"),
@@ -250,16 +214,13 @@ describe("runProcessingPass", () => {
     const errors: unknown[][] = [];
     const originalError = console.error;
     console.error = (...args: unknown[]) => errors.push(args);
-    const lease: IssueLease = {
-      issueNumber: 1,
-      ref: "refs/daemon-locks/issues/1",
-      oid: "abc",
-      nonce: "n1",
-    };
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
         get: () => Effect.succeed(current),
+        claim: () => Effect.succeed(claimLabel),
+        owns: () => Effect.succeed(true),
+        release: () => Effect.void,
         comment: (_number, body) =>
           Effect.sync(() => {
             current = {
@@ -268,11 +229,6 @@ describe("runProcessingPass", () => {
             };
           }),
         complete: () => Effect.die("complete should not run"),
-      }),
-      Layer.succeed(RepositoryLock, {
-        acquire: (): Effect.Effect<IssueLease | null> => Effect.succeed(lease),
-        owns: () => Effect.succeed(true),
-        release: () => Effect.void,
       }),
       Layer.succeed(OpenCodeClient, {
         process: () =>

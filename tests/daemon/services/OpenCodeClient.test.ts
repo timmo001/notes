@@ -320,7 +320,6 @@ function makeServer(
 function testConfig(opencodeUrl: string): DaemonConfig {
   return {
     repository: "owner/repo",
-    repositoryPath: "/tmp/repo",
     queueLabel: "agent:ready",
     workerId: "desktop",
     workerActor: "worker",

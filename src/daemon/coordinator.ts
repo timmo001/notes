@@ -9,7 +9,6 @@ import {
 } from "./schema.js";
 import { IssueQueue } from "./services/IssueQueue.js";
 import { OpenCodeClient } from "./services/OpenCodeClient.js";
-import { RepositoryLock, type IssueLease } from "./services/RepositoryLock.js";
 
 const MAX_RESULT_LENGTH = 20_000;
 
@@ -32,13 +31,14 @@ export interface ProcessingPassResult {
 }
 
 const requireOwnership = Effect.fn("NotesDaemon.requireOwnership")(function* (
-  lease: IssueLease,
+  issueNumber: number,
+  claimLabel: string,
 ) {
-  const locks = yield* RepositoryLock;
-  if (yield* locks.owns(lease)) return;
+  const queue = yield* IssueQueue;
+  if (yield* queue.owns(issueNumber, claimLabel)) return;
   return yield* new DaemonProcessingError({
-    issueNumber: lease.issueNumber,
-    message: "Issue lock ownership was lost",
+    issueNumber,
+    message: "Issue claim ownership was lost",
   });
 });
 
@@ -55,7 +55,7 @@ const currentQueuedIssue = Effect.fn("NotesDaemon.currentQueuedIssue")(
 const processClaimedIssue = Effect.fn("NotesDaemon.processClaimedIssue")(
   function* (
     issue: QueueIssue,
-    lease: IssueLease,
+    claimLabel: string,
     queueLabel: string,
     workerActor: string,
   ) {
@@ -65,7 +65,7 @@ const processClaimedIssue = Effect.fn("NotesDaemon.processClaimedIssue")(
     if (!current) return false;
 
     if (issueIsComplete(current, workerActor)) {
-      yield* requireOwnership(lease);
+      yield* requireOwnership(issue.number, claimLabel);
       yield* queue.complete(issue.number);
       return true;
     }
@@ -78,11 +78,11 @@ const processClaimedIssue = Effect.fn("NotesDaemon.processClaimedIssue")(
       });
     }
 
-    yield* requireOwnership(lease);
+    yield* requireOwnership(issue.number, claimLabel);
     if (!(yield* currentQueuedIssue(issue.number, queueLabel))) return false;
     yield* queue.comment(issue.number, `${COMPLETION_MARKER}\n\n${result}`);
 
-    yield* requireOwnership(lease);
+    yield* requireOwnership(issue.number, claimLabel);
     const beforeClose = yield* currentQueuedIssue(issue.number, queueLabel);
     if (!beforeClose || !issueIsComplete(beforeClose, workerActor))
       return false;
@@ -96,16 +96,15 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
   queueLabel: string,
   workerActor: string,
 ) {
-  const locks = yield* RepositoryLock;
   const queue = yield* IssueQueue;
-  const lease = yield* locks.acquire(issue.number);
-  if (!lease) return "skipped" as const;
+  const claimLabel = yield* queue.claim(issue.number);
+  if (!claimLabel) return "skipped" as const;
 
   const releaseFailed = yield* Ref.make(false);
   const outcome = yield* Effect.acquireUseRelease(
-    Effect.succeed(lease),
+    Effect.succeed(claimLabel),
     () =>
-      processClaimedIssue(issue, lease, queueLabel, workerActor).pipe(
+      processClaimedIssue(issue, claimLabel, queueLabel, workerActor).pipe(
         Effect.map((completed) =>
           completed ? ("completed" as const) : ("skipped" as const),
         ),
@@ -116,7 +115,7 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
               error,
             );
             const [, current] = yield* Effect.all([
-              requireOwnership(lease),
+              requireOwnership(issue.number, claimLabel),
               currentQueuedIssue(issue.number, queueLabel),
             ]);
             if (
@@ -134,15 +133,15 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
         ),
       ),
     () =>
-      locks
-        .release(lease)
+      queue
+        .release(claimLabel)
         .pipe(
           Effect.catch((error) =>
             Ref.set(releaseFailed, true).pipe(
               Effect.tap(() =>
                 Effect.sync(() =>
                   console.error(
-                    `[notes-daemon] failed to release ${lease.ref} at ${lease.oid}`,
+                    `[notes-daemon] failed to release ${claimLabel} from issue ${issue.number}`,
                     error,
                   ),
                 ),
@@ -154,7 +153,7 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
   if (yield* Ref.get(releaseFailed)) {
     return yield* new DaemonProcessingError({
       issueNumber: issue.number,
-      message: `Failed to release issue lock ${lease.ref}`,
+      message: `Failed to release issue claim ${claimLabel}`,
     });
   }
   return outcome;
