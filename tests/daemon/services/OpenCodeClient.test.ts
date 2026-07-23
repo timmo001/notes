@@ -143,6 +143,24 @@ describe("OpenCodeClient", () => {
     expect(paths).toContain("DELETE /session/session-2");
   });
 
+  test("includes the OpenCode error response when every model fails", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests, { failEveryMessage: true });
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    const error = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* Effect.flip((yield* OpenCodeClient).process("prompt"));
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(error).toMatchObject({
+      operation: "process.models",
+      message:
+        "All models failed (opencode/big-pickle, github-copilot/gpt-5.6-sol/low): OpenCode returned 500: provider unavailable",
+    });
+  });
+
   test("uses a fresh fallback session after the agent reports failure", async () => {
     const requests: RecordedRequest[] = [];
     const server = makeServer(requests, { reportFirstFailure: true });
@@ -223,6 +241,7 @@ function makeServer(
     readonly pendingPermission?: boolean;
     readonly hangMessage?: boolean;
     readonly failFirstMessage?: boolean;
+    readonly failEveryMessage?: boolean;
     readonly emptyEveryMessage?: boolean;
     readonly reportFirstFailure?: boolean;
     readonly omitEveryStatus?: boolean;
@@ -261,8 +280,9 @@ function makeServer(
           await new Promise((resolve) => setTimeout(resolve, 2_000));
         }
         if (
-          options.failFirstMessage &&
-          url.pathname === "/session/session-1/message"
+          options.failEveryMessage ||
+          (options.failFirstMessage &&
+            url.pathname === "/session/session-1/message")
         ) {
           return new Response("provider unavailable", { status: 500 });
         }

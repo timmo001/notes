@@ -209,8 +209,15 @@ function makeRequest(
           },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         });
-        if (!response.ok)
-          throw new Error(`OpenCode returned ${response.status}`);
+        if (!response.ok) {
+          const detail = (await response.text())
+            .trim()
+            .replace(/\s+/g, " ")
+            .slice(0, 500);
+          throw new Error(
+            `OpenCode returned ${response.status}${detail ? `: ${detail}` : ""}`,
+          );
+        }
         if (response.status === 204) return null;
         const text = await response.text();
         return text ? (JSON.parse(text) as unknown) : null;
