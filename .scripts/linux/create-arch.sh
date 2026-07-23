@@ -29,6 +29,7 @@ cd build/arch
 cp ../../dist/notes notes
 cp ../../LICENSE LICENSE
 cp ../../.scripts/linux/PKGBUILD.binary PKGBUILD
+cp ../../.scripts/linux/repo-notes.install repo-notes.install
 
 ./notes completions zsh >notes.zsh
 ./notes completions bash >notes.bash

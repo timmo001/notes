@@ -11,6 +11,7 @@ pkgver="${last_tag#v}.r$(git rev-list --count HEAD).g$(git rev-parse --short=7 H
 
 mkdir -p "$output_dir"
 install -m 0644 "$script_dir/PKGBUILD" "$output_dir/PKGBUILD"
+install -m 0644 "$script_dir/repo-notes.install" "$output_dir/repo-notes.install"
 sed -i "s/^pkgver=.*/pkgver=${pkgver}/" "$output_dir/PKGBUILD"
 grep -Fxq "pkgver=${pkgver}" "$output_dir/PKGBUILD"
 

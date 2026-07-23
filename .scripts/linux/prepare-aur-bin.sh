@@ -28,6 +28,7 @@ arm_checksum="$(checksum "repo-notes-${release_version}-linux-aarch64.tar.gz")"
 }
 
 install -m 0644 "$script_dir/PKGBUILD.bin" "$output_dir/PKGBUILD"
+install -m 0644 "$script_dir/repo-notes.install" "$output_dir/repo-notes.install"
 sed -i \
   -e "s/^pkgver=.*/pkgver=${release_version}/" \
   -e "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${x86_checksum}')/" \

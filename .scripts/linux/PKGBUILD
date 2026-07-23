@@ -13,6 +13,7 @@ depends=('glibc' 'git')
 provides=('repo-notes')
 conflicts=('repo-notes' 'repo-notes-bin')
 options=('!strip')
+install=repo-notes.install
 source=("$pkgname::git+https://github.com/timmo001/notes.git")
 md5sums=('SKIP')
 

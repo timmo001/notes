@@ -13,6 +13,7 @@ on:
       - mise.toml
       - LICENSE
       - .scripts/linux/PKGBUILD
+      - .scripts/linux/repo-notes.install
       - .scripts/linux/prepare-aur.sh
       - .github/workflows/publish-aur-git.yml
   workflow_dispatch: {}
@@ -52,5 +53,6 @@ jobs:
     with:
       package-name: repo-notes-git
       artifact-name: aur-repo-notes-git-${{ github.run_id }}-${{ github.run_attempt }}
+      auxiliary-file-paths: repo-notes.install
     secrets:
       AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}

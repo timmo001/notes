@@ -12,6 +12,7 @@ depends=('glibc' 'git')
 provides=('repo-notes')
 conflicts=('repo-notes' 'repo-notes-bin')
 options=('!strip')
+install=repo-notes.install
 source=('notes' 'notes.zsh' 'notes.bash' 'notes.fish' 'LICENSE')
 
 package() {

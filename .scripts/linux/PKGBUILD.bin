@@ -11,6 +11,7 @@ depends=('glibc' 'git')
 provides=('repo-notes')
 conflicts=('repo-notes' 'repo-notes-git')
 options=('!strip')
+install=repo-notes.install
 source=('notes.bash' 'notes.fish' '_notes' 'LICENSE')
 source_x86_64=("repo-notes-${pkgver}-linux-${CARCH}.tar.gz::$url/releases/download/${pkgver}/repo-notes-${pkgver}-linux-${CARCH}.tar.gz")
 source_aarch64=("repo-notes-${pkgver}-linux-${CARCH}.tar.gz::$url/releases/download/${pkgver}/repo-notes-${pkgver}-linux-${CARCH}.tar.gz")

@@ -93,5 +93,6 @@ jobs:
         notes.fish
         _notes
         LICENSE
+        repo-notes.install
     secrets:
       AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
