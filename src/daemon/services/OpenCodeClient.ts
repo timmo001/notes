@@ -1,6 +1,9 @@
 import { Cause, Context, Effect, Layer, Schema } from "effect";
 import type { DaemonConfig, OpenCodeModel } from "../schema.js";
 
+const SUCCESS_PREFIX = "STATUS: success\n";
+const FAILURE_PREFIX = "STATUS: failure\n";
+
 /** Failure returned by the local OpenCode server boundary. */
 export class OpenCodeClientError extends Schema.TaggedErrorClass<OpenCodeClientError>()(
   "OpenCodeClientError",
@@ -88,7 +91,28 @@ const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
       const result = yield* Effect.exit(
         processWithModel(config, request, prompt, model),
       );
-      if (result._tag === "Success") return result.value;
+      if (result._tag === "Success") {
+        const response = result.value.trim();
+        if (response.startsWith(SUCCESS_PREFIX)) {
+          const summary = response.slice(SUCCESS_PREFIX.length).trim();
+          if (summary) return summary;
+        }
+
+        const message = response.startsWith(FAILURE_PREFIX)
+          ? response.slice(FAILURE_PREFIX.length).trim() ||
+            "Agent reported failure"
+          : "Agent returned a result without a valid status line";
+        lastError = new OpenCodeClientError({
+          operation: "message.status",
+          message,
+        });
+        if (index < config.opencodeModels.length - 1) {
+          console.warn(
+            `[notes-daemon] model failed model=${modelName(model)} operation=${lastError.operation} message=${lastError.message}; trying fallback`,
+          );
+        }
+        continue;
+      }
 
       const failure = Cause.squash(result.cause);
       if (!(failure instanceof OpenCodeClientError)) {

@@ -143,6 +143,44 @@ describe("OpenCodeClient", () => {
     expect(paths).toContain("DELETE /session/session-2");
   });
 
+  test("uses a fresh fallback session after the agent reports failure", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests, { reportFirstFailure: true });
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* OpenCodeClient).process("prompt");
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(result).toBe("First\nSecond");
+    expect(
+      requests.filter(
+        ({ method, path }) => method === "POST" && path === "/session",
+      ),
+    ).toHaveLength(2);
+  });
+
+  test("fails when every agent response omits a valid status", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests, { omitEveryStatus: true });
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(result._tag).toBe("Failure");
+    expect(
+      requests.filter(
+        ({ method, path }) => method === "POST" && path === "/session",
+      ),
+    ).toHaveLength(2);
+  });
+
   test("does not start a fallback session after primary success", async () => {
     const requests: RecordedRequest[] = [];
     const server = makeServer(requests);
@@ -186,6 +224,8 @@ function makeServer(
     readonly hangMessage?: boolean;
     readonly failFirstMessage?: boolean;
     readonly emptyEveryMessage?: boolean;
+    readonly reportFirstFailure?: boolean;
+    readonly omitEveryStatus?: boolean;
   } = {},
 ) {
   const server = Bun.serve({
@@ -229,9 +269,22 @@ function makeServer(
         if (options.emptyEveryMessage) {
           return Response.json({ parts: [{ type: "tool", text: "ignored" }] });
         }
+        if (
+          options.reportFirstFailure &&
+          url.pathname === "/session/session-1/message"
+        ) {
+          return Response.json({
+            parts: [{ type: "text", text: "STATUS: failure\nNo note written" }],
+          });
+        }
+        if (options.omitEveryStatus) {
+          return Response.json({
+            parts: [{ type: "text", text: "No note written" }],
+          });
+        }
         return Response.json({
           parts: [
-            { type: "text", text: "First" },
+            { type: "text", text: "STATUS: success\nFirst" },
             { type: "tool", text: "ignored" },
             { type: "text", text: "Second" },
           ],
