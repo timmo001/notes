@@ -52,7 +52,13 @@ function fixture(parent = tmpdir()) {
   git(root, "commit", "-m", "Initial note");
   const layer = Notes.layer.pipe(
     Layer.provideMerge(CommandExecutor.layer),
-    Layer.provideMerge(Layer.succeed(Config, { notesDir: root, projectDir })),
+    Layer.provideMerge(
+      Layer.succeed(Config, {
+        notesDir: root,
+        projectDir,
+        stateDir: join(root, "state"),
+      }),
+    ),
   );
   return { root, path, layer };
 }
@@ -60,7 +66,13 @@ function fixture(parent = tmpdir()) {
 function serviceLayer(root: string, projectDir = process.cwd()) {
   return Notes.layer.pipe(
     Layer.provideMerge(CommandExecutor.layer),
-    Layer.provideMerge(Layer.succeed(Config, { notesDir: root, projectDir })),
+    Layer.provideMerge(
+      Layer.succeed(Config, {
+        notesDir: root,
+        projectDir,
+        stateDir: join(root, "state"),
+      }),
+    ),
   );
 }
 
@@ -175,7 +187,13 @@ describe("Notes service", () => {
     expect(scope).toMatchObject({
       scope: "current",
       repoSlug: "timmo001/notes",
-      entries: [{ filename: "note.md", repoSlug: "timmo001/notes" }],
+      entries: [
+        {
+          filename: "note.md",
+          repoSlug: "timmo001/notes",
+          projectDir: expect.any(String),
+        },
+      ],
     });
   });
 
@@ -236,6 +254,27 @@ describe("Notes service", () => {
       scope: "all",
       repoSlug: `local/${basename(projectDir)}`,
     });
+  });
+
+  test("retains known project directories when listing all repositories", async () => {
+    const { root, layer } = fixture();
+    const currentScope = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).tuiScope();
+      }).pipe(Effect.provide(layer)),
+    );
+    if (currentScope.scope !== "current")
+      throw new Error("Expected current repository scope");
+
+    const sections = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).listAll();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(sections[0]?.entries[0]?.projectDir).toBe(
+      currentScope.entries[0]?.projectDir,
+    );
   });
 
   test("lists markdown notes newest-first with parsed metadata", async () => {

@@ -13,12 +13,14 @@ export async function runSupervisedProcess(
   command: readonly string[],
   options: {
     readonly label: string;
+    readonly cwd?: string;
     readonly stdin: "inherit" | "ignore";
     readonly stdout: "inherit" | "ignore";
     readonly stderr: "inherit" | "ignore";
   },
 ): Promise<void> {
   const proc = Bun.spawn([...command], {
+    cwd: options.cwd,
     stdin: options.stdin,
     stdout: options.stdout,
     stderr: options.stderr,

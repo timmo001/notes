@@ -1,4 +1,5 @@
 import type { CliRenderer } from "@opentui/core";
+import { statSync } from "node:fs";
 import type { NoteEntry } from "../types.js";
 import {
   openOpenCodeSession,
@@ -13,7 +14,7 @@ export interface OpenNoteInOpenCodeOptions {
   /** Which OpenCode agent mode to use. */
   readonly mode?: OpenCodeNoteMode;
   /** Optional plan command loader, primarily for deterministic tests. */
-  readonly loadPlanCommand?: () => Promise<string | null>;
+  readonly loadPlanCommand?: (cwd?: string) => Promise<string | null>;
   /** Callback to run after the TUI resumes. */
   readonly afterResume?: () => void;
 }
@@ -28,12 +29,14 @@ export async function openNoteInOpenCode(
   options: OpenNoteInOpenCodeOptions = {},
 ): Promise<void> {
   const mode = options.mode ?? "default";
+  const cwd = opencodeNoteDirectory(entry);
   const planCommand =
     mode === "plan"
-      ? await (options.loadPlanCommand ?? loadConfiguredPlanCommand)()
+      ? await (options.loadPlanCommand ?? loadConfiguredPlanCommand)(cwd)
       : null;
   await openOpenCodeSession(renderer, {
     mode,
+    cwd,
     prompt: opencodeNotePrompt(entry, noteContent, mode, planCommand),
     afterResume: options.afterResume,
   });
@@ -95,9 +98,12 @@ export function opencodeNotePrompt(
 }
 
 /** Read the configured `/plan` command template from OpenCode when available. */
-export async function loadConfiguredPlanCommand(): Promise<string | null> {
+export async function loadConfiguredPlanCommand(
+  cwd?: string,
+): Promise<string | null> {
   try {
     const proc = Bun.spawn(["opencode", "debug", "config"], {
+      cwd,
       stdin: "ignore",
       stdout: "pipe",
       stderr: "pipe",
@@ -111,6 +117,24 @@ export async function loadConfiguredPlanCommand(): Promise<string | null> {
     return planCommandTemplate(JSON.parse(stdout) as unknown);
   } catch {
     return null;
+  }
+}
+
+/** Resolve the repository checkout in which OpenCode should run. */
+export function opencodeNoteDirectory(entry: NoteEntry): string | undefined {
+  if (!entry.projectDir) {
+    if (entry.repoSlug?.startsWith("local/")) return undefined;
+    throw new Error(
+      `No source checkout is known for ${entry.repoSlug ?? entry.filename}. Run Notes from that repository once to record it.`,
+    );
+  }
+  if (!entry.repoSlug?.startsWith("local/")) return entry.projectDir;
+  try {
+    return statSync(entry.projectDir).isDirectory()
+      ? entry.projectDir
+      : undefined;
+  } catch {
+    return undefined;
   }
 }
 

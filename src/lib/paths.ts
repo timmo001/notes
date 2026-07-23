@@ -14,3 +14,11 @@ export function expandHomePath(path: string): string {
 export function defaultNotesRoot(): string {
   return join(HOME_DIR, "Documents", "notes");
 }
+
+/** Local state directory used by notes. */
+export function notesStateRoot(): string {
+  return join(
+    envString(ENV.XDG_STATE_HOME) ?? join(HOME_DIR, ".local", "state"),
+    "notes",
+  );
+}

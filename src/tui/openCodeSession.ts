@@ -7,6 +7,8 @@ export type OpenCodeSessionMode = "default" | "plan";
 
 /** Options for launching an interactive OpenCode session from the TUI. */
 export interface OpenCodeSessionOptions {
+  /** Directory in which OpenCode should run. */
+  readonly cwd?: string;
   /** Which OpenCode agent mode to use. */
   readonly mode?: OpenCodeSessionMode;
   /** Optional prompt to pass to OpenCode. */
@@ -25,6 +27,7 @@ export async function openOpenCodeSession(
     async () => {
       await runSupervisedProcess(openCodeArgs(options), {
         label: "OpenCode",
+        cwd: options.cwd,
         stdin: "inherit",
         stdout: "inherit",
         stderr: "inherit",

@@ -70,7 +70,11 @@ async function callTool(
     Notes.layer.pipe(
       Layer.provideMerge(CommandExecutor.layer),
       Layer.provideMerge(
-        Layer.succeed(Config, { notesDir: root, projectDir: process.cwd() }),
+        Layer.succeed(Config, {
+          notesDir: root,
+          projectDir: process.cwd(),
+          stateDir: join(root, "state"),
+        }),
       ),
     ),
     Layer.succeed(Notifier, {

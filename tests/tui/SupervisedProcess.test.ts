@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   ProcessExitError,
   runSupervisedProcess,
@@ -30,5 +33,17 @@ describe("runSupervisedProcess", () => {
         exitCode: 7,
       });
     }
+  });
+
+  test("runs the process in the requested directory", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "notes-process-"));
+    const output = join(directory, "cwd.txt");
+
+    await runSupervisedProcess(["bash", "-lc", 'pwd > "$1"', "bash", output], {
+      ...ignoredIo,
+      cwd: directory,
+    });
+
+    expect((await readFile(output, "utf8")).trim()).toBe(directory);
   });
 });

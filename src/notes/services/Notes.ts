@@ -36,6 +36,10 @@ import {
 import { formatNoteTimestamp } from "../time.js";
 import { acquireVaultLock } from "../processLock.js";
 import {
+  readRepositoryDirectories,
+  rememberRepositoryDirectory,
+} from "../repositoryDirectories.js";
+import {
   formatNoteLabel,
   type NoteCommitResult,
   type NoteContextOptions,
@@ -149,6 +153,7 @@ function listNoteEntries(
   projectsRoot: string,
   notesPath: string,
   repoSlug?: string,
+  projectDir?: string,
 ): readonly NoteEntry[] {
   if (!existsSync(notesPath)) return [];
   const physicalNotesPath = resolveRepositoryNotesDirectory(
@@ -171,6 +176,7 @@ function listNoteEntries(
         filename,
         filePath,
         repoSlug,
+        projectDir,
         mtime: stat.mtimeMs / 1000,
         ...readNoteFrontmatter(projectsRoot, filePath),
       };
@@ -425,6 +431,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                   remote,
                   remoteUrl: remoteUrl.text,
                 },
+                projectDir: identityRoot,
                 warnings,
               };
             }
@@ -454,6 +461,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             owner: "local" as const,
             repo: project,
           },
+          projectDir: identityRoot,
           warnings,
         };
       });
@@ -751,18 +759,47 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           }),
         listAll: () =>
           Effect.try({
-            try: () => listNoteRepoSections(projectsRoot),
+            try: () => {
+              const directories = readRepositoryDirectories(config.stateDir);
+              return listNoteRepoSections(projectsRoot).map((section) => ({
+                ...section,
+                entries: section.entries.map((entry) => ({
+                  ...entry,
+                  projectDir: directories[section.repoSlug],
+                })),
+              }));
+            },
             catch: (error) =>
               fail(
                 `notes list --all: failed to list notes: ${errorMessage(error)}`,
               ),
           }),
         tuiScope: Effect.fn("Notes.tuiScope")(function* () {
-          const { identity } = yield* resolveIdentity();
+          const { identity, projectDir } = yield* resolveIdentity();
           const repoSlug = `${identity.owner}/${identity.repo}`;
+          yield* Effect.try({
+            try: () =>
+              rememberRepositoryDirectory(
+                config.stateDir,
+                repoSlug,
+                projectDir,
+              ),
+            catch: (error) =>
+              fail(
+                `notes TUI: failed to remember project directory: ${errorMessage(error)}`,
+              ),
+          });
           if (identity.source === "local") {
+            const directories = readRepositoryDirectories(config.stateDir);
             const sections = yield* Effect.try({
-              try: () => listNoteRepoSections(projectsRoot),
+              try: () =>
+                listNoteRepoSections(projectsRoot).map((section) => ({
+                  ...section,
+                  entries: section.entries.map((entry) => ({
+                    ...entry,
+                    projectDir: directories[section.repoSlug],
+                  })),
+                })),
               catch: (error) =>
                 fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
             });
@@ -772,10 +809,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           const notesPath = join(projectsRoot, identity.owner, identity.repo);
           const entries = yield* Effect.try({
             try: () =>
-              listNoteEntries(projectsRoot, notesPath).map((entry) => ({
-                ...entry,
-                repoSlug,
-              })),
+              listNoteEntries(projectsRoot, notesPath, repoSlug, projectDir),
             catch: (error) =>
               fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
           });

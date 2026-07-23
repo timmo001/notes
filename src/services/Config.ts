@@ -1,7 +1,11 @@
 import { Context, Effect, Layer } from "effect";
 import { resolve } from "node:path";
 import { ENV, envString } from "../lib/env.js";
-import { defaultNotesRoot, expandHomePath } from "../lib/paths.js";
+import {
+  defaultNotesRoot,
+  expandHomePath,
+  notesStateRoot,
+} from "../lib/paths.js";
 
 /** Runtime configuration for the standalone notes CLI. */
 export interface ConfigService {
@@ -9,6 +13,8 @@ export interface ConfigService {
   readonly notesDir: string;
   /** Directory whose project identity should be resolved. */
   readonly projectDir: string;
+  /** Local state directory for checkout mappings and other machine data. */
+  readonly stateDir: string;
 }
 
 /** Effect service for resolved notes configuration. */
@@ -24,6 +30,7 @@ export class Config extends Context.Service<Config, ConfigService>()("Config") {
         ),
       ),
       projectDir: process.cwd(),
+      stateDir: notesStateRoot(),
     })),
   );
 }

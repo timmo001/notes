@@ -66,6 +66,8 @@ export interface NoteEntry extends NoteFrontmatter {
   readonly filePath: string;
   /** Repository section slug (`owner/repo`) when listed across all repos. */
   readonly repoSlug?: string;
+  /** Exact local source checkout associated with this note's repository. */
+  readonly projectDir?: string;
   /** Modification time in epoch seconds. */
   readonly mtime: number;
 }

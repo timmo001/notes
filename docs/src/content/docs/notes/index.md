@@ -35,6 +35,8 @@ Editor commands must stay attached until editing finishes. Set `EDITOR` for term
 
 `O` reads the merged OpenCode configuration and injects the configured `/plan` command template when available, expanding `${ARGUMENTS}` with the full selected note context. If no plan command can be resolved, Notes uses portable built-in planning instructions instead.
 
+OpenCode runs from the selected note's source checkout, including when Notes was opened from another directory or with `--all`. Notes remembers exact checkout paths as machine-local state under `$XDG_STATE_HOME/notes`; paths are not written into portable note files. A local note whose remembered directory no longer exists keeps the Notes process's current directory.
+
 ## Layout
 
 Repository notes live under:
