@@ -155,6 +155,28 @@ describe("notes MCP tools", () => {
     expect(notifications).toEqual(["notes: written: note.md - saved locally"]);
   });
 
+  test("note_write adds a date when frontmatter omits it", async () => {
+    const { root, notesPath } = fixture();
+    const path = join(notesPath, "without-date.md");
+    const content = `---
+repo: timmo001/notes
+name: Without Date
+description: Date is owned by Notes.
+tags: [test]
+---
+
+# Without Date
+`;
+
+    const result = await callTool(root, "note_write", { path, content });
+
+    expect(result.isError).toBeFalse();
+    expect(resultText(result)).toContain(`Written: ${path}`);
+    expect(readFileSync(path, "utf8")).toMatch(
+      /^date: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/m,
+    );
+  });
+
   test("note_write rejects malformed and stale revision hashes", async () => {
     const { root, path } = fixture();
     const malformed = await callTool(root, "note_write", {
