@@ -25,12 +25,15 @@ The TUI uses a two-pane layout: the left pane lists notes, and the right pane pr
 | `v`                 | Toggle current repo/all repos       |
 | `a` / `A`           | Create a note in editor/visual      |
 | `e` / `E`           | Edit in editor/visual               |
-| `o` / `O`           | Open in OpenCode/default plan mode  |
+| `o`                 | Open the full note in OpenCode      |
+| `O`                 | Plan from the full selected note    |
 | `d`                 | Delete after confirmation           |
 | `r`                 | Refresh                             |
 | `Esc` / `Backspace` | Exit or go back                     |
 
 Editor commands must stay attached until editing finishes. Set `EDITOR` for terminal editing and use a waiting visual command such as `VISUAL="code --wait"` for `A` and `E`.
+
+`O` reads the merged OpenCode configuration and injects the configured `/plan` command template when available, expanding `${ARGUMENTS}` with the full selected note context. If no plan command can be resolved, Notes uses portable built-in planning instructions instead.
 
 ## Layout
 
