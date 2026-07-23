@@ -77,7 +77,7 @@ if (repositoryPicker) {
       selected.querySelector("span")?.textContent ?? repository;
     repositoryTrigger.setAttribute(
       "aria-label",
-      `Repository: ${repositoryLabel.textContent}`,
+      `Target repository: ${repositoryLabel.textContent}`,
     );
     selectedRepository = repository;
     repositoryForCapture = repository;

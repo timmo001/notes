@@ -26,19 +26,13 @@ export function parseRepositoryOptions(
   return options;
 }
 
-export function resolveRepository(
+export function validateTargetRepository(
   selectedRepository: string | undefined,
-  defaultRepository: string,
   options: readonly RepositoryOption[] | undefined,
-): string {
-  if (
-    selectedRepository === undefined ||
-    selectedRepository === defaultRepository
-  ) {
-    return defaultRepository;
-  }
+): void {
+  if (selectedRepository === undefined) return;
   if (options?.some(({ repository }) => repository === selectedRepository)) {
-    return selectedRepository;
+    return;
   }
   throw new Error("Capture repository is not allowed");
 }

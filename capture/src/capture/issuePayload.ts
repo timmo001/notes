@@ -33,6 +33,7 @@ export function buildIssuePayload(
       "",
       `- Source: ${capture.source}`,
       `- Captured: ${DateTime.formatIso(capture.capturedAt)}`,
+      `- Target repository: ${capture.repository ?? "Automatic"}`,
       `- Request: \`${capture.requestId}\``,
     ].join("\n"),
   };

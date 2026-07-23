@@ -9,9 +9,9 @@ The capture PWA creates private queue issues in a configured notes repository. C
 
 Type into the capture field or use **Dictate** when the browser exposes speech recognition. Dictation is a progressive enhancement: support and processing location depend on the browser, and the transcript is always editable before submission.
 
-When `CAPTURE_REPOSITORIES` is configured, the form also provides a searchable repository picker and remembers the last valid explicit selection in browser storage. Its default **Automatic** option leaves the target unspecified so the daemon can infer it from the capture context, falling back to `projects/local/captures`. The value is a JSON array of `{ "label": "Display name", "repository": "owner/repo" }` records. The API validates every explicit selection against this server-owned list; the capture issue itself continues to use the default `GITHUB_OWNER/GITHUB_REPO` when no target is selected.
+When `CAPTURE_REPOSITORIES` is configured, the form also provides a searchable target repository picker and remembers the last valid explicit selection in browser storage. Its default **Automatic** option leaves the target unspecified so the daemon can infer it from the capture context, falling back to `projects/local/captures`. The value is a JSON array of `{ "label": "Display name", "repository": "owner/repo" }` records. The API validates every explicit selection against this server-owned list and records it as issue metadata. It never uses the target as the issue destination.
 
-Submitting creates an issue with the fixed `agent:ready` label. The issue records a request identifier, capture source, and timestamp for later local processing.
+Submitting always creates an issue in the private queue repository configured by `GITHUB_OWNER/GITHUB_REPO`, with the fixed `agent:ready` label. The issue records the target repository, request identifier, capture source, and timestamp for later local processing.
 
 ## Development
 

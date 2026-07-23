@@ -11,6 +11,7 @@ describe("buildIssuePayload", () => {
         text: "Investigate this idea",
         capturedAt: DateTime.makeUnsafe("2026-07-21T12:00:00.000Z"),
         source: "text",
+        repository: "owner/application",
       },
       "agent:ready",
     );
@@ -18,5 +19,6 @@ describe("buildIssuePayload", () => {
     expect(payload.title).toBe("Investigate this idea");
     expect(payload.labels).toEqual(["agent:ready"]);
     expect(payload.body).toContain("notes-capture:019c92df");
+    expect(payload.body).toContain("Target repository: owner/application");
   });
 });

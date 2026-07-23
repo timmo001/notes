@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   parseRepositoryOptions,
-  resolveRepository,
   splitRepository,
+  validateTargetRepository,
 } from "../../src/capture/repositories.js";
-
-const defaultRepository = "owner/notes";
 
 describe("parseRepositoryOptions", () => {
   test("returns undefined when the picker is not configured", () => {
@@ -17,7 +15,7 @@ describe("parseRepositoryOptions", () => {
     expect(
       parseRepositoryOptions(
         JSON.stringify([
-          { label: "Notes", repository: defaultRepository },
+          { label: "Notes", repository: "owner/notes" },
           { label: "Application", repository: "owner/application" },
         ]),
       ),
@@ -28,8 +26,8 @@ describe("parseRepositoryOptions", () => {
     expect(() =>
       parseRepositoryOptions(
         JSON.stringify([
-          { label: "Notes", repository: defaultRepository },
-          { label: "Duplicate", repository: defaultRepository },
+          { label: "Notes", repository: "owner/notes" },
+          { label: "Duplicate", repository: "owner/notes" },
         ]),
       ),
     ).toThrow("duplicates");
@@ -45,24 +43,22 @@ describe("splitRepository", () => {
   });
 });
 
-describe("resolveRepository", () => {
+describe("validateTargetRepository", () => {
   const options = [
-    { label: "Notes", repository: defaultRepository },
+    { label: "Notes", repository: "owner/notes" },
     { label: "Application", repository: "owner/application" },
   ];
 
-  test("uses the default when no repository is selected", () => {
-    expect(resolveRepository(undefined, defaultRepository, options)).toBe(
-      defaultRepository,
-    );
+  test("leaves the target unset when no repository is selected", () => {
+    expect(() => validateTargetRepository(undefined, options)).not.toThrow();
   });
 
   test("allows configured repositories and rejects unknown repositories", () => {
-    expect(
-      resolveRepository("owner/application", defaultRepository, options),
-    ).toBe("owner/application");
     expect(() =>
-      resolveRepository("owner/unknown", defaultRepository, options),
-    ).toThrow("not allowed");
+      validateTargetRepository("owner/application", options),
+    ).not.toThrow();
+    expect(() => validateTargetRepository("owner/unknown", options)).toThrow(
+      "not allowed",
+    );
   });
 });

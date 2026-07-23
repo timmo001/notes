@@ -3,9 +3,9 @@ import { Effect } from "effect";
 import type { APIRoute } from "astro";
 import {
   parseRepositoryOptions,
-  resolveRepository,
   splitRepository,
   type RepositoryOption,
+  validateTargetRepository,
 } from "../../capture/repositories.js";
 import { CAPTURE_ERRORS } from "../../capture/http.js";
 import { decodeCapture, type Capture } from "../../capture/schema.js";
@@ -77,9 +77,8 @@ export const POST = (async ({ request }) => {
   let owner: string;
   let repository: string;
   try {
-    [owner, repository] = splitRepository(
-      resolveRepository(capture.repository, defaultRepository, repositories),
-    );
+    validateTargetRepository(capture.repository, repositories);
+    [owner, repository] = splitRepository(defaultRepository);
   } catch {
     console.warn("Capture submission rejected", {
       reason: "invalid-repository",
