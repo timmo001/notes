@@ -2,6 +2,7 @@ import { Effect, Ref, Schema } from "effect";
 import {
   COMPLETION_MARKER,
   FAILURE_MARKER,
+  issueHasFailure,
   issueIsComplete,
   issuePrompt,
   type QueueIssue,
@@ -108,22 +109,28 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
         Effect.map((completed) =>
           completed ? ("completed" as const) : ("skipped" as const),
         ),
-        Effect.catch(() =>
-          Effect.all([
-            requireOwnership(lease),
-            currentQueuedIssue(issue.number, queueLabel),
-          ]).pipe(
-            Effect.flatMap(([, current]) =>
-              current && !issueIsComplete(current, workerActor)
-                ? queue.comment(
-                    issue.number,
-                    `${FAILURE_MARKER}\n\nProcessing failed and the issue was left open.`,
-                  )
-                : Effect.void,
-            ),
-            Effect.as("failed" as const),
-            Effect.catch(() => Effect.succeed("failed" as const)),
-          ),
+        Effect.catch((error) =>
+          Effect.gen(function* () {
+            console.error(
+              `[notes-daemon] issue=${issue.number} processing failed`,
+              error,
+            );
+            const [, current] = yield* Effect.all([
+              requireOwnership(lease),
+              currentQueuedIssue(issue.number, queueLabel),
+            ]);
+            if (
+              current &&
+              !issueIsComplete(current, workerActor) &&
+              !issueHasFailure(current, workerActor)
+            ) {
+              yield* queue.comment(
+                issue.number,
+                `${FAILURE_MARKER}\n\nProcessing failed and the issue was left open.`,
+              );
+            }
+            return "failed" as const;
+          }).pipe(Effect.orElseSucceed(() => "failed" as const)),
         ),
       ),
     () =>

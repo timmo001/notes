@@ -1,5 +1,5 @@
-import { Context, Effect, Layer, Schema } from "effect";
-import type { DaemonConfig } from "../schema.js";
+import { Cause, Context, Effect, Layer, Schema } from "effect";
+import type { DaemonConfig, OpenCodeModel } from "../schema.js";
 
 /** Failure returned by the local OpenCode server boundary. */
 export class OpenCodeClientError extends Schema.TaggedErrorClass<OpenCodeClientError>()(
@@ -70,42 +70,7 @@ export class OpenCodeClient extends Context.Service<
     const request = makeRequest(config, username, password);
 
     return Layer.succeed(OpenCodeClient, {
-      process: (prompt) =>
-        request("POST", "/session", {
-          title: `Notes daemon ${config.workerId}`,
-          agent: config.opencodeAgent,
-          permission: sessionPermissions(config),
-        }).pipe(
-          Effect.flatMap((session) => decodeId(session, "session.create")),
-          Effect.flatMap((sessionId) =>
-            Effect.acquireUseRelease(
-              Effect.succeed(sessionId),
-              () =>
-                Effect.raceFirst(
-                  request(
-                    "POST",
-                    `/session/${encodeURIComponent(sessionId)}/message`,
-                    {
-                      agent: config.opencodeAgent,
-                      parts: [{ type: "text", text: prompt }],
-                    },
-                  ).pipe(Effect.flatMap(decodeAssistantText)),
-                  monitorHeadlessState(request, sessionId),
-                ).pipe(
-                  Effect.timeout(`${config.sessionTimeoutSeconds} seconds`),
-                  Effect.mapError((error) =>
-                    error instanceof OpenCodeClientError
-                      ? error
-                      : new OpenCodeClientError({
-                          operation: "process",
-                          message: String(error),
-                        }),
-                  ),
-                ),
-              () => cleanupSession(request, sessionId),
-            ),
-          ),
-        ),
+      process: (prompt) => processWithFallback(config, request, prompt),
     });
   }
 }
@@ -115,6 +80,89 @@ type Request = (
   path: string,
   body?: unknown,
 ) => Effect.Effect<unknown, OpenCodeClientError>;
+
+const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
+  function* (config: DaemonConfig, request: Request, prompt: string) {
+    let lastError: OpenCodeClientError | undefined;
+    for (const [index, model] of config.opencodeModels.entries()) {
+      const result = yield* Effect.exit(
+        processWithModel(config, request, prompt, model),
+      );
+      if (result._tag === "Success") return result.value;
+
+      const failure = Cause.squash(result.cause);
+      if (!(failure instanceof OpenCodeClientError)) {
+        return yield* new OpenCodeClientError({
+          operation: "process",
+          message: `Model ${modelName(model)} failed without a typed error`,
+        });
+      }
+      lastError = failure;
+      if (index < config.opencodeModels.length - 1) {
+        console.warn(
+          `[notes-daemon] model failed model=${modelName(model)} operation=${lastError.operation} message=${lastError.message}; trying fallback`,
+        );
+      }
+    }
+
+    return yield* new OpenCodeClientError({
+      operation: "process.models",
+      message: `All models failed (${config.opencodeModels.map(modelName).join(", ")}): ${lastError?.message ?? "unknown error"}`,
+    });
+  },
+);
+
+function processWithModel(
+  config: DaemonConfig,
+  request: Request,
+  prompt: string,
+  model: OpenCodeModel,
+) {
+  return request("POST", "/session", {
+    title: `Notes daemon ${config.workerId}`,
+    agent: config.opencodeAgent,
+    model: {
+      providerID: model.providerID,
+      id: model.modelID,
+      ...(model.variant === undefined ? {} : { variant: model.variant }),
+    },
+    permission: sessionPermissions(config),
+  }).pipe(
+    Effect.flatMap((session) => decodeId(session, "session.create")),
+    Effect.flatMap((sessionId) =>
+      Effect.acquireUseRelease(
+        Effect.succeed(sessionId),
+        () =>
+          Effect.raceFirst(
+            request(
+              "POST",
+              `/session/${encodeURIComponent(sessionId)}/message`,
+              {
+                agent: config.opencodeAgent,
+                parts: [{ type: "text", text: prompt }],
+              },
+            ).pipe(Effect.flatMap(decodeAssistantText)),
+            monitorHeadlessState(request, sessionId),
+          ).pipe(
+            Effect.timeout(`${config.sessionTimeoutSeconds} seconds`),
+            Effect.mapError((error) =>
+              error instanceof OpenCodeClientError
+                ? error
+                : new OpenCodeClientError({
+                    operation: "process",
+                    message: String(error),
+                  }),
+            ),
+          ),
+        () => cleanupSession(request, sessionId),
+      ),
+    ),
+  );
+}
+
+function modelName(model: OpenCodeModel) {
+  return `${model.providerID}/${model.modelID}${model.variant ? `/${model.variant}` : ""}`;
+}
 
 function makeRequest(
   config: DaemonConfig,
@@ -221,18 +269,28 @@ function decodeAssistantText(value: unknown) {
       ),
     }),
   )(value).pipe(
-    Effect.map((message) =>
-      message.parts
+    Effect.flatMap((message) => {
+      const text = message.parts
         .filter((part) => part.type === "text")
         .map((part) => part.text ?? "")
-        .join("\n"),
-    ),
-    Effect.mapError(
-      (error) =>
-        new OpenCodeClientError({
-          operation: "message.decode",
-          message: String(error),
-        }),
+        .join("\n")
+        .trim();
+      return text
+        ? Effect.succeed(text)
+        : Effect.fail(
+            new OpenCodeClientError({
+              operation: "message.decode",
+              message: "OpenCode returned no assistant text",
+            }),
+          );
+    }),
+    Effect.mapError((error) =>
+      error instanceof OpenCodeClientError
+        ? error
+        : new OpenCodeClientError({
+            operation: "message.decode",
+            message: String(error),
+          }),
     ),
   );
 }

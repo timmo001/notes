@@ -28,6 +28,18 @@ export const QueueIssue = Schema.Struct({
 /** Queue issue accepted by the local notes daemon. */
 export interface QueueIssue extends Schema.Schema.Type<typeof QueueIssue> {}
 
+/** One model attempt in the ordered OpenCode fallback chain. */
+export const OpenCodeModel = Schema.Struct({
+  providerID: Schema.String.check(Schema.isNonEmpty()),
+  modelID: Schema.String.check(Schema.isNonEmpty()),
+  variant: Schema.optional(Schema.String.check(Schema.isNonEmpty())),
+});
+
+/** One model attempt in the ordered OpenCode fallback chain. */
+export interface OpenCodeModel extends Schema.Schema.Type<
+  typeof OpenCodeModel
+> {}
+
 /** Configuration shared by each notes daemon installation. */
 export const DaemonConfig = Schema.Struct({
   repository: Schema.String.check(Schema.isPattern(/^[^/\s]+\/[^/\s]+$/)),
@@ -54,6 +66,10 @@ export const DaemonConfig = Schema.Struct({
   ),
   opencodeDirectory: Schema.String.check(Schema.isNonEmpty()),
   opencodeAgent: Schema.Literal("notes-daemon"),
+  opencodeModels: Schema.Array(OpenCodeModel).check(
+    Schema.isMinLength(1),
+    Schema.isMaxLength(5),
+  ),
   allowedReadPaths: Schema.Array(
     Schema.String.check(Schema.isNonEmpty()),
   ).check(Schema.isMinLength(1), Schema.isMaxLength(20)),
@@ -88,6 +104,17 @@ export function issueIsComplete(
     (comment) =>
       comment.author === workerActor &&
       comment.body.includes(COMPLETION_MARKER),
+  );
+}
+
+/** Whether a trusted worker comment contains the durable failure marker. */
+export function issueHasFailure(
+  issue: QueueIssue,
+  workerActor: string,
+): boolean {
+  return issue.comments.some(
+    (comment) =>
+      comment.author === workerActor && comment.body.includes(FAILURE_MARKER),
   );
 }
 

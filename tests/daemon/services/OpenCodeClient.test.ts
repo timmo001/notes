@@ -48,6 +48,7 @@ describe("OpenCodeClient", () => {
     ).toBe(true);
     expect(requests[0]?.body).toMatchObject({
       agent: "notes-daemon",
+      model: { providerID: "opencode", id: "big-pickle" },
       permission: expect.arrayContaining([
         { permission: "question", pattern: "*", action: "deny" },
         { permission: "bash", pattern: "*", action: "deny" },
@@ -109,6 +110,73 @@ describe("OpenCodeClient", () => {
     expect(paths).toContain("POST /session/session-1/abort");
     expect(paths).toContain("DELETE /session/session-1");
   });
+
+  test("uses a fresh fallback session after the primary request fails", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests, { failFirstMessage: true });
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* OpenCodeClient).process("prompt");
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(result).toBe("First\nSecond");
+    const sessions = requests.filter(
+      ({ method, path }) => method === "POST" && path === "/session",
+    );
+    expect(sessions.map(({ body }) => body)).toEqual([
+      expect.objectContaining({
+        model: { providerID: "opencode", id: "big-pickle" },
+      }),
+      expect.objectContaining({
+        model: {
+          providerID: "github-copilot",
+          id: "gpt-5.6-sol",
+          variant: "low",
+        },
+      }),
+    ]);
+    const paths = requests.map(({ method, path }) => `${method} ${path}`);
+    expect(paths).toContain("DELETE /session/session-1");
+    expect(paths).toContain("DELETE /session/session-2");
+  });
+
+  test("does not start a fallback session after primary success", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests);
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* OpenCodeClient).process("prompt");
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(
+      requests.filter(
+        ({ method, path }) => method === "POST" && path === "/session",
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("cleans up every session when all models return no text", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests, { emptyEveryMessage: true });
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(result._tag).toBe("Failure");
+    const paths = requests.map(({ method, path }) => `${method} ${path}`);
+    expect(paths).toContain("DELETE /session/session-1");
+    expect(paths).toContain("DELETE /session/session-2");
+  });
 });
 
 function makeServer(
@@ -116,6 +184,8 @@ function makeServer(
   options: {
     readonly pendingPermission?: boolean;
     readonly hangMessage?: boolean;
+    readonly failFirstMessage?: boolean;
+    readonly emptyEveryMessage?: boolean;
   } = {},
 ) {
   const server = Bun.serve({
@@ -130,19 +200,34 @@ function makeServer(
         directory: url.searchParams.get("directory"),
         body: text ? (JSON.parse(text) as unknown) : undefined,
       });
-      if (request.method === "POST" && url.pathname === "/session")
-        return Response.json({ id: "session-1" });
+      if (request.method === "POST" && url.pathname === "/session") {
+        const sessionNumber = requests.filter(
+          ({ method, path }) => method === "POST" && path === "/session",
+        ).length;
+        return Response.json({ id: `session-${sessionNumber}` });
+      }
       if (url.pathname === "/permission")
         return Response.json(
-          options.pendingPermission ? [{ sessionID: "session-1" }] : [],
+          options.pendingPermission
+            ? [{ sessionID: "session-1" }, { sessionID: "session-2" }]
+            : [],
         );
       if (url.pathname === "/question") return Response.json([]);
       if (
         request.method === "POST" &&
-        url.pathname === "/session/session-1/message"
+        /^\/session\/session-\d+\/message$/.test(url.pathname)
       ) {
         if (options.pendingPermission || options.hangMessage) {
           await new Promise((resolve) => setTimeout(resolve, 2_000));
+        }
+        if (
+          options.failFirstMessage &&
+          url.pathname === "/session/session-1/message"
+        ) {
+          return new Response("provider unavailable", { status: 500 });
+        }
+        if (options.emptyEveryMessage) {
+          return Response.json({ parts: [{ type: "tool", text: "ignored" }] });
         }
         return Response.json({
           parts: [
@@ -169,6 +254,14 @@ function testConfig(opencodeUrl: string): DaemonConfig {
     opencodeUrl,
     opencodeDirectory: "/tmp/dotfiles",
     opencodeAgent: "notes-daemon",
+    opencodeModels: [
+      { providerID: "opencode", modelID: "big-pickle" },
+      {
+        providerID: "github-copilot",
+        modelID: "gpt-5.6-sol",
+        variant: "low",
+      },
+    ],
     allowedReadPaths: ["~/repos/**", "~/.config/dotfiles/**"],
     sessionTimeoutSeconds: 30,
     passTimeoutSeconds: 60,

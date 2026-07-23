@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { runProcessingPass } from "../../src/daemon/coordinator.js";
-import { COMPLETION_MARKER, type QueueIssue } from "../../src/daemon/schema.js";
+import {
+  COMPLETION_MARKER,
+  FAILURE_MARKER,
+  type QueueIssue,
+} from "../../src/daemon/schema.js";
 import { IssueQueue } from "../../src/daemon/services/IssueQueue.js";
-import { OpenCodeClient } from "../../src/daemon/services/OpenCodeClient.js";
+import {
+  OpenCodeClient,
+  OpenCodeClientError,
+} from "../../src/daemon/services/OpenCodeClient.js";
 import {
   RepositoryLock,
   RepositoryLockError,
@@ -236,5 +243,65 @@ describe("runProcessingPass", () => {
       ),
     );
     expect(result._tag).toBe("Failure");
+  });
+
+  test("logs a processing error and writes one trusted failure marker", async () => {
+    let current = issue();
+    const errors: unknown[][] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => errors.push(args);
+    const lease: IssueLease = {
+      issueNumber: 1,
+      ref: "refs/daemon-locks/issues/1",
+      oid: "abc",
+      nonce: "n1",
+    };
+    const layer = Layer.mergeAll(
+      Layer.succeed(IssueQueue, {
+        list: () => Effect.succeed([current]),
+        get: () => Effect.succeed(current),
+        comment: (_number, body) =>
+          Effect.sync(() => {
+            current = {
+              ...current,
+              comments: [...current.comments, { author: "worker", body }],
+            };
+          }),
+        complete: () => Effect.die("complete should not run"),
+      }),
+      Layer.succeed(RepositoryLock, {
+        acquire: (): Effect.Effect<IssueLease | null> => Effect.succeed(lease),
+        owns: () => Effect.succeed(true),
+        release: () => Effect.void,
+      }),
+      Layer.succeed(OpenCodeClient, {
+        process: () =>
+          Effect.fail(
+            new OpenCodeClientError({
+              operation: "process.models",
+              message: "provider unavailable",
+            }),
+          ),
+      }),
+    );
+
+    try {
+      const first = await Effect.runPromise(
+        runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
+      );
+      const second = await Effect.runPromise(
+        runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
+      );
+
+      expect(first.failed).toBe(1);
+      expect(second.failed).toBe(1);
+      expect(
+        current.comments.filter(({ body }) => body.includes(FAILURE_MARKER)),
+      ).toHaveLength(1);
+      expect(errors).toHaveLength(2);
+      expect(errors[0]?.[0]).toContain("issue=1 processing failed");
+    } finally {
+      console.error = originalError;
+    }
   });
 });

@@ -22,6 +22,12 @@ workerActor: github-user
 opencodeUrl: http://127.0.0.1:4097
 opencodeDirectory: ~/.config/dotfiles
 opencodeAgent: notes-daemon
+opencodeModels:
+  - providerID: opencode
+    modelID: big-pickle
+  - providerID: github-copilot
+    modelID: gpt-5.6-sol
+    variant: low
 allowedReadPaths:
   - ~/repos/**
   - ~/.config/dotfiles/**
@@ -38,6 +44,8 @@ pollIntervalSeconds: 30
 `repositoryPath` must be a local checkout of `repository` with an `origin` remote that can create and delete `refs/daemon-locks/issues/*`. The GitHub CLI must be authenticated with issue and repository write access.
 
 The daemon uses a separate loopback-only OpenCode server on port 4097. Its configuration and `notes-daemon` agent live under `.opencode-daemon/` in this repository rather than the interactive global OpenCode configuration. Its XDG config, data, state, and cache directories are isolated from interactive OpenCode sessions. The server runs in pure mode with external skills, project config, and default plugins disabled. Only the read-only GitHub MCP endpoint and Notes MCP server are configured.
+
+`opencodeModels` is an ordered fallback chain. Each model gets a fresh session and the daemon aborts and deletes a failed session before trying the next entry. `sessionTimeoutSeconds` applies to each model attempt, so `passTimeoutSeconds` must leave enough time for every configured attempt and cleanup.
 
 The dedicated agent fails closed for unknown tools. It allows built-in read/search operations, authenticated read-only GitHub tools, and Notes MCP list/read/write. External filesystem reads are denied except for `allowedReadPaths`; write/edit/patch tools remain denied for every path. It also denies questions, delegation, planning mode, shell execution, browser control, Chrome DevTools, and note deletion. Any unexpected permission or question request aborts the job instead of waiting for input.
 
