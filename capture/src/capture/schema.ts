@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-const NonEmptyText = Schema.Trimmed.check(Schema.isNonEmpty()).check(
+const NonEmptyText = Schema.Trim.check(Schema.isNonEmpty()).check(
   Schema.isMaxLength(12_000),
 );
 

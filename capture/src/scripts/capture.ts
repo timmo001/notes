@@ -3,6 +3,7 @@ import {
   createSpeechRecognition,
   speechRecognitionConstructor,
 } from "./speech.js";
+import { captureErrorMessage, GENERIC_CAPTURE_ERROR } from "../capture/http.js";
 import {
   filterRepositories,
   REPOSITORY_STORAGE_KEY,
@@ -199,6 +200,7 @@ form.addEventListener("submit", async (event) => {
 
   submit.disabled = true;
   status.textContent = "Adding note...";
+  let responseError: string | undefined;
   try {
     const response = await fetch("/api/captures", {
       method: "POST",
@@ -213,8 +215,11 @@ form.addEventListener("submit", async (event) => {
       }),
     });
     const result: unknown = await response.json();
+    if (!response.ok) {
+      responseError = captureErrorMessage(result);
+      throw new Error("Capture request failed");
+    }
     if (
-      !response.ok ||
       typeof result !== "object" ||
       result === null ||
       !("url" in result) ||
@@ -233,8 +238,7 @@ form.addEventListener("submit", async (event) => {
     link.textContent = "Note added";
     status.replaceChildren(link);
   } catch {
-    status.textContent =
-      "Could not queue this capture. Your text is still here.";
+    status.textContent = responseError ?? GENERIC_CAPTURE_ERROR;
   } finally {
     submit.disabled = false;
   }
