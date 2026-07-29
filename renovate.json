@@ -13,6 +13,12 @@
       "description": "Group GitHub Actions.",
       "groupName": "github actions",
       "matchManagers": ["github-actions"]
+    },
+    {
+      "description": "Keep Astro on the TypeScript programmatic API.",
+      "matchDepNames": ["typescript"],
+      "matchFileNames": ["capture/package.json"],
+      "allowedVersions": "<7"
     }
   ]
 }
