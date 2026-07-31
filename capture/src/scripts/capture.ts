@@ -1,8 +1,3 @@
-import {
-  collectSpeechResult,
-  createSpeechRecognition,
-  speechRecognitionConstructor,
-} from "./speech.js";
 import { captureErrorMessage, GENERIC_CAPTURE_ERROR } from "../capture/http.js";
 import {
   filterRepositories,
@@ -12,22 +7,17 @@ import {
 
 const form = document.querySelector<HTMLFormElement>("[data-capture-form]");
 const textarea = document.querySelector<HTMLTextAreaElement>("#capture");
-const record = document.querySelector<HTMLButtonElement>("[data-record]");
 const status = document.querySelector<HTMLElement>("[data-status]");
 const repositoryPicker = document.querySelector<HTMLElement>(
   "[data-repository-picker]",
 );
 
-if (!form || !textarea || !record || !status) {
+if (!form || !textarea || !status) {
   throw new Error("Capture form is incomplete");
 }
 
-let source: "text" | "speech" = "text";
-let listening = false;
-let transcriptBeforeRecording = "";
 let preserveRepositorySelection = () => {};
 let repositoryForCapture: string | undefined;
-const Constructor = speechRecognitionConstructor();
 
 if (repositoryPicker) {
   const repositoryValue = repositoryPicker.querySelector<HTMLInputElement>(
@@ -147,52 +137,6 @@ if (repositoryPicker) {
   });
 }
 
-if (Constructor) {
-  record.hidden = false;
-  const recognition = createSpeechRecognition(Constructor);
-
-  recognition.onresult = (event) => {
-    const result = collectSpeechResult(event);
-    const parts = [
-      transcriptBeforeRecording,
-      result.finalText,
-      result.interimText,
-    ]
-      .filter(Boolean)
-      .join(" ");
-    textarea.value = parts;
-    source = "speech";
-  };
-  recognition.onend = () => {
-    listening = false;
-    record.classList.remove("is-recording");
-    record.setAttribute("aria-label", "Start dictation");
-    record.title = "Start dictation";
-    status.textContent = "";
-  };
-  recognition.onerror = () => {
-    status.textContent = "Dictation was unavailable. You can keep typing.";
-  };
-
-  record.addEventListener("click", () => {
-    if (listening) {
-      recognition.stop();
-      return;
-    }
-    transcriptBeforeRecording = textarea.value.trim();
-    listening = true;
-    record.classList.add("is-recording");
-    record.setAttribute("aria-label", "Stop dictation");
-    record.title = "Stop dictation";
-    status.textContent = "Listening";
-    recognition.start();
-  });
-}
-
-textarea.addEventListener("input", () => {
-  if (!listening) source = "text";
-});
-
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const submit = form.querySelector<HTMLButtonElement>("[type=submit]");
@@ -210,7 +154,7 @@ form.addEventListener("submit", async (event) => {
         requestId: crypto.randomUUID(),
         text: textarea.value,
         capturedAt: new Date().toISOString(),
-        source,
+        source: "text",
         ...(repositoryForCapture ? { repository: repositoryForCapture } : {}),
       }),
     });

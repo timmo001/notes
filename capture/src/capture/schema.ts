@@ -12,7 +12,7 @@ export const CaptureInput = Schema.Struct({
     Schema.Trimmed.check(Schema.isNonEmpty()).check(Schema.isMaxLength(120)),
   ),
   capturedAt: Schema.DateTimeUtcFromString,
-  source: Schema.Literals(["text", "speech"]),
+  source: Schema.Literal("text"),
   repository: Schema.optional(
     Schema.String.check(Schema.isPattern(/^[^/\s]+\/[^/\s]+$/)),
   ),
