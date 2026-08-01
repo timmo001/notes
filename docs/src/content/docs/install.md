@@ -19,6 +19,26 @@ yay -S repo-notes-git
 
 Both packages install Git, the `notes` binary, and Bash, Fish, and Zsh completions.
 
+## Runtime requirements
+
+The compiled `notes` binary includes its JavaScript dependencies and does not
+need Bun or Node.js at runtime. It uses these external applications for specific
+features:
+
+| Application   | Used by                                      |
+| ------------- | -------------------------------------------- |
+| Git           | Repository detection and vault versioning    |
+| Bash          | Launching an editor from the interactive TUI |
+| Neovim        | Default editor when `EDITOR` is unset        |
+| OpenCode      | The TUI's `o` and `O` actions                |
+| `notify-send` | Optional MCP write and delete notifications  |
+| GitHub CLI    | The optional capture daemon                  |
+
+Git is installed by the Linux packages. Set `EDITOR` and `VISUAL` to use other
+editors instead of Neovim. Missing `notify-send` only disables desktop
+notifications. The [capture daemon](/integrations/capture-daemon/) also needs a
+running OpenCode server.
+
 Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
 GitHub draft, optionally generate its release notes, then publish it to build
 Linux archives, deb and RPM packages and update `repo-notes-bin`.

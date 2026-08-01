@@ -21,6 +21,10 @@ sidebar:
 
 The server exposes note tools for reading, listing, writing, and deleting vault files. Reads include a SHA-256 revision that writes can use to reject stale content. See the generated [MCP tool reference](/mcp/tools/) for tool parameters.
 
+Successful writes and deletes send a desktop notification when `notify-send` is
+available. Notifications are best-effort, so the operation still succeeds when
+`notify-send` is missing or cannot reach a notification service.
+
 ## Tools
 
 Agent harnesses prefix tool names with the server key. With the server configured as `notes`, `note_read` appears as `notes_note_read`.
