@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "^4.0.0-beta.99",
-    "@opentui/core": "^0.4.5",
+    "@opentui/core": "^0.5.0",
     "effect": "^4.0.0-beta.99",
     "fuse.js": "^7.5.0",
     "proper-lockfile": "^4.1.2",
