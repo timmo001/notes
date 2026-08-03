@@ -145,6 +145,28 @@ notes delete --path <path> [--json]
 notes delete --path ~/Documents/notes/projects/owner/repo/topic.md
 ```
 
+## `notes move`
+
+Move a note to another known repository scope
+
+```text
+notes move --path <path> --to <owner/repo> [--json]
+```
+
+**Options**
+
+| Option                | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--path` `<path>`     | Absolute path to a note file inside the notes vault |
+| `--to` `<owner/repo>` | Existing or remembered repository scope             |
+| `--json`              | Emit the complete mutation result as JSON           |
+
+**Examples**
+
+```bash
+notes move --path ~/Documents/notes/projects/local/captures/topic.md --to local/aidan
+```
+
 ## `notes handoffs`
 
 Browse handoff-tagged notes
@@ -248,9 +270,9 @@ notes help [command]
 
 **Arguments**
 
-| Argument    | Description                                                                                                                                  |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `read`, `write`, `delete`, `handoffs`, `mcp`, `daemon`, `completions`. |
+| Argument    | Description                                                                                                                                          |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `read`, `write`, `delete`, `move`, `handoffs`, `mcp`, `daemon`, `completions`. |
 
 **Examples**
 

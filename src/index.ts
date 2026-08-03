@@ -33,6 +33,7 @@ import {
   type NotesViewFilter,
   type NotesListFormat,
   type NoteWriteResult,
+  type NoteMoveResult,
 } from "./notes/types.js";
 
 type ParsedArgs = {
@@ -122,7 +123,7 @@ function formatPushLine(push: NotePushResult): string {
 }
 
 function emitNoteResult(
-  result: NoteWriteResult | NoteDeleteResult,
+  result: NoteWriteResult | NoteDeleteResult | NoteMoveResult,
   json: boolean,
 ): Effect.Effect<void> {
   if (json) {
@@ -329,6 +330,23 @@ function runDelete(args: readonly string[]) {
   );
 }
 
+function runMove(args: readonly string[]) {
+  validateOptions(args, {
+    "--path": "value",
+    "--to": "value",
+    "--json": "flag",
+  });
+  return handleNotesError(
+    Effect.gen(function* () {
+      const repoSlug = optionValue(args, "--to");
+      if (!repoSlug) failUsage("notes move requires --to <owner/repo>");
+      const notes = yield* Notes;
+      const result = yield* notes.move(requirePath("move", args), repoSlug);
+      yield* emitNoteResult(result, hasOption(args, "--json"));
+    }),
+  );
+}
+
 function runHandoffs(args: readonly string[]) {
   validateOptions(args, {
     "--all": "flag",
@@ -406,6 +424,9 @@ async function runTui(mode: TuiMode): Promise<void> {
         readNote: (filePath) =>
           runPromise(notes.read(filePath)).then((result) => result.content),
         deleteNote: (filePath) => runPromise(notes.delete(filePath)),
+        listMoveTargets: () => runPromise(notes.moveTargets()),
+        moveNote: (filePath, repoSlug) =>
+          runPromise(notes.move(filePath, repoSlug)),
         createNote: (kind, name, description, editorKind) =>
           runPromise(
             notes.create(kind, name, description, (entry) =>
@@ -538,6 +559,8 @@ function runNative(parsed: ParsedArgs, command: string): void {
           return runWrite(parsed.rest);
         case "delete":
           return runDelete(parsed.rest);
+        case "move":
+          return runMove(parsed.rest);
         case "handoffs":
           return runHandoffs(parsed.rest);
         case "completions":

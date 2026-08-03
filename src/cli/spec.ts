@@ -215,6 +215,27 @@ export const cliCommands: readonly CliCommandSpec[] = [
     ],
   },
   {
+    name: "move",
+    summary: "Move a note to another known repository scope",
+    usage: "--path <path> --to <owner/repo> [--json]",
+    options: [
+      pathOption,
+      {
+        name: "--to",
+        valueName: "owner/repo",
+        description: "Existing or remembered repository scope",
+      },
+      {
+        name: "--json",
+        description: "Emit the complete mutation result as JSON",
+      },
+      helpOption,
+    ],
+    examples: [
+      "notes move --path ~/Documents/notes/projects/local/captures/topic.md --to local/aidan",
+    ],
+  },
+  {
     name: "handoffs",
     aliases: ["handoff"],
     summary: "Browse handoff-tagged notes",
@@ -300,6 +321,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
           { value: "read" },
           { value: "write" },
           { value: "delete" },
+          { value: "move" },
           { value: "handoffs" },
           { value: "mcp" },
           { value: "daemon" },

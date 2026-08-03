@@ -6,6 +6,7 @@ import type {
   NoteDeleteResult,
   NoteEntry,
   NoteGitResult,
+  NoteMoveResult,
   NotePriority,
   NoteRepoSection,
   NotesTuiScope,
@@ -39,6 +40,13 @@ export interface AppDeps {
   readonly readNote: (filePath: string) => Promise<string>;
   /** Delete a note file from the notes vault. */
   readonly deleteNote: (filePath: string) => Promise<NoteDeleteResult>;
+  /** List known repository scopes that can receive moved notes. */
+  readonly listMoveTargets: () => Promise<readonly string[]>;
+  /** Move a note to another known repository scope. */
+  readonly moveNote: (
+    filePath: string,
+    repoSlug: string,
+  ) => Promise<NoteMoveResult>;
   /** Create, edit, and commit a note as one transaction. */
   readonly createNote: (
     kind: NoteCreateKind,
@@ -70,6 +78,8 @@ export class App {
       listAllNotes: deps.listAllNotes,
       readNote: deps.readNote,
       deleteNote: deps.deleteNote,
+      listMoveTargets: deps.listMoveTargets,
+      moveNote: deps.moveNote,
       createNote: deps.createNote,
       editNote: deps.editNote,
       onSetPriority: deps.updateNotePriority,

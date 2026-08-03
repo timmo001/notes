@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { renderDraft } from "../../../src/notes/frontmatter.js";
+import { rememberRepositoryDirectory } from "../../../src/notes/repositoryDirectories.js";
 import { Notes } from "../../../src/notes/services/Notes.js";
 import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
 import { Config } from "../../../src/services/Config.js";
@@ -195,6 +196,82 @@ describe("Notes service", () => {
         },
       ],
     });
+  });
+
+  test("moves a note to an existing repository scope", async () => {
+    const { root, path, layer } = fixture();
+    const destination = join(root, "projects", "local", "aidan");
+    mkdirSync(destination, { recursive: true });
+    writeFileSync(
+      join(destination, "existing.md"),
+      renderDraft(
+        "note",
+        { source: "local", owner: "local", repo: "aidan" },
+        "date",
+        "Existing",
+        "Destination marker",
+      ),
+    );
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).move(path, "local/aidan");
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(existsSync(path)).toBeFalse();
+    expect(result.path).toBe(join(destination, "note.md"));
+    expect(readFileSync(result.path, "utf8")).toContain("name: Note");
+    expect(result.commit).toMatchObject({ ok: true, committed: true });
+  });
+
+  test("includes remembered repositories as move targets", async () => {
+    const { root, layer } = fixture();
+    rememberRepositoryDirectory(
+      join(root, "state"),
+      "local/aidan",
+      join(root, "checkout"),
+    );
+
+    const targets = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).moveTargets();
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(targets).toEqual(["local/aidan", "timmo001/notes"]);
+  });
+
+  test("rejects unknown move destinations", async () => {
+    const { path, layer } = fixture();
+
+    const error = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).move(path, "local/unknown");
+      }).pipe(Effect.flip, Effect.provide(layer)),
+    );
+
+    expect(error.message).toBe("Unknown move destination: local/unknown");
+    expect(existsSync(path)).toBeTrue();
+  });
+
+  test("does not overwrite a note at the destination", async () => {
+    const { root, path, layer } = fixture();
+    const destination = join(root, "projects", "local", "aidan");
+    mkdirSync(destination, { recursive: true });
+    writeFileSync(join(destination, "note.md"), "existing");
+
+    const error = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).move(path, "local/aidan");
+      }).pipe(Effect.flip, Effect.provide(layer)),
+    );
+
+    expect(error.message).toBe(
+      "A note named note.md already exists in local/aidan",
+    );
+    expect(existsSync(path)).toBeTrue();
+    expect(readFileSync(join(destination, "note.md"), "utf8")).toBe("existing");
   });
 
   test("uses all repositories for TUI startup without a remote", async () => {

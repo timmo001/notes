@@ -196,6 +196,16 @@ export interface NoteDeleteResult extends NoteGitResult {
   readonly output: string;
 }
 
+/** Result returned after moving a note to another repository scope. */
+export interface NoteMoveResult extends NoteGitResult {
+  /** Original absolute note path. */
+  readonly from: string;
+  /** New absolute note path. */
+  readonly path: string;
+  /** Human-readable mutation summary. */
+  readonly output: string;
+}
+
 /** Kind of note to create via the add-item flow. */
 export type NoteCreateKind = "note" | "handoff";
 

@@ -29,6 +29,7 @@ import type {
   NoteDeleteResult,
   NoteEntry,
   NoteGitResult,
+  NoteMoveResult,
   NotePriority,
   NoteRepoSection,
   NotesTuiScope,
@@ -50,6 +51,7 @@ import {
 } from "./NoteCreatePrompt.js";
 import { PriorityPopup, priorityColor } from "./PriorityPopup.js";
 import type { OpenCodeNoteMode } from "./OpenCodeNote.js";
+import { MovePopup } from "./MovePopup.js";
 
 const HELP: readonly HelpEntry[] = [
   { key: "up/down", action: "navigate" },
@@ -66,6 +68,7 @@ const HELP: readonly HelpEntry[] = [
   { key: "s", action: "sort" },
   { key: "g", action: "group" },
   { key: "p", action: "priority" },
+  { key: "m", action: "move" },
   { key: "d", action: "delete" },
   { key: "Esc/Backspace", action: "back" },
   ...GLOBAL_HELP,
@@ -104,6 +107,13 @@ export interface NotesViewOptions {
   readonly readNote: (filePath: string) => Promise<string>;
   /** Delete a note file from the notes vault. */
   readonly deleteNote: (filePath: string) => Promise<NoteDeleteResult>;
+  /** List known repository scopes that can receive moved notes. */
+  readonly listMoveTargets: () => Promise<readonly string[]>;
+  /** Move a note to another repository scope. */
+  readonly moveNote: (
+    filePath: string,
+    repoSlug: string,
+  ) => Promise<NoteMoveResult>;
   /** Create, edit, and commit a note as one transaction. */
   readonly createNote: (
     kind: NoteCreateKind,
@@ -160,6 +170,7 @@ export class NotesView {
   private readonly deletePromptHelp: TextRenderable;
   private readonly createPrompt: NoteCreatePrompt;
   private readonly priorityPopup: PriorityPopup;
+  private readonly movePopup: MovePopup;
   private filter: NotesViewFilter | null = null;
   private activePane: NotesPane = "list";
   private sortMode: NoteSortMode = "name-asc";
@@ -216,6 +227,7 @@ export class NotesView {
       s: () => this.cycleSortMode(),
       g: () => this.cycleGroupMode(),
       p: () => this.requestChangePriority(),
+      m: () => void this.requestMoveSelected(),
       d: () => this.requestDeleteSelected(),
       escape: () => this.callbacks.onBack(),
       backspace: () => this.callbacks.onBack(),
@@ -443,6 +455,10 @@ export class NotesView {
       onSelect: (priority) => void this.executeSetPriority(priority),
       onDismiss: () => this.cancelChangePriority(),
     });
+    this.movePopup = new MovePopup(renderer, theme, {
+      onSelect: (repoSlug) => void this.executeMove(repoSlug),
+      onDismiss: () => this.cancelMove(),
+    });
 
     renderer.keyInput.on("keypress", (key) => this.handleKeyPress(key));
     renderer.root.add(this.root);
@@ -494,6 +510,7 @@ export class NotesView {
     this.syntaxStyle.destroy();
     this.createPrompt.destroy();
     this.priorityPopup.destroy();
+    this.movePopup.destroy();
     this.renderer.root.remove(this.root);
     this.renderer.root.remove(this.deletePrompt);
   }
@@ -943,6 +960,59 @@ export class NotesView {
     this.showDeletePrompt(entry);
   }
 
+  private async requestMoveSelected(): Promise<void> {
+    if (this.activeOperation) return this.showActiveOperation();
+    const entry = this.selectedEntry;
+    if (!entry) {
+      this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before moving")}`;
+      return;
+    }
+    try {
+      const currentRepoSlug = entry.repoSlug;
+      const targets = (await this.callbacks.listMoveTargets()).filter(
+        (target) => target !== currentRepoSlug,
+      );
+      if (targets.length === 0) {
+        this.statusBar.content = t`${fg(this.theme.yellow)("No other known move destinations")}`;
+        return;
+      }
+      this.noteList.setActive(false);
+      this.bodyScroll.blur();
+      this.movePopup.show(targets, notePathLabel(entry));
+    } catch (error) {
+      this.statusBar.content = t`${fg(this.theme.red)(`Failed to list move destinations: ${errorMessage(error)}`)}`;
+    }
+  }
+
+  private cancelMove(): void {
+    this.statusBar.content = t`${fg(this.theme.fgMuted)("Move cancelled")}`;
+    this.focusPane(this.activePane);
+  }
+
+  private async executeMove(repoSlug: string): Promise<void> {
+    const entry = this.selectedEntry;
+    if (!entry || !this.beginOperation(`moving ${notePathLabel(entry)}`)) {
+      this.focusPane(this.activePane);
+      return;
+    }
+    const label = notePathLabel(entry);
+    this.statusBar.content = t`${fg(this.theme.yellow)(`Moving ${label} to ${repoSlug}...`)}`;
+    try {
+      const result = await this.callbacks.moveNote(entry.filePath, repoSlug);
+      this.selectedFilePath = result.path;
+      await this.refresh();
+      const outcome = noteGitOutcome(result);
+      const message = `Moved ${entry.filename} to ${repoSlug}${outcome.complete ? "" : `; ${outcome.detail}`}`;
+      if (!outcome.complete) this.showAcknowledgement(message);
+      else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
+    } catch (error) {
+      this.statusBar.content = t`${fg(this.theme.red)(`Failed to move ${label}: ${errorMessage(error)}`)}`;
+    } finally {
+      this.endOperation();
+      this.focusPane(this.activePane);
+    }
+  }
+
   private async confirmDeleteSelected(): Promise<void> {
     const entry = this.deleteConfirmation;
     if (!entry || !this.beginOperation(`deleting ${notePathLabel(entry)}`))
@@ -1054,6 +1124,10 @@ export class NotesView {
     }
     if (this.priorityPopup.visible) {
       this.priorityPopup.handleKeyPress(key);
+      return;
+    }
+    if (this.movePopup.visible) {
+      this.movePopup.handleKeyPress(key);
       return;
     }
     if (this.deleteConfirmation) {

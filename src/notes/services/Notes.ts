@@ -1,5 +1,5 @@
 import { Clock, Context, Effect, Layer, Schema, Semaphore } from "effect";
-import { existsSync, lstatSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, renameSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import {
   commitIn,
@@ -51,6 +51,7 @@ import {
   type NoteEntry,
   type NoteFrontmatter,
   type NoteGitResult,
+  type NoteMoveResult,
   type NotePriority,
   type NotePushResult,
   type NoteReadResult,
@@ -103,6 +104,11 @@ interface NotesService {
   readonly delete: (
     filePath: string,
   ) => Effect.Effect<NoteDeleteResult, NotesError>;
+  readonly moveTargets: () => Effect.Effect<readonly string[], NotesError>;
+  readonly move: (
+    filePath: string,
+    repoSlug: string,
+  ) => Effect.Effect<NoteMoveResult, NotesError>;
   readonly create: (
     kind: NoteCreateKind,
     name: string,
@@ -579,6 +585,66 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         };
       });
 
+      const commitMovedNote = Effect.fn("Notes.commitMovedNote")(function* (
+        fromPath: string,
+        toPath: string,
+        message: string,
+      ) {
+        if (yield* withExecutor(hasStagedChanges(notesRoot))) {
+          return {
+            ok: false as const,
+            committed: false,
+            text: "",
+            error:
+              "The notes repository gained staged changes before the note could be committed. The note was moved locally and nothing new was staged.",
+          };
+        }
+        const paths = [
+          relative(notesRoot, fromPath),
+          relative(notesRoot, toPath),
+        ];
+        const staged = yield* withExecutor(
+          stageIn({ mode: "paths", paths }, { cwd: notesRoot, io: "capture" }),
+        );
+        if (!staged.ok) {
+          return {
+            ok: false as const,
+            committed: false,
+            text: "",
+            error: `git add failed: ${staged.error ?? "unknown error"}`,
+          };
+        }
+        const outcome = yield* withExecutor(
+          commitIn({
+            cwd: notesRoot,
+            message,
+            noVerify: true,
+            io: "capture",
+            tolerateEmpty: true,
+            paths,
+          }),
+        );
+        if (!outcome.ok) {
+          return {
+            ok: false as const,
+            committed: false,
+            text: "",
+            error: `git commit failed: ${outcome.error ?? "unknown error"}`,
+          };
+        }
+        const sha = outcome.committed
+          ? yield* commandResult("git", ["rev-parse", "HEAD"], {
+              cwd: notesRoot,
+            })
+          : undefined;
+        return {
+          ok: true as const,
+          committed: outcome.committed,
+          text: outcome.text,
+          ...(sha?.ok && { sha: sha.text }),
+        };
+      });
+
       const hasRemote = Effect.fn("Notes.hasRemote")(function* () {
         const isRepo = yield* commandResult("git", [
           "-C",
@@ -946,6 +1012,88 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               ].join("\n");
 
               return { path: resolvedPath, output, commit, push };
+            }),
+          ),
+        moveTargets: () =>
+          Effect.try({
+            try: () =>
+              [
+                ...new Set([
+                  ...listNoteRepoSections(projectsRoot).map(
+                    (section) => section.repoSlug,
+                  ),
+                  ...Object.keys(readRepositoryDirectories(config.stateDir)),
+                ]),
+              ].sort((a, b) => a.localeCompare(b)),
+            catch: (error) =>
+              fail(`Failed to list move destinations: ${errorMessage(error)}`),
+          }),
+        move: (filePath, repoSlug) =>
+          withMutationLock(
+            Effect.gen(function* () {
+              yield* prepareMutation();
+              const [owner, repo, ...extra] = repoSlug.split("/");
+              if (
+                !owner ||
+                !repo ||
+                extra.length > 0 ||
+                !isSafeRepositorySegment(owner) ||
+                !isSafeRepositorySegment(repo)
+              ) {
+                return yield* fail(
+                  `Invalid move destination: ${repoSlug}`,
+                  "Expected an existing or known owner/repo scope.",
+                );
+              }
+              const targets = new Set([
+                ...listNoteRepoSections(projectsRoot).map(
+                  (section) => section.repoSlug,
+                ),
+                ...Object.keys(readRepositoryDirectories(config.stateDir)),
+              ]);
+              if (!targets.has(repoSlug)) {
+                return yield* fail(
+                  `Unknown move destination: ${repoSlug}`,
+                  "Use `notes list --all` or the TUI move picker to see existing destinations.",
+                );
+              }
+              const fromPath = yield* Effect.try({
+                try: () => resolveExistingNotePath(projectsRoot, filePath),
+                catch: (error) => fail(errorMessage(error)),
+              });
+              const toPath = yield* Effect.try({
+                try: () =>
+                  resolveWritableNotePath(
+                    projectsRoot,
+                    join(projectsRoot, owner, repo, basename(fromPath)),
+                  ),
+                catch: (error) => fail(errorMessage(error)),
+              });
+              if (toPath === fromPath) {
+                return yield* fail(`Note is already in ${repoSlug}`);
+              }
+              if (existsSync(toPath)) {
+                return yield* fail(
+                  `A note named ${basename(toPath)} already exists in ${repoSlug}`,
+                );
+              }
+              yield* Effect.try({
+                try: () => renameSync(fromPath, toPath),
+                catch: (error) =>
+                  fail(`Failed to move note: ${errorMessage(error)}`),
+              });
+              const message = `notes: move ${basename(toPath)} to ${repoSlug}`;
+              const commit = toNoteCommitResult(
+                yield* commitMovedNote(fromPath, toPath, message),
+              );
+              const push = commit.committed ? yield* pushNotes() : undefined;
+              return {
+                from: fromPath,
+                path: toPath,
+                output: `Moved: ${fromPath}\nTo: ${toPath}`,
+                commit,
+                push,
+              };
             }),
           ),
         create: (kind, name, description, runEditor) =>
