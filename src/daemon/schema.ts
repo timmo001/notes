@@ -126,6 +126,7 @@ export function issuePrompt(issue: QueueIssue): string {
   return [
     "Process the following captured-note request.",
     "Complete the requested investigation using read-only research tools before creating a durable repository note with the Notes MCP tools.",
+    "Write valid YAML frontmatter with a short human-readable `name` field for the note title; do not use `title` as a substitute.",
     "Inspect relevant repository code and history, use primary external sources when needed, and record the sources or repository paths, evidence-based findings, and requested output in the note.",
     "Include an `Original request` section in the note containing the human-written capture text verbatim so its wording and context are preserved.",
     "Keep the note aligned with the human request. If evidence or existing decisions conflict with it, do not silently resolve or override the conflict: record each conflict and the specific user decision it needs.",

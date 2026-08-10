@@ -103,6 +103,8 @@ describe("daemon schema", () => {
     expect(prompt).not.toContain("</captured-note-json>");
     expect(prompt).not.toContain("x".repeat(12_001));
     expect(prompt).toContain("Complete the requested investigation");
+    expect(prompt).toContain("human-readable `name` field");
+    expect(prompt).toContain("do not use `title` as a substitute");
     expect(prompt).toContain(
       "`Original request` section in the note containing the human-written capture text verbatim",
     );

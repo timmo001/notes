@@ -47,6 +47,15 @@ describe("note frontmatter", () => {
   });
 
   test.each([
+    ["title: Captured title", "# Different heading", "Captured title"],
+    ["description: Captured note", "# Heading title", "Heading title"],
+  ])("reads daemon capture titles", (frontmatter, body, expected) => {
+    expect(readFrontmatter(`---\n${frontmatter}\n---\n\n${body}\n`).name).toBe(
+      expected,
+    );
+  });
+
+  test.each([
     "plain markdown",
     "---\nname: one\nname: two\n---\n",
     "---\n- not\n- a map\n---\n",

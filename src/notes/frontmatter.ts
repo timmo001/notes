@@ -62,7 +62,14 @@ function parseFrontmatter(content: string): ParsedFrontmatter {
 }
 
 function validateKnownFields(data: FrontmatterRecord): void {
-  for (const key of ["repo", "date", "type", "name", "description"] as const) {
+  for (const key of [
+    "repo",
+    "date",
+    "type",
+    "name",
+    "title",
+    "description",
+  ] as const) {
     if (data[key] !== undefined && typeof data[key] !== "string") {
       throw new Error(`Note frontmatter field ${key} must be a string`);
     }
@@ -87,9 +94,15 @@ function validateKnownFields(data: FrontmatterRecord): void {
 
 /** Parse the metadata used by note listings. */
 export function readFrontmatter(content: string): NoteFrontmatter {
-  const { data } = parseFrontmatter(content);
+  const { data, body } = parseFrontmatter(content);
+  const heading = body.match(/^#\s+(.+)\s*$/m)?.[1]?.trim();
   return {
-    name: typeof data.name === "string" ? data.name : null,
+    name:
+      typeof data.name === "string"
+        ? data.name
+        : typeof data.title === "string"
+          ? data.title
+          : heading || null,
     description: typeof data.description === "string" ? data.description : null,
     tags: Array.isArray(data.tags) ? (data.tags as readonly string[]) : [],
     priority:
