@@ -7,6 +7,7 @@
       "dependencies": {
         "@effect/platform-node": "^4.0.0-beta.99",
         "@opentui/core": "^0.5.0",
+        "@tuiparts/core": "^0.0.6",
         "effect": "^4.0.0-beta.99",
         "fuse.js": "^7.5.0",
         "proper-lockfile": "^4.1.2",
@@ -78,6 +79,8 @@
     "@opentui/core-win32-x64": ["@opentui/core-win32-x64@0.5.0", "", { "os": "win32", "cpu": "x64" }, "sha512-G0vnuBhDKl7PJa9nHlzN54P0UbeNSJZx+6d9c4aMrmIGvRCKI9XiL2V/Y/hSsbVKTknTVktcTr9TqRnXBcwu0g=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
+
+    "@tuiparts/core": ["@tuiparts/core@0.0.6", "", { "peerDependencies": { "@opentui/core": "^0.4.3" } }, "sha512-DNqtRprlpMJGUHVTm+L0R/P2Gbn392NZdzna8YSPQkgfNjyroSKpZieg1jTTnYAQn7cz5LpiwtDjw3RCUBrulw=="],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

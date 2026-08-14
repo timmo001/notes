@@ -1,0 +1,18 @@
+Notes  repo notes
+▶ Content 1
+A long architecture decision title that cannot wrap
+High  architecture, long-running-work
+▸ Details
+Context                                                  ┃
+┃
+This is realistic Markdown content with enough text to   ┃
+exercise the document surface.                           ┃
+┃
+- first item                                             ┃
+- second item                                            ┃
+- third item                                             ┃
+┃
+Decision                                                 ┃
+│
+2 notes    Selected: very-l...tecture-decision-document.md
+Tab pane  Esc back  i details  a create  e edit  ? help

@@ -1,6 +1,7 @@
 import {
   type CliRenderer,
   BoxRenderable,
+  CliRenderEvents,
   MarkdownRenderable,
   ScrollBoxRenderable,
   SyntaxStyle,
@@ -8,18 +9,17 @@ import {
   type KeyEvent,
   t,
   bold,
-  dim,
   fg,
 } from "@opentui/core";
 import Fuse, { type IFuseOptions } from "fuse.js";
 import type { Theme } from "../../theme.js";
-import { formatBreadcrumb } from "../../tui/breadcrumb.js";
-import { formatPaneTitle } from "../../tui/paneTitle.js";
-import {
-  addResponsiveHelpBar,
-  GLOBAL_HELP,
-  type HelpEntry,
-} from "../../tui/helpBar.js";
+import { AppHeader } from "../../tui/AppHeader.js";
+import { CommandBar, type CommandHint } from "../../tui/CommandBar.js";
+import { PaneHeader } from "../../tui/PaneHeader.js";
+import { Collapsible } from "../../tui/components/Collapsible.js";
+import { Dialog } from "../../tui/components/Dialog.js";
+import { ScrollSurface } from "../../tui/components/ScrollSurface.js";
+import { surfaceBackground } from "../../tui/components/styles.js";
 import { editorLabel } from "../../tui/externalEditor.js";
 import { openCodeSessionLabel } from "../../tui/openCodeSession.js";
 import { StatusList, type StatusListItem } from "../../tui/StatusList.js";
@@ -46,32 +46,31 @@ import { formatLocalNoteDateTimeFromEpochSeconds } from "../time.js";
 import { noteGitOutcome } from "../gitOutcome.js";
 import type { NoteEditorKind } from "./NoteEditor.js";
 import {
-  NoteCreatePrompt,
-  type NoteCreatePromptResult,
-} from "./NoteCreatePrompt.js";
-import { PriorityPopup, priorityColor } from "./PriorityPopup.js";
+  CreateNoteDialog,
+  type CreateNoteDialogResult,
+} from "./dialogs/CreateNoteDialog.js";
+import { DeleteNoteDialog } from "./dialogs/DeleteNoteDialog.js";
+import { HelpDialog } from "./dialogs/HelpDialog.js";
+import { MoveNoteDialog } from "./dialogs/MoveNoteDialog.js";
+import { PriorityDialog, priorityColor } from "./dialogs/PriorityDialog.js";
 import type { OpenCodeNoteMode } from "./OpenCodeNote.js";
-import { MovePopup } from "./MovePopup.js";
+import { measureNotesLayout, type NotesLayout } from "./layout.js";
 
-const HELP: readonly HelpEntry[] = [
-  { key: "up/down", action: "navigate" },
-  { key: "Tab", action: "pane" },
-  { key: "a", action: "add" },
-  { key: "A", action: "add visual" },
-  { key: "v", action: "all repos" },
-  { key: "e", action: "edit" },
-  { key: "E", action: "visual edit" },
-  { key: "o", action: "OpenCode" },
-  { key: "O", action: "OpenCode plan" },
-  { key: "r", action: "refresh" },
-  { key: "/", action: "search" },
-  { key: "s", action: "sort" },
-  { key: "g", action: "group" },
-  { key: "p", action: "priority" },
-  { key: "m", action: "move" },
-  { key: "d", action: "delete" },
-  { key: "Esc/Backspace", action: "back" },
-  ...GLOBAL_HELP,
+const COMMANDS: readonly CommandHint[] = [
+  { key: "Tab", action: "pane", contexts: ["list", "content"], priority: 1 },
+  {
+    key: "Esc",
+    action: "back",
+    contexts: ["list", "content", "search", "minimum"],
+    priority: 1,
+  },
+  { key: "↕", action: "navigate", contexts: ["list"], priority: 2 },
+  { key: "Enter", action: "preview", contexts: ["list"], priority: 3 },
+  { key: "/", action: "search", contexts: ["list"], priority: 4 },
+  { key: "a", action: "create", contexts: ["list", "content"], priority: 5 },
+  { key: "e", action: "edit", contexts: ["list", "content"], priority: 6 },
+  { key: "i", action: "details", contexts: ["content"], priority: 2 },
+  { key: "?", action: "help", contexts: ["list", "content"], priority: 7 },
 ];
 
 type NotesPane = "list" | "content";
@@ -93,9 +92,6 @@ const NOTE_SEARCH_OPTIONS: IFuseOptions<NoteEntry> = {
   threshold: 0.4,
   ignoreLocation: true,
 };
-const INACTIVE_OPACITY = 0.45;
-const DELETE_PROMPT_WIDTH = 58;
-const DELETE_PROMPT_HEIGHT = 7;
 
 /** Configuration callbacks for the repository notes view. */
 export interface NotesViewOptions {
@@ -149,28 +145,37 @@ export class NotesView {
   private readonly theme: Theme;
   private readonly syntaxStyle: SyntaxStyle;
   private readonly root: BoxRenderable;
+  private readonly shell: BoxRenderable;
+  private readonly workspace: BoxRenderable;
   private readonly leftPane: BoxRenderable;
   private readonly rightPane: BoxRenderable;
-  private readonly titleBar: TextRenderable;
+  private readonly divider: TextRenderable;
+  private readonly minimumSize: BoxRenderable;
+  private readonly minimumSizeText: TextRenderable;
+  private readonly appHeader: AppHeader;
   private readonly noteList: StatusList<NoteEntry>;
-  private readonly listTitle: TextRenderable;
-  private readonly contentTitle: TextRenderable;
+  private readonly listTitle: PaneHeader;
+  private readonly contentTitle: PaneHeader;
   private readonly noteHeading: TextRenderable;
+  private readonly noteSummary: TextRenderable;
   private readonly noteDescription: TextRenderable;
   private readonly noteTags: TextRenderable;
   private readonly notePriorityText: TextRenderable;
   private readonly noteFile: TextRenderable;
   private readonly noteModified: TextRenderable;
+  private readonly metadata: Collapsible;
+  private readonly bodySurface: ScrollSurface;
   private readonly bodyScroll: ScrollBoxRenderable;
   private readonly markdown: MarkdownRenderable;
+  private readonly commandBar: CommandBar;
   private readonly statusBar: TextRenderable;
-  private readonly deletePrompt: BoxRenderable;
-  private readonly deletePromptTitle: TextRenderable;
-  private readonly deletePromptFile: TextRenderable;
-  private readonly deletePromptHelp: TextRenderable;
-  private readonly createPrompt: NoteCreatePrompt;
-  private readonly priorityPopup: PriorityPopup;
-  private readonly movePopup: MovePopup;
+  private readonly createPrompt: CreateNoteDialog;
+  private readonly priorityPopup: PriorityDialog;
+  private readonly movePopup: MoveNoteDialog;
+  private readonly deletePrompt: DeleteNoteDialog;
+  private readonly helpDialog: HelpDialog;
+  private layout: NotesLayout;
+  private metadataPreference: boolean | null = null;
   private filter: NotesViewFilter | null = null;
   private activePane: NotesPane = "list";
   private sortMode: NoteSortMode = "name-asc";
@@ -200,9 +205,8 @@ export class NotesView {
   private requestedInitialRefresh = false;
   private loadVersion = 0;
   private readonly keyHandlers: Readonly<Record<string, () => void>>;
-  private readonly deleteConfirmationKeyHandlers: Readonly<
-    Record<string, () => void>
-  >;
+  private readonly keyHandler: (key: KeyEvent) => void;
+  private readonly resizeHandler: () => void;
 
   constructor(
     renderer: CliRenderer,
@@ -229,16 +233,11 @@ export class NotesView {
       p: () => this.requestChangePriority(),
       m: () => void this.requestMoveSelected(),
       d: () => this.requestDeleteSelected(),
+      i: () => this.toggleMetadata(),
+      "?": () => this.helpDialog.show(),
       escape: () => this.callbacks.onBack(),
       backspace: () => this.callbacks.onBack(),
     };
-    this.deleteConfirmationKeyHandlers = {
-      y: () => void this.confirmDeleteSelected(),
-      n: () => this.cancelDeleteConfirmation(),
-      escape: () => this.cancelDeleteConfirmation(),
-      backspace: () => this.cancelDeleteConfirmation(),
-    };
-
     this.root = new BoxRenderable(renderer, {
       id: "notes-root",
       flexDirection: "column",
@@ -246,38 +245,33 @@ export class NotesView {
       height: "100%",
       padding: 1,
     });
-
-    this.titleBar = new TextRenderable(renderer, {
-      id: "notes-title-bar",
-      content: this.formatTitle(),
-      marginBottom: 1,
+    this.shell = new BoxRenderable(renderer, {
+      id: "notes-shell",
+      flexDirection: "column",
+      width: "100%",
+      height: "100%",
     });
-    this.root.add(this.titleBar);
-
-    const paneContainer = new BoxRenderable(renderer, {
+    this.appHeader = new AppHeader(renderer, {
+      id: "notes-app-header",
+      theme,
+      title: "Notes",
+      scope: "repo notes",
+    });
+    this.workspace = new BoxRenderable(renderer, {
       id: "notes-pane-container",
       flexDirection: "row",
       flexGrow: 1,
       flexShrink: 1,
       minHeight: 0,
-      gap: 2,
     });
-
     this.leftPane = new BoxRenderable(renderer, {
       id: "notes-left-pane",
       flexDirection: "column",
-      flexGrow: 1,
       flexShrink: 1,
-      flexBasis: 0,
       minHeight: 0,
     });
-    this.listTitle = new TextRenderable(renderer, {
-      id: "notes-list-title",
-      content: formatPaneTitle(theme, "Notes", 0, true, theme.fgMuted),
-      marginBottom: 0,
-    });
+    this.listTitle = new PaneHeader(renderer, "notes-list-title", theme);
     this.leftPane.add(this.listTitle);
-
     this.noteList = new StatusList(renderer, {
       id: "notes-list",
       theme,
@@ -290,179 +284,199 @@ export class NotesView {
     this.noteList.flexShrink = 1;
     this.noteList.minHeight = 0;
     this.leftPane.add(this.noteList);
-
+    this.divider = new TextRenderable(renderer, {
+      id: "notes-divider",
+      content: t`${fg(theme.fgSubtle)("│")}`,
+      width: 1,
+      height: "100%",
+      flexShrink: 0,
+    });
     this.rightPane = new BoxRenderable(renderer, {
       id: "notes-right-pane",
       flexDirection: "column",
-      flexGrow: 1,
       flexShrink: 1,
-      flexBasis: 0,
       minHeight: 0,
     });
-    this.contentTitle = new TextRenderable(renderer, {
-      id: "notes-content-title",
-      content: formatPaneTitle(theme, "Content", 0, false, theme.fgMuted),
-      marginBottom: 0,
-    });
+    this.contentTitle = new PaneHeader(renderer, "notes-content-title", theme);
     this.rightPane.add(this.contentTitle);
-
     const heading = new BoxRenderable(renderer, {
       id: "notes-content-heading",
       flexDirection: "column",
       width: "100%",
       flexShrink: 0,
-      backgroundColor: theme.bgElevated,
-      padding: 1,
-      marginBottom: 1,
+      backgroundColor: surfaceBackground(theme),
     });
     this.noteHeading = new TextRenderable(renderer, {
       id: "notes-content-heading-title",
       content: t`${bold(fg(theme.fgMuted)("No note selected"))}`,
       width: "100%",
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
       truncate: true,
+    });
+    this.noteSummary = new TextRenderable(renderer, {
+      id: "notes-content-summary",
+      content: "",
+      width: "100%",
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
+      truncate: true,
+    });
+    heading.add(this.noteHeading);
+    heading.add(this.noteSummary);
+    this.metadata = new Collapsible(renderer, {
+      id: "notes-details",
+      theme,
+      label: "Details",
+      open: true,
+      onOpenChange: (open) => (this.metadataPreference = open),
     });
     this.noteDescription = new TextRenderable(renderer, {
       id: "notes-content-heading-desc",
       content: t``,
       width: "100%",
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
       truncate: true,
     });
     this.noteTags = new TextRenderable(renderer, {
       id: "notes-content-heading-tags",
       content: t``,
       width: "100%",
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
       truncate: true,
     });
     this.notePriorityText = new TextRenderable(renderer, {
       id: "notes-content-heading-priority",
       content: t``,
       width: "100%",
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
       truncate: true,
     });
     this.noteFile = new TextRenderable(renderer, {
       id: "notes-content-heading-file",
       content: t``,
       width: "100%",
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
       truncate: true,
     });
     this.noteModified = new TextRenderable(renderer, {
       id: "notes-content-heading-modified",
       content: t``,
       width: "100%",
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
       truncate: true,
     });
-    heading.add(this.noteHeading);
-    heading.add(this.noteDescription);
-    heading.add(this.noteTags);
-    heading.add(this.notePriorityText);
-    heading.add(this.noteFile);
-    heading.add(this.noteModified);
+    this.metadata.panel.add(this.noteDescription);
+    this.metadata.panel.add(this.noteTags);
+    this.metadata.panel.add(this.notePriorityText);
+    this.metadata.panel.add(this.noteFile);
+    this.metadata.panel.add(this.noteModified);
+    heading.add(this.metadata);
     this.rightPane.add(heading);
-
-    this.bodyScroll = new ScrollBoxRenderable(renderer, {
+    this.bodySurface = new ScrollSurface(renderer, {
       id: "notes-content-scroll",
+      theme,
       flexGrow: 1,
       flexShrink: 1,
       minHeight: 0,
       width: "100%",
       scrollY: true,
       scrollX: false,
-      backgroundColor: theme.bgElevated,
+      backgroundColor: surfaceBackground(theme),
       focusable: true,
       wrapperOptions: { flexGrow: 1, flexShrink: 1, minHeight: 0 },
       viewportOptions: { flexGrow: 1, flexShrink: 1, minHeight: 0 },
       contentOptions: { flexDirection: "column", width: "100%" },
     });
+    this.bodyScroll = this.bodySurface.scrollBox;
     this.markdown = new MarkdownRenderable(renderer, {
       id: "notes-content-markdown",
       content: "Select a note to preview its content.",
       syntaxStyle: this.syntaxStyle,
       width: "100%",
       fg: theme.fg,
-      bg: theme.bgElevated,
+      bg: surfaceBackground(theme),
       conceal: true,
       tableOptions: { widthMode: "full", wrapMode: "word" },
     });
-    this.bodyScroll.add(this.markdown);
-    this.rightPane.add(this.bodyScroll);
-
-    paneContainer.add(this.leftPane);
-    paneContainer.add(this.rightPane);
-    this.root.add(paneContainer);
-
-    const footer = new BoxRenderable(renderer, {
-      id: "notes-footer",
-      flexDirection: "column",
-      width: "100%",
-      flexShrink: 0,
-      backgroundColor: theme.bg,
-      zIndex: 10,
-    });
-    this.statusBar = new TextRenderable(renderer, {
-      id: "notes-status-bar",
-      content: t`${fg(theme.fgMuted)("Loading...")}`,
-      marginTop: 1,
-    });
-    footer.add(this.statusBar);
-    addResponsiveHelpBar(renderer, footer, {
-      id: "notes-help-bar",
-      theme,
-      entries: HELP,
-    });
-    this.root.add(footer);
-
-    this.deletePrompt = new BoxRenderable(renderer, {
-      id: "notes-delete-prompt",
-      position: "absolute",
-      width: DELETE_PROMPT_WIDTH,
-      height: DELETE_PROMPT_HEIGHT,
-      zIndex: 160,
+    this.bodySurface.addContent(this.markdown);
+    this.rightPane.add(this.bodySurface);
+    this.workspace.add(this.leftPane);
+    this.workspace.add(this.divider);
+    this.workspace.add(this.rightPane);
+    this.commandBar = new CommandBar(renderer, "notes-command-bar", theme);
+    this.statusBar = this.commandBar.status;
+    this.shell.add(this.appHeader);
+    this.shell.add(this.workspace);
+    this.shell.add(this.commandBar);
+    this.minimumSize = new BoxRenderable(renderer, {
+      id: "notes-minimum-size",
       visible: false,
-      borderStyle: "rounded",
-      borderColor: theme.red,
-      backgroundColor: theme.bgElevated,
-      flexDirection: "column",
-      paddingLeft: 1,
-      paddingRight: 1,
-      paddingTop: 0,
-      paddingBottom: 0,
-    });
-    this.deletePromptTitle = new TextRenderable(renderer, {
-      id: "notes-delete-prompt-title",
-      content: t``,
-      marginBottom: 1,
-    });
-    this.deletePromptFile = new TextRenderable(renderer, {
-      id: "notes-delete-prompt-file",
-      content: t``,
+      focusable: true,
       width: "100%",
-      truncate: true,
+      height: "100%",
     });
-    this.deletePromptHelp = new TextRenderable(renderer, {
-      id: "notes-delete-prompt-help",
-      content: t``,
-      marginTop: 1,
+    this.minimumSizeText = new TextRenderable(renderer, {
+      id: "notes-minimum-size-text",
+      width: "100%",
+      height: "100%",
+      content: "",
+      wrapMode: "word",
     });
-    this.deletePrompt.add(this.deletePromptTitle);
-    this.deletePrompt.add(this.deletePromptFile);
-    this.deletePrompt.add(this.deletePromptHelp);
-
-    this.createPrompt = new NoteCreatePrompt(renderer, theme, {
-      onSubmit: (result) => void this.executeCreateFlow(result),
-      onDismiss: () => this.cancelCreateFlow(),
-    });
-    this.priorityPopup = new PriorityPopup(renderer, theme, {
-      onSelect: (priority) => void this.executeSetPriority(priority),
+    this.minimumSize.add(this.minimumSizeText);
+    this.root.add(this.shell);
+    this.root.add(this.minimumSize);
+    this.createPrompt = new CreateNoteDialog(
+      renderer,
+      theme,
+      (result) => void this.executeCreateFlow(result),
+      () => this.cancelCreateFlow(),
+    );
+    this.priorityPopup = new PriorityDialog(renderer, theme, {
+      onApply: (priority) => void this.executeSetPriority(priority),
       onDismiss: () => this.cancelChangePriority(),
     });
-    this.movePopup = new MovePopup(renderer, theme, {
-      onSelect: (repoSlug) => void this.executeMove(repoSlug),
-      onDismiss: () => this.cancelMove(),
-    });
-
-    renderer.keyInput.on("keypress", (key) => this.handleKeyPress(key));
+    this.movePopup = new MoveNoteDialog(
+      renderer,
+      theme,
+      (repo) => void this.executeMove(repo),
+      () => this.cancelMove(),
+    );
+    this.deletePrompt = new DeleteNoteDialog(
+      renderer,
+      theme,
+      () => void this.confirmDeleteSelected(),
+      () => this.cancelDeleteConfirmation(),
+    );
+    this.helpDialog = new HelpDialog(renderer, theme, () =>
+      this.focusPane(this.activePane),
+    );
+    this.layout = measureNotesLayout(renderer.width, renderer.height);
+    this.keyHandler = (key) => this.handleKeyPress(key);
+    this.resizeHandler = () => {
+      this.applyLayout(measureNotesLayout(renderer.width, renderer.height));
+      renderer.requestRender();
+      queueMicrotask(() => {
+        this.noteList.realign();
+        this.bodySurface.syncMarker();
+      });
+    };
+    renderer.keyInput.on("keypress", this.keyHandler);
+    renderer.on(CliRenderEvents.RESIZE, this.resizeHandler);
     renderer.root.add(this.root);
-    renderer.root.add(this.deletePrompt);
+    this.applyLayout(this.layout);
     this.focus();
   }
 
@@ -481,7 +495,7 @@ export class NotesView {
       this.loadedNoteContentPath = null;
       this.showingAllRepos = filter?.includeAllRepos === true;
       this.usingAllReposFallback = false;
-      this.titleBar.content = this.formatTitle();
+      this.updateAppHeader();
       this.applyFilter();
       if (this.isVisible) void this.refresh();
     }
@@ -495,6 +509,8 @@ export class NotesView {
       this.clearDeleteConfirmation(false);
       return;
     }
+    if (this.layout.mode === "minimum")
+      this.renderer.focusRenderable(this.minimumSize);
     if (this.requestedInitialRefresh) return;
     this.requestedInitialRefresh = true;
     void this.refresh();
@@ -502,6 +518,7 @@ export class NotesView {
 
   /** Give keyboard focus to the currently active pane. */
   focus(): void {
+    if (this.layout.mode === "minimum") return;
     this.focusPane(this.activePane);
   }
 
@@ -511,8 +528,11 @@ export class NotesView {
     this.createPrompt.destroy();
     this.priorityPopup.destroy();
     this.movePopup.destroy();
+    this.deletePrompt.destroy();
+    this.helpDialog.destroy();
+    this.renderer.keyInput.off("keypress", this.keyHandler);
+    this.renderer.off(CliRenderEvents.RESIZE, this.resizeHandler);
     this.renderer.root.remove(this.root);
-    this.renderer.root.remove(this.deletePrompt);
   }
 
   private get filterKey(): string {
@@ -532,7 +552,7 @@ export class NotesView {
       this.showingAllRepos = loaded.allRepos;
       this.usingAllReposFallback = loaded.fallback;
       this.preferredInitialRepoSlug = loaded.preferredRepoSlug ?? null;
-      this.titleBar.content = this.formatTitle();
+      this.updateAppHeader();
       this.applyFilter();
       this.updateStatusBar();
       return true;
@@ -595,7 +615,7 @@ export class NotesView {
       this.visibleEntries.map((entry) => this.listItem(entry, !searching)),
       preferredFilePath,
     );
-    this.titleBar.content = this.formatTitle();
+    this.updateAppHeader();
     this.updatePaneTitles();
     if (this.visibleEntries.length === 0)
       this.showEmptyContent(this.emptyTitle(), this.emptyBody());
@@ -614,8 +634,6 @@ export class NotesView {
     if (this.searchActive) return;
     this.searchActive = true;
     this.activePane = "list";
-    this.leftPane.opacity = 1;
-    this.rightPane.opacity = INACTIVE_OPACITY;
     this.noteList.setActive(true, { focus: false });
     this.bodyScroll.blur();
     this.updatePaneTitles();
@@ -766,6 +784,50 @@ export class NotesView {
     this.focusPane(this.activePane === "list" ? "content" : "list");
   }
 
+  private applyLayout(layout: NotesLayout): void {
+    this.layout = layout;
+    const minimum = layout.mode === "minimum";
+    this.minimumSize.visible = minimum;
+    this.shell.visible = !minimum;
+    if (minimum) {
+      this.noteList.setActive(false);
+      this.bodyScroll.blur();
+      this.minimumSizeText.content = t`${bold(fg(this.theme.accent)("Notes needs more room"))}\n${fg(this.theme.fgMuted)(`Resize to at least ${layout.requiredWidth}x${layout.requiredHeight}.`)}\n${fg(this.theme.fgSubtle)("Esc exits")}`;
+      this.renderer.focusRenderable(this.minimumSize);
+      return;
+    }
+    if (layout.mode === "split") {
+      this.leftPane.visible = true;
+      this.rightPane.visible = true;
+      this.divider.visible = true;
+      this.leftPane.width = layout.navigationWidth;
+      this.rightPane.width = layout.previewWidth;
+    } else {
+      this.divider.visible = false;
+      this.leftPane.width = "100%";
+      this.rightPane.width = "100%";
+      this.leftPane.visible = this.activePane === "list";
+      this.rightPane.visible = this.activePane === "content";
+    }
+    this.metadata.setOpen(this.metadataOpen());
+    this.commandBar.update(
+      this.currentStatusText(),
+      this.searchActive ? "search" : this.activePane,
+      COMMANDS,
+    );
+    this.focusPane(this.activePane);
+  }
+
+  private metadataOpen(): boolean {
+    return this.metadataPreference ?? this.layout.mode === "split";
+  }
+
+  private toggleMetadata(): void {
+    if (this.activePane !== "content" || this.layout.mode === "minimum") return;
+    this.metadataPreference = !this.metadataOpen();
+    this.metadata.setOpen(this.metadataPreference);
+  }
+
   private async openSelectedInOpenCode(mode: OpenCodeNoteMode): Promise<void> {
     const entry = this.selectedEntry;
     if (!entry) {
@@ -839,7 +901,10 @@ export class NotesView {
   }
 
   private startCreateFlow(editorKind: NoteEditorKind): void {
-    if (this.activeOperation) return this.showActiveOperation();
+    if (this.activeOperation) {
+      this.showActiveOperation();
+      return;
+    }
     this.createEditorKind = editorKind;
     this.noteList.setActive(false);
     this.bodyScroll.blur();
@@ -852,7 +917,7 @@ export class NotesView {
   }
 
   private async executeCreateFlow(
-    result: NoteCreatePromptResult,
+    result: CreateNoteDialogResult,
   ): Promise<void> {
     if (!this.beginOperation(`creating ${result.kind}`)) return;
     this.creatingNote = true;
@@ -899,7 +964,10 @@ export class NotesView {
   }
 
   private requestChangePriority(): void {
-    if (this.activeOperation) return this.showActiveOperation();
+    if (this.activeOperation) {
+      this.showActiveOperation();
+      return;
+    }
     const entry = this.selectedEntry;
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before changing priority")}`;
@@ -950,7 +1018,10 @@ export class NotesView {
   }
 
   private requestDeleteSelected(): void {
-    if (this.activeOperation) return this.showActiveOperation();
+    if (this.activeOperation) {
+      this.showActiveOperation();
+      return;
+    }
     const entry = this.selectedEntry;
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before deleting")}`;
@@ -961,7 +1032,10 @@ export class NotesView {
   }
 
   private async requestMoveSelected(): Promise<void> {
-    if (this.activeOperation) return this.showActiveOperation();
+    if (this.activeOperation) {
+      this.showActiveOperation();
+      return;
+    }
     const entry = this.selectedEntry;
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before moving")}`;
@@ -1071,18 +1145,7 @@ export class NotesView {
   }
 
   private showDeletePrompt(entry: NoteEntry): void {
-    this.deletePromptTitle.content = t`${bold(fg(this.theme.red)("Delete note?"))}`;
-    this.deletePromptFile.content = t`${fg(this.theme.fgMuted)("File: ")}${fg(this.theme.fg)(notePathLabel(entry))}`;
-    this.deletePromptHelp.content = t`${dim("y")} ${dim("delete")}  ${dim("n/Esc")} ${dim("cancel")}`;
-    this.deletePrompt.top = Math.max(
-      1,
-      Math.floor((this.renderer.height - DELETE_PROMPT_HEIGHT) / 2),
-    );
-    this.deletePrompt.left = Math.max(
-      1,
-      Math.floor((this.renderer.width - DELETE_PROMPT_WIDTH) / 2),
-    );
-    this.deletePrompt.visible = true;
+    this.deletePrompt.show(notePathLabel(entry));
     this.noteList.setActive(false);
     this.bodyScroll.blur();
   }
@@ -1096,12 +1159,20 @@ export class NotesView {
 
   private clearDeleteConfirmation(refocus = true): void {
     this.deleteConfirmation = null;
-    this.deletePrompt.visible = false;
+    this.deletePrompt.hide();
     if (refocus && this.isVisible) this.focusPane(this.activePane);
   }
 
   private handleKeyPress(key: KeyEvent): void {
     if (!this.isVisible) return;
+    if (Dialog.handleTopmostKey(key)) return;
+    if (this.layout.mode === "minimum") {
+      if ((key.ctrl && key.name === "c") || key.name === "escape") {
+        key.preventDefault();
+        this.callbacks.onBack();
+      }
+      return;
+    }
     if (this.acknowledgement) {
       key.preventDefault();
       this.acknowledgement = null;
@@ -1118,25 +1189,33 @@ export class NotesView {
       this.callbacks.onBack();
       return;
     }
-    if (this.createPrompt.visible) {
-      this.createPrompt.handleKeyPress(key);
+    if (
+      this.createPrompt.visible ||
+      this.priorityPopup.visible ||
+      this.movePopup.visible ||
+      this.deletePrompt.visible ||
+      this.helpDialog.visible
+    )
       return;
-    }
-    if (this.priorityPopup.visible) {
-      this.priorityPopup.handleKeyPress(key);
-      return;
-    }
-    if (this.movePopup.visible) {
-      this.movePopup.handleKeyPress(key);
-      return;
-    }
-    if (this.deleteConfirmation) {
-      this.deleteConfirmationKeyHandlers[key.name]?.();
-      return;
-    }
     if (this.searchActive) {
       key.preventDefault();
       this.handleSearchKey(key);
+      return;
+    }
+    if (
+      this.activePane === "list" &&
+      ["up", "down", "pageup", "pagedown", "return"].includes(key.name)
+    ) {
+      key.preventDefault();
+      this.noteList.handleKeyPress(key);
+      return;
+    }
+    if (
+      this.activePane === "content" &&
+      ["up", "down", "pageup", "pagedown", "home", "end"].includes(key.name)
+    ) {
+      key.preventDefault();
+      this.bodySurface.handleKeyPress(key);
       return;
     }
     this.keyHandlers[`${key.shift ? "shift+" : ""}${key.name}`]?.();
@@ -1166,12 +1245,19 @@ export class NotesView {
 
   private focusPane(pane: NotesPane): void {
     this.activePane = pane;
-    this.leftPane.opacity = pane === "list" ? 1 : INACTIVE_OPACITY;
-    this.rightPane.opacity = pane === "content" ? 1 : INACTIVE_OPACITY;
+    if (this.layout.mode === "master-detail") {
+      this.leftPane.visible = pane === "list";
+      this.rightPane.visible = pane === "content";
+    }
     this.noteList.setActive(pane === "list");
     if (pane === "content") this.bodyScroll.focus();
     else this.bodyScroll.blur();
     this.updatePaneTitles();
+    this.commandBar.update(
+      this.currentStatusText(),
+      this.searchActive ? "search" : pane,
+      COMMANDS,
+    );
   }
 
   private listItem(
@@ -1200,7 +1286,8 @@ export class NotesView {
   private updateHeader(entry: NoteEntry): void {
     const name = entry.name ?? stripMarkdownExtension(entry.filename);
     const modified = formatLocalNoteDateTimeFromEpochSeconds(entry.mtime);
-    this.noteHeading.content = t`${fg(this.theme.fgMuted)("Name: ")}${bold(fg(this.theme.accent)(name))}`;
+    this.noteHeading.content = t`${bold(fg(this.theme.accent)(name))}`;
+    this.noteSummary.content = t`${fg(priorityColor(this.theme, notePriority(entry)))(priorityLabel(notePriority(entry)))}  ${fg(this.theme.fgMuted)(formatTags(entry.tags))}`;
     this.noteDescription.content = entry.description
       ? t`${fg(this.theme.fgMuted)("Description: ")}${fg(this.theme.fg)(entry.description)}`
       : t`${fg(this.theme.fgMuted)("Description: ")}${fg(this.theme.fgSubtle)("No description")}`;
@@ -1216,6 +1303,7 @@ export class NotesView {
     this.loadedNoteContent = null;
     this.loadedNoteContentPath = null;
     this.noteHeading.content = t`${bold(fg(this.theme.fgMuted)(title))}`;
+    this.noteSummary.content = t``;
     this.noteDescription.content = t``;
     this.noteTags.content = t``;
     this.notePriorityText.content = t``;
@@ -1234,19 +1322,15 @@ export class NotesView {
         : this.groupMode === "none"
           ? sortModeLabel(this.sortMode)
           : `group:${this.groupMode} | ${sortModeLabel(this.sortMode)}`;
-    this.listTitle.content = formatPaneTitle(
-      this.theme,
+    this.listTitle.update(
       `${notesDisplayTitle(this.filter, this.showingAllRepos)} | ${detail}`,
-      this.visibleEntries.length,
+      `${this.visibleEntries.length}`,
       this.activePane === "list",
-      countColor(this.theme, this.visibleEntries.length),
     );
-    this.contentTitle.content = formatPaneTitle(
-      this.theme,
+    this.contentTitle.update(
       "Content",
-      this.selectedEntry ? 1 : 0,
+      this.selectedEntry ? "1" : "0",
       this.activePane === "content",
-      this.selectedEntry ? this.theme.accent : this.theme.fgMuted,
     );
   }
 
@@ -1269,6 +1353,26 @@ export class NotesView {
       return;
     }
     this.statusBar.content = t`${fg(this.theme.fgMuted)(formatStatusBarText(this.visibleEntries.length, this.selectedEntry, this.filter, this.showingAllRepos, this.usingAllReposFallback))}`;
+    this.commandBar.update(
+      this.currentStatusText(),
+      this.searchActive ? "search" : this.activePane,
+      COMMANDS,
+    );
+  }
+
+  private currentStatusText(): string {
+    if (this.searchActive)
+      return this.searchQuery
+        ? `Search: ${this.searchQuery}`
+        : "Search: type to filter";
+    if (!this.visibleEntries.length) return this.emptyBody();
+    return formatStatusBarText(
+      this.visibleEntries.length,
+      this.selectedEntry,
+      this.filter,
+      this.showingAllRepos,
+      this.usingAllReposFallback,
+    );
   }
 
   private emptyTitle(): string {
@@ -1289,10 +1393,9 @@ export class NotesView {
       : "No notes found for this repository.";
   }
 
-  private formatTitle() {
-    return formatBreadcrumb(
-      this.theme,
-      ["Notes", notesDisplayTitle(this.filter, this.showingAllRepos)],
+  private updateAppHeader(): void {
+    this.appHeader.setContent(
+      notesDisplayTitle(this.filter, this.showingAllRepos),
       notesSubtitle(this.filter, this.showingAllRepos),
     );
   }
@@ -1401,10 +1504,6 @@ function notesSubtitle(
 ): string {
   const scope = showingAllRepos ? "all repos" : "repo notes";
   return filter?.tag ? `tag:${filter.tag} | ${scope}` : scope;
-}
-
-function countColor(theme: Theme, count: number): string {
-  return count > 0 ? theme.accent : theme.fgMuted;
 }
 
 function formatStatusBarText(

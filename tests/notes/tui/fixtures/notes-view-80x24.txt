@@ -1,0 +1,22 @@
+Notes  repo notes
+▶ Notes | gro...po | name up 2│· Content 1
+very-long-ow...ng-repository  A long architecture de...title that cannot wrap
+▌ A long archit...t cannot wr  High  architecture, long-running-work
+▌ A detailed de...6, 9:33:20   ▾ Details
+other/repository              Description: A detaile...n in compact terminals
+Implementation handoff       Tags: architecture, long-running-work
+Continue the ...6, 5:46:40   Priority: High
+File: very-long-owner/...e-decision-document.md
+Modified: Aug 14, 2026, 9:33:20 AM
+Context                                       ┃
+┃
+This is realistic Markdown content with       ┃
+enough text to exercise the document surface. ┃
+┃
+- first item                                  ┃
+- second item                                 ┃
+- third item                                  ┃
+│
+Decision                                      │
+2 notes    Selected: very-long-owner/...long-architecture-decision-document.md
+Tab pane  Esc back  ↕ navigate  Enter...ew  / search  a create  e edit  ? help

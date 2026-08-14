@@ -1,62 +1,50 @@
 import {
-  type CliRenderer,
   BoxRenderable,
-  ScrollBoxRenderable,
   TextRenderable,
-  type KeyEvent,
-  t,
-  fg,
   bold,
+  fg,
+  t,
+  type CliRenderer,
+  type KeyEvent,
 } from "@opentui/core";
 import type { Theme } from "../theme.js";
+import { ScrollSurface } from "./components/ScrollSurface.js";
+import { surfaceBackground } from "./components/styles.js";
 
-/** A two-line status list item with first-line colour and muted details. */
 export interface StatusListItem<T> {
-  /** Stable item identifier. */
   readonly id: string;
-  /** First-line label. */
   readonly title: string;
-  /** Second-line details. */
   readonly description: string;
-  /** Colour used for the first line. */
   readonly color: string;
-  /** Optional non-selectable section heading. */
   readonly section?: string;
-  /** Source value associated with this item. */
   readonly value: T;
 }
 
-/** Options for {@link StatusList}. */
 export interface StatusListOptions<T> {
-  /** Unique renderable ID. */
   readonly id: string;
-  /** Active colour theme. */
   readonly theme: Theme;
-  /** Initial items to render. */
   readonly items?: readonly StatusListItem<T>[];
-  /** Called when the user presses Enter on the selected item. */
   readonly onSelect: (item: StatusListItem<T>) => void;
-  /** Called when the highlighted item changes. */
   readonly onSelectionChanged?: (item: StatusListItem<T>) => void;
-  /** Whether Enter activates the highlighted item. Defaults to true. */
   readonly selectOnEnter?: boolean;
 }
 
 interface StatusListRow<T> {
   readonly container: BoxRenderable;
-  readonly titleText: TextRenderable;
-  readonly descText: TextRenderable;
+  readonly marker: TextRenderable;
+  readonly title: TextRenderable;
+  readonly description: TextRenderable;
   readonly item: StatusListItem<T>;
+  readonly sectionHeader?: BoxRenderable;
 }
 
-/** Scrollable two-line list that can colour each item independently. */
-export class StatusList<T> extends ScrollBoxRenderable {
+/** Stable two-row file-browser list with section-aware scrolling. */
+export class StatusList<T> extends ScrollSurface {
   private readonly renderer: CliRenderer;
-  private readonly theme: Theme;
-  private readonly onSelect: (item: StatusListItem<T>) => void;
+  private readonly listTheme: Theme;
+  private readonly onSelectItem: (item: StatusListItem<T>) => void;
   private readonly onItemSelectionChanged?: (item: StatusListItem<T>) => void;
   private readonly selectOnEnter: boolean;
-  private sectionHeaders: BoxRenderable[] = [];
   private rows: StatusListRow<T>[] = [];
   private items: readonly StatusListItem<T>[] = [];
   private selectedIndex = 0;
@@ -65,197 +53,262 @@ export class StatusList<T> extends ScrollBoxRenderable {
   constructor(renderer: CliRenderer, options: StatusListOptions<T>) {
     super(renderer, {
       id: options.id,
+      theme: options.theme,
       flexGrow: 1,
-      width: "100%",
+      flexShrink: 1,
+      minHeight: 0,
       scrollY: true,
       scrollX: false,
-      backgroundColor: options.theme.bgElevated,
       focusable: true,
+      backgroundColor: surfaceBackground(options.theme),
+      contentOptions: { flexDirection: "column", width: "100%" },
     });
-
     this.renderer = renderer;
-    this.theme = options.theme;
-    this.onSelect = options.onSelect;
+    this.listTheme = options.theme;
+    this.onSelectItem = options.onSelect;
     this.onItemSelectionChanged = options.onSelectionChanged;
     this.selectOnEnter = options.selectOnEnter ?? true;
     this.setItems(options.items ?? []);
   }
 
-  /** Replace rendered items, preserving selection by item ID when possible. */
   setItems(
     items: readonly StatusListItem<T>[],
     preferredId?: string | null,
   ): void {
-    const selectedId = preferredId ?? this.getSelectedItem()?.id ?? null;
-    this.clearRows();
+    const selectedId = preferredId ?? this.getSelectedItem()?.id;
+    for (const row of this.scrollBox.getChildren()) this.scrollBox.remove(row);
     this.items = items;
-    this.selectedIndex = selectedId
-      ? Math.max(
-          0,
-          items.findIndex((item) => item.id === selectedId),
-        )
-      : 0;
-    this.buildRows();
-    const row = this.rows[this.selectedIndex];
-    if (row) this.scrollChildIntoView(row.container.id);
-    this.emitSelectionChanged();
+    this.selectedIndex = Math.max(
+      0,
+      selectedId ? items.findIndex((item) => item.id === selectedId) : 0,
+    );
+    this.rows = [];
+    let section: string | undefined;
+    let sectionHeader: BoxRenderable | undefined;
+    items.forEach((item, index) => {
+      if (item.section && item.section !== section) {
+        section = item.section;
+        sectionHeader = this.createSection(item.section, index);
+        this.addContent(sectionHeader);
+      }
+      const row = this.createRow(item, index, sectionHeader);
+      this.rows.push(row);
+      this.addContent(row.container);
+    });
+    this.refresh();
+    this.ensureSelectionVisible();
+    this.emitSelection();
   }
 
-  /** Return the highlighted item, if any. */
   getSelectedItem(): StatusListItem<T> | undefined {
     return this.items[this.selectedIndex];
   }
 
-  /** Mark this list as the active pane and optionally focus it. */
   setActive(active: boolean, options?: { readonly focus?: boolean }): void {
     this.active = active;
-    this.opacity = active ? 1 : 0.45;
     if (active && (options?.focus ?? true)) this.focus();
     else this.blur();
-    this.refreshRowStyles();
+    this.refresh();
   }
 
-  /** Move the highlight to the next item without requiring focus. */
   selectNext(): void {
     this.moveSelection(1);
   }
-
-  /** Move the highlight to the previous item without requiring focus. */
   selectPrevious(): void {
     this.moveSelection(-1);
   }
+  realign(): void {
+    this.ensureSelectionVisible();
+    this.syncMarker();
+  }
 
-  /** Handle list navigation and selection keys. */
+  override focus(): void {
+    this.renderer.focusRenderable(this);
+  }
+  override blur(): void {
+    this.renderer.blurRenderable(this);
+  }
+
   override handleKeyPress(key: KeyEvent): boolean {
-    if (key.name === "up") {
-      this.moveSelection(-1);
+    if (key.name === "up" || key.name === "down") {
+      this.moveSelection(key.name === "up" ? -1 : 1);
       return true;
     }
-    if (key.name === "down") {
-      this.moveSelection(1);
+    if (key.name === "pageup" || key.name === "pagedown") {
+      const page = this.completeItemsPerPage();
+      this.moveSelection(key.name === "pageup" ? -page : page, false);
       return true;
     }
     if (key.name === "return" && this.selectOnEnter) {
       const item = this.getSelectedItem();
-      if (item) this.onSelect(item);
+      if (item) this.onSelectItem(item);
       return true;
     }
-    return super.handleKeyPress(key);
+    return this.scrollBox.handleKeyPress(key);
   }
 
-  private moveSelection(delta: number): void {
-    if (this.items.length === 0) return;
-    const next =
-      (this.selectedIndex + delta + this.items.length) % this.items.length;
+  private moveSelection(delta: number, wrap = true): void {
+    if (!this.items.length) return;
+    const next = wrap
+      ? (this.selectedIndex + delta + this.items.length) % this.items.length
+      : Math.max(
+          0,
+          Math.min(this.items.length - 1, this.selectedIndex + delta),
+        );
     if (next === this.selectedIndex) return;
     this.selectedIndex = next;
-    this.refreshRowStyles();
-    const row = this.rows[this.selectedIndex];
-    if (row) this.scrollChildIntoView(row.container.id);
-    this.emitSelectionChanged();
+    this.refresh();
+    this.ensureSelectionVisible();
+    this.emitSelection();
   }
 
-  private activateIndex(index: number): void {
-    const item = this.items[index];
-    if (!item) return;
-
+  private activate(index: number): void {
     if (index !== this.selectedIndex) {
       this.selectedIndex = index;
-      this.refreshRowStyles();
-      const row = this.rows[this.selectedIndex];
-      if (row) this.scrollChildIntoView(row.container.id);
-      this.emitSelectionChanged();
+      this.refresh();
+      this.ensureSelectionVisible();
+      this.emitSelection();
     }
-
-    this.onSelect(item);
+    const item = this.items[index];
+    if (item) this.onSelectItem(item);
   }
 
-  private emitSelectionChanged(): void {
-    const item = this.getSelectedItem();
-    if (item) this.onItemSelectionChanged?.(item);
-  }
-
-  private clearRows(): void {
-    for (const header of this.sectionHeaders) this.remove(header);
-    for (const row of this.rows) this.remove(row.container);
-    this.sectionHeaders = [];
-    this.rows = [];
-  }
-
-  private buildRows(): void {
-    let lastSection: string | undefined;
-    for (let index = 0; index < this.items.length; index++) {
-      const item = this.items[index];
-      if (item.section && item.section !== lastSection) {
-        const header = this.createSectionHeader(item.section, index);
-        this.sectionHeaders.push(header);
-        this.add(header);
-      }
-      lastSection = item.section;
-
-      const row = this.createRow(item, index);
-      this.rows.push(row);
-      this.add(row.container);
-    }
-    this.refreshRowStyles();
-  }
-
-  private createRow(item: StatusListItem<T>, index: number): StatusListRow<T> {
-    const id = `${this.id}-row-${index}`;
-    const container = new BoxRenderable(this.renderer, {
-      id,
-      flexDirection: "column",
+  private createSection(label: string, index: number): BoxRenderable {
+    const header = new BoxRenderable(this.renderer, {
+      id: `${this.id}-section-${index}`,
       width: "100%",
+      height: 1,
       flexShrink: 0,
-      backgroundColor: this.theme.bgElevated,
       paddingLeft: 1,
+    });
+    header.add(
+      new TextRenderable(this.renderer, {
+        content: t`${bold(fg(this.listTheme.fgSubtle)(label))}`,
+        height: 1,
+        wrapMode: "none",
+        truncate: true,
+      }),
+    );
+    return header;
+  }
+
+  private createRow(
+    item: StatusListItem<T>,
+    index: number,
+    sectionHeader?: BoxRenderable,
+  ): StatusListRow<T> {
+    const container = new BoxRenderable(this.renderer, {
+      id: `${this.id}-row-${index}`,
+      flexDirection: "row",
+      width: "100%",
+      height: 2,
+      flexShrink: 0,
+      overflow: "hidden",
       onMouseDown: (event) => {
         if (event.button !== 0) return;
         event.stopPropagation();
-        this.activateIndex(index);
+        this.activate(index);
       },
     });
-    const titleText = new TextRenderable(this.renderer, {
-      id: `${id}-title`,
-      content: t`${fg(item.color)(item.title)}`,
-    });
-    const descText = new TextRenderable(this.renderer, {
-      id: `${id}-desc`,
-      content: t`${fg(this.theme.fgMuted)(item.description)}`,
-    });
-    container.add(titleText);
-    container.add(descText);
-    return { container, titleText, descText, item };
-  }
-
-  private createSectionHeader(section: string, index: number): BoxRenderable {
-    const id = `${this.id}-section-${index}`;
-    const container = new BoxRenderable(this.renderer, {
-      id,
-      flexDirection: "column",
-      width: "100%",
+    const marker = new TextRenderable(this.renderer, {
+      width: 2,
+      height: 2,
       flexShrink: 0,
-      backgroundColor: this.theme.bgElevated,
-      paddingLeft: 1,
-      paddingTop: index > 0 ? 1 : 0,
+      content: "",
     });
-    container.add(
-      new TextRenderable(this.renderer, {
-        id: `${id}-title`,
-        content: t`${bold(fg(this.theme.fgSubtle)(section))}`,
-      }),
-    );
-    return container;
+    const content = new BoxRenderable(this.renderer, {
+      flexDirection: "column",
+      flexGrow: 1,
+      minWidth: 0,
+      height: 2,
+    });
+    const title = new TextRenderable(this.renderer, {
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
+      truncate: true,
+      overflow: "hidden",
+      content: "",
+    });
+    const description = new TextRenderable(this.renderer, {
+      height: 1,
+      flexShrink: 0,
+      wrapMode: "none",
+      truncate: true,
+      overflow: "hidden",
+      content: "",
+    });
+    content.add(title);
+    content.add(description);
+    container.add(marker);
+    container.add(content);
+    return { container, marker, title, description, item, sectionHeader };
   }
 
-  private refreshRowStyles(): void {
-    for (let index = 0; index < this.rows.length; index++) {
-      const row = this.rows[index];
+  private refresh(): void {
+    this.rows.forEach((row, index) => {
       const selected = index === this.selectedIndex;
       row.container.backgroundColor =
-        selected && this.active ? this.theme.bgSelected : this.theme.bgElevated;
-      row.titleText.content = t`${fg(row.item.color)(row.item.title)}`;
-      row.descText.content = t`${fg(this.theme.fgMuted)(row.item.description)}`;
+        selected && this.active
+          ? this.listTheme.bgSelected
+          : surfaceBackground(this.listTheme);
+      row.marker.content = t`${fg(selected ? row.item.color : this.listTheme.fgGhost)(selected ? "▌\n▌" : "  \n  ")}`;
+      row.title.content = t`${selected ? bold(fg(row.item.color)(row.item.title)) : fg(row.item.color)(row.item.title)}`;
+      row.description.content = t`${fg(this.listTheme.fgMuted)(row.item.description)}`;
+    });
+  }
+
+  private ensureSelectionVisible(): void {
+    const row = this.rows[this.selectedIndex];
+    if (!row) return;
+    const viewport = this.scrollBox.viewport.height;
+    const rowStart = this.childStart(row.container);
+    const contextStart = row.sectionHeader
+      ? this.childStart(row.sectionHeader)
+      : rowStart;
+    const rowEnd = rowStart + row.container.height;
+    const targetStart =
+      rowEnd - contextStart <= viewport ? contextStart : rowStart;
+    const current = this.scrollBox.scrollTop;
+    let target = current;
+    if (targetStart < current) target = targetStart;
+    else if (rowEnd > current + viewport) target = rowEnd - viewport;
+    this.scrollBox.scrollTop = this.completeChildBoundary(target);
+    this.syncMarker();
+  }
+
+  private completeItemsPerPage(): number {
+    const viewport = this.scrollBox.viewport.height;
+    if (viewport <= 0) return 1;
+    return Math.max(1, Math.floor(viewport / 2));
+  }
+
+  private completeChildBoundary(offset: number): number {
+    const extent = Math.max(
+      0,
+      this.scrollBox.scrollHeight - this.scrollBox.viewport.height,
+    );
+    const bounded = Math.max(0, Math.min(offset, extent));
+    const starts: number[] = [];
+    let start = 0;
+    for (const child of this.scrollBox.getChildren()) {
+      if (start <= bounded) starts.push(start);
+      start += child.height;
     }
+    return Math.max(0, ...starts);
+  }
+
+  private childStart(target: BoxRenderable): number {
+    let start = 0;
+    for (const child of this.scrollBox.getChildren()) {
+      if (child === target) return start;
+      start += child.height;
+    }
+    return start;
+  }
+
+  private emitSelection(): void {
+    const item = this.getSelectedItem();
+    if (item) this.onItemSelectionChanged?.(item);
   }
 }

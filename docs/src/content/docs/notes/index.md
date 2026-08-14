@@ -14,12 +14,17 @@ notes
 notes --all
 ```
 
-The TUI uses a two-pane layout: the left pane lists notes, and the right pane previews the selected note's metadata and Markdown body. Useful controls:
+The TUI is a document-first browser. Wide terminals use a 35/65 split between the note list and Markdown preview. When both pane minimums no longer fit, it switches to a one-pane master/detail layout while preserving each pane's selection and scroll position. Terminals below the compact floor show a stable resize screen instead of a broken workspace.
+
+The preview keeps the title and priority summary visible above the document. Metadata is expanded by default in split mode and collapsed in master/detail mode. Toggle it with `i`; your choice persists for the rest of the TUI session. The bottom command bar only shows commands relevant to the active pane, while `?` opens the complete grouped shortcut reference.
+
+Useful controls:
 
 | Key                 | Action                              |
 | ------------------- | ----------------------------------- |
 | `up` / `down`       | Move through notes                  |
 | `Tab`               | Switch between list and preview     |
+| `Enter`             | Open the selected note preview      |
 | `/`                 | Search note names, tags and summary |
 | `s`                 | Cycle sorting                       |
 | `v`                 | Toggle current repo/all repos       |
@@ -29,6 +34,8 @@ The TUI uses a two-pane layout: the left pane lists notes, and the right pane pr
 | `O`                 | Plan from the full selected note    |
 | `d`                 | Delete after confirmation           |
 | `r`                 | Refresh                             |
+| `i`                 | Toggle preview metadata             |
+| `?`                 | Open grouped keyboard help          |
 | `Esc` / `Backspace` | Exit or go back                     |
 
 Editor actions are launched through Bash and must stay attached until editing finishes. Set `EDITOR` for terminal editing and use a waiting visual command such as `VISUAL="code --wait"` for `A` and `E`. Both modes fall back to Neovim when no editor is configured.

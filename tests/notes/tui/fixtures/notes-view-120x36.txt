@@ -1,0 +1,12 @@
+Notes  repo notes
+▶ Notes | group:repo | name up 2        │· Content 1
+very-long-owner/very-long-repository    A long architecture decision title that cannot wrap
+▌ A long architectur...e that cannot wr  High  architecture, long-running-work
+▌ A detailed descrip..., 2026, 9:33:20   ▾ Details
+other/repository                        Description: A detailed description t... on one row even in compact terminals
+Implementation handoff                 Tags: architecture, long-running-work
+Continue the imple..., 2026, 5:46:40   Priority: High
+File: very-long-owner/very-long-repos...ong-architecture-decision-document.md
+Modified: Aug 14, 2026, 9:33:20 AM
+2 notes    Selected: very-long-owner/very-long-repository/long-architecture-decision-document.md
+Tab pane  Esc back  ↕ navigate  Enter preview  / search  a create  e edit  ? help
