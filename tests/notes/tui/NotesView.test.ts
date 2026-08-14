@@ -49,15 +49,18 @@ describe("NotesView", () => {
     const view = new NotesView(renderer, TEST_THEME, callbacks());
     view.setVisible(true);
     await settle(setup);
+    await waitForDocument(setup);
     assertGolden(setup.captureCharFrame(), "notes-view-120x36.txt");
     setup.resize(80, 24);
     await settle(setup);
+    await waitForDocument(setup);
     assertGolden(setup.captureCharFrame(), "notes-view-80x24.txt");
     setup.resize(60, 20);
     await settle(setup);
     assertGolden(setup.captureCharFrame(), "notes-view-60x20-list.txt");
     setup.mockInput.pressEnter();
     await settle(setup);
+    await waitForDocument(setup);
     assertGolden(setup.captureCharFrame(), "notes-view-60x20-preview.txt");
     setup.resize(30, 10);
     await settle(setup);
@@ -180,10 +183,23 @@ function callbacks(onBack = () => {}): NotesViewOptions {
 }
 
 async function settle(setup: Awaited<ReturnType<typeof createTestRenderer>>) {
-  for (let pass = 0; pass < 6; pass++) {
+  for (let pass = 0; pass < 2; pass++) {
+    await Bun.sleep(5);
     await Promise.resolve();
     await setup.flush();
   }
+  await setup.waitForVisualIdle({ quietFrames: 2, maxFrames: 100 });
+}
+
+async function waitForDocument(
+  setup: Awaited<ReturnType<typeof createTestRenderer>>,
+) {
+  for (let pass = 0; pass < 100; pass++) {
+    if (setup.captureCharFrame().includes("Context")) return;
+    await Bun.sleep(5);
+    await setup.flush();
+  }
+  throw new Error("Markdown document did not render");
 }
 
 function emitGlobalKey(renderer: CliRenderer, name: string): void {

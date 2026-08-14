@@ -8,5 +8,13 @@ Implementation handoff                 Tags: architecture, long-running-work
 Continue the imple..., 2026, 5:46:40   Priority: High
 File: very-long-owner/very-long-repos...ong-architecture-decision-document.md
 Modified: Aug 14, 2026, 9:33:20 AM
+Context
+This is realistic Markdown content with enough text to exercise the
+document surface.
+- first item
+- second item
+- third item
+Decision
+Keep the layout stable while resizing.
 2 notes    Selected: very-long-owner/very-long-repository/long-architecture-decision-document.md
 Tab pane  Esc back  ↕ navigate  Enter preview  / search  a create  e edit  ? help
