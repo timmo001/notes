@@ -98,7 +98,7 @@ describe("daemon schema", () => {
       labels: ["agent:ready"],
       comments: [],
     });
-    const prompt = issuePrompt(issue);
+    const prompt = issuePrompt(issue.body);
     expect(prompt.match(/<\/captured-note-base64>/g)).toHaveLength(1);
     expect(prompt).not.toContain("</captured-note-json>");
     expect(prompt).not.toContain("x".repeat(12_001));

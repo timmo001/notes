@@ -18,6 +18,7 @@ import { CommandExecutor } from "./services/CommandExecutor.js";
 import { Config } from "./services/Config.js";
 import { mcpServer, mcpTeardown } from "./mcp/commands/Mcp.js";
 import { runDaemon } from "./daemon/run.js";
+import { captureStatus, processLocalCapture } from "./capture/run.js";
 import { Notes, NotesError } from "./notes/services/Notes.js";
 import {
   formatNoteLabel,
@@ -537,6 +538,71 @@ function runNative(parsed: ParsedArgs, command: string): void {
       NodeRuntime.runMain(
         runDaemon(configPath, hasOption(parsed.rest, "--once")),
       );
+    } catch (error) {
+      failUsage(error instanceof Error ? error.message : String(error));
+    }
+    return;
+  }
+
+  if (command === "capture") {
+    try {
+      validateOptions(parsed.rest, {
+        "--config": "value",
+        "--status": "flag",
+        "--stdin": "flag",
+        "--repository": "value",
+        "--json": "flag",
+      });
+      const configPath = optionValue(parsed.rest, "--config");
+      if (!configPath) failUsage("notes capture requires --config <path>");
+      const status = hasOption(parsed.rest, "--status");
+      const stdin = hasOption(parsed.rest, "--stdin");
+      if (status === stdin) {
+        failUsage("notes capture requires exactly one of --status or --stdin");
+      }
+      if (status && optionValue(parsed.rest, "--repository")) {
+        failUsage("notes capture --status does not accept --repository");
+      }
+      if (status) {
+        NodeRuntime.runMain(
+          captureStatus(configPath).pipe(
+            Effect.tap((result) =>
+              Effect.sync(() =>
+                console.log(
+                  hasOption(parsed.rest, "--json")
+                    ? JSON.stringify(result)
+                    : "Local capture is available",
+                ),
+              ),
+            ),
+          ),
+        );
+      } else {
+        const repository = optionValue(parsed.rest, "--repository");
+        NodeRuntime.runMain(
+          Effect.promise(() => Bun.stdin.text()).pipe(
+            Effect.flatMap((text) =>
+              processLocalCapture(configPath, {
+                version: 1,
+                requestId: crypto.randomUUID(),
+                text,
+                capturedAt: new Date().toISOString(),
+                source: "text",
+                ...(repository ? { repository } : {}),
+              }),
+            ),
+            Effect.tap((result) =>
+              Effect.sync(() =>
+                console.log(
+                  hasOption(parsed.rest, "--json")
+                    ? JSON.stringify(result)
+                    : result.summary,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
     } catch (error) {
       failUsage(error instanceof Error ? error.message : String(error));
     }

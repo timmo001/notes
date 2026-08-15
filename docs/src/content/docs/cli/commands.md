@@ -211,6 +211,31 @@ Start a Model Context Protocol server exposing note read, list, write, and delet
 notes mcp
 ```
 
+## `notes capture`
+
+Process a captured note through local OpenCode
+
+```text
+notes capture --config <path> (--status | --stdin [--repository <owner/repo>]) [--json]
+```
+
+**Options**
+
+| Option                        | Description                            |
+| ----------------------------- | -------------------------------------- |
+| `--config` `<path>`           | Daemon YAML configuration path         |
+| `--status`                    | Check local processor availability     |
+| `--stdin`                     | Read captured note text from stdin     |
+| `--repository` `<owner/repo>` | Target repository (omit for Automatic) |
+| `--json`                      | Emit a machine-readable result         |
+
+**Examples**
+
+```bash
+notes capture --config ~/.config/notes/daemon.yml --status --json
+printf 'Investigate this' | notes capture --config ~/.config/notes/daemon.yml --stdin --json
+```
+
 ## `notes daemon`
 
 Process captured notes through local OpenCode
@@ -270,9 +295,9 @@ notes help [command]
 
 **Arguments**
 
-| Argument    | Description                                                                                                                                          |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `read`, `write`, `delete`, `move`, `handoffs`, `mcp`, `daemon`, `completions`. |
+| Argument    | Description                                                                                                                                                     |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `read`, `write`, `delete`, `move`, `handoffs`, `mcp`, `capture`, `daemon`, `completions`. |
 
 **Examples**
 

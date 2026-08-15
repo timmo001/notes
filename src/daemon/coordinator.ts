@@ -118,7 +118,7 @@ const processClaimedIssue = Effect.fn("NotesDaemon.processClaimedIssue")(
       return true;
     }
 
-    const result = (yield* opencode.process(issuePrompt(current))).trim();
+    const result = (yield* opencode.process(issuePrompt(current.body))).trim();
     if (!result || result.length > MAX_RESULT_LENGTH) {
       return yield* new DaemonProcessingError({
         issueNumber: issue.number,

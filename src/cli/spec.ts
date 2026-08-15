@@ -262,6 +262,33 @@ export const cliCommands: readonly CliCommandSpec[] = [
     examples: ["notes mcp"],
   },
   {
+    name: "capture",
+    summary: "Process a captured note through local OpenCode",
+    usage:
+      "--config <path> (--status | --stdin [--repository <owner/repo>]) [--json]",
+    options: [
+      {
+        name: "--config",
+        valueName: "path",
+        completion: "file",
+        description: "Daemon YAML configuration path",
+      },
+      { name: "--status", description: "Check local processor availability" },
+      { name: "--stdin", description: "Read captured note text from stdin" },
+      {
+        name: "--repository",
+        valueName: "owner/repo",
+        description: "Target repository (omit for Automatic)",
+      },
+      { name: "--json", description: "Emit a machine-readable result" },
+      helpOption,
+    ],
+    examples: [
+      "notes capture --config ~/.config/notes/daemon.yml --status --json",
+      "printf 'Investigate this' | notes capture --config ~/.config/notes/daemon.yml --stdin --json",
+    ],
+  },
+  {
     name: "daemon",
     summary: "Process captured notes through local OpenCode",
     usage: "--config <path> [--once]",
@@ -324,6 +351,7 @@ export const cliCommands: readonly CliCommandSpec[] = [
           { value: "move" },
           { value: "handoffs" },
           { value: "mcp" },
+          { value: "capture" },
           { value: "daemon" },
           { value: "completions" },
         ],

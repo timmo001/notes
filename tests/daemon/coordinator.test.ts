@@ -55,6 +55,7 @@ describe("runProcessingPass", () => {
           }),
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () => Effect.succeed("Processed result"),
       }),
     );
@@ -86,6 +87,7 @@ describe("runProcessingPass", () => {
         complete: () => Effect.die("complete should not run"),
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () => Effect.die("OpenCode should not run"),
       }),
     );
@@ -120,6 +122,7 @@ describe("runProcessingPass", () => {
           }),
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () =>
           Effect.sync(() => {
             opencodeCalls += 1;
@@ -160,6 +163,7 @@ describe("runProcessingPass", () => {
           }),
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () => Effect.succeed("Processed result"),
       }),
     );
@@ -197,6 +201,7 @@ describe("runProcessingPass", () => {
         complete: () => Effect.void,
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () => Effect.succeed("Processed result"),
       }),
     );
@@ -231,6 +236,7 @@ describe("runProcessingPass", () => {
         complete: () => Effect.die("complete should not run"),
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () =>
           Effect.fail(
             new OpenCodeClientError({
@@ -284,6 +290,7 @@ describe("runProcessingPass", () => {
         complete: () => Effect.die("complete should not run"),
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () =>
           Effect.fail(
             new OpenCodeClientError({
@@ -348,6 +355,7 @@ describe("runProcessingPass", () => {
         complete: () => Effect.die("complete should not run"),
       }),
       Layer.succeed(OpenCodeClient, {
+        status: Effect.void,
         process: () => Effect.fail(unexpected as never),
       }),
     );

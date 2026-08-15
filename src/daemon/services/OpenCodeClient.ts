@@ -12,6 +12,8 @@ export class OpenCodeClientError extends Schema.TaggedErrorClass<OpenCodeClientE
 
 /** Local authenticated OpenCode operations required by the daemon. */
 export interface OpenCodeClientService {
+  /** Check whether the authenticated local server accepts requests. */
+  readonly status: Effect.Effect<void, OpenCodeClientError>;
   /** Create a fresh session, submit a prompt, and return bounded final text. */
   readonly process: (
     prompt: string,
@@ -73,6 +75,7 @@ export class OpenCodeClient extends Context.Service<
     const request = makeRequest(config, username, password);
 
     return Layer.succeed(OpenCodeClient, {
+      status: request("GET", "/session").pipe(Effect.asVoid),
       process: (prompt) => processWithFallback(config, request, prompt),
     });
   }

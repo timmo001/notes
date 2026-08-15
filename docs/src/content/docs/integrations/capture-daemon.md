@@ -5,6 +5,18 @@ description: Process queued web captures through a local OpenCode server.
 
 The notes daemon polls a private GitHub issue queue, claims each issue with a temporary processing label, submits its captured text to a local password-protected OpenCode server, and posts the result before closing the issue.
 
+The same processor also accepts a capture directly, without the web app or GitHub queue:
+
+```sh
+printf 'Investigate this note' | notes capture \
+  --config ~/.config/notes/daemon.yml \
+  --stdin \
+  --repository owner/repository \
+  --json
+```
+
+Omit `--repository` to use Automatic repository resolution. Check whether the configured OpenCode server is ready with `notes capture --config ~/.config/notes/daemon.yml --status --json`. Both forms require `OPENCODE_SERVER_PASSWORD`; the capture form validates the same version 1 text, timestamp, request ID, source, and optional repository fields as the web capture.
+
 Run one pass while testing configuration:
 
 ```sh
