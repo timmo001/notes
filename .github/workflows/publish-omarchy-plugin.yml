@@ -81,7 +81,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/omarchy-notes-capture
           path: _publish
-          token: ${{ secrets.PUSH_TOKEN }}
+          ssh-key: ${{ secrets.OMARCHY_PLUGIN_DEPLOY_KEY }}
 
       - name: Publish plugin files
         run: .github/scripts/bash/publish-omarchy-plugin.sh omarchy-plugin _publish
