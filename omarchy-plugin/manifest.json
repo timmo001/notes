@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "timmo.notes-capture",
+  "name": "Notes Capture",
+  "version": "1.0.0",
+  "author": "Timmo",
+  "license": "Apache-2.0",
+  "description": "Capture notes through the local Notes processor",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Notes Capture",
+    "description": "Capture a note through local OpenCode",
+    "category": "Utility",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "primaryOnly": true,
+      "primaryOutput": ""
+    },
+    "schema": [
+      {
+        "key": "primaryOnly",
+        "type": "boolean",
+        "label": "Primary output only",
+        "defaultValue": true
+      },
+      {
+        "key": "primaryOutput",
+        "type": "string",
+        "label": "Primary output",
+        "defaultValue": "",
+        "description": "Optional output name used when primary output only is enabled."
+      }
+    ]
+  }
+}
