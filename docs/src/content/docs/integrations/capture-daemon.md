@@ -1,6 +1,6 @@
 ---
-title: Capture daemon
-description: Process queued web captures through a local OpenCode server.
+title: Capture processor
+description: Process queued or direct captures through a local OpenCode server.
 ---
 
 The notes daemon polls a private GitHub issue queue, claims each issue with a temporary processing label, submits its captured text to a local password-protected OpenCode server, and posts the result before closing the issue.
@@ -16,6 +16,10 @@ printf 'Investigate this note' | notes capture \
 ```
 
 Omit `--repository` to use Automatic repository resolution. Check whether the configured OpenCode server is ready with `notes capture --config ~/.config/notes/daemon.yml --status --json`. Both forms require `OPENCODE_SERVER_PASSWORD`; the capture form validates the same version 1 text, timestamp, request ID, source, and optional repository fields as the web capture.
+
+The [Notes Capture Omarchy plugin](/integrations/omarchy-capture/) uses this
+direct mode through a host-owned wrapper. Direct captures do not need GitHub
+CLI authentication or pass through the GitHub issue queue.
 
 Run one pass while testing configuration:
 

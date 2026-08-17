@@ -7,9 +7,7 @@ selection, and queues submissions while the panel remains responsive.
 ## Requirements
 
 - Omarchy Quattro
-- Notes installed with the `notes` executable available on `PATH`
 - A `notes-capture-local` executable available on `PATH`
-- A running `notes-capture-opencode.service` user service
 
 `notes-capture-local` is a host-owned integration command. It must support:
 
@@ -18,10 +16,16 @@ notes-capture-local --status --json
 notes-capture-local --stdin --json [--repository owner/repository]
 ```
 
-The second command receives the capture text on standard input and returns the
-Notes JSON capture result on standard output. The command and service must
-provide the local daemon configuration and `OPENCODE_SERVER_PASSWORD` required
-by `notes capture`.
+The status command reports availability through its exit code: zero means the
+processor is ready. The second command receives capture text on standard input.
+A successful submission must exit with zero and print JSON containing
+`"status": "success"`; an optional `summary` string is shown in the panel.
+
+The wrapper's host integration usually requires [Notes](https://notes.timmo.dev/install/),
+a configured OpenCode service, and `OPENCODE_SERVER_PASSWORD`. Installing this
+plugin does not create the wrapper, service, configuration, or credentials. See
+the [Omarchy capture documentation](https://notes.timmo.dev/integrations/omarchy-capture/)
+for the full integration contract.
 
 ## Install
 
@@ -41,14 +45,18 @@ omarchy plugin add \
   --enable --yes
 ```
 
-The widget defaults to the right bar section. Existing Omarchy placement and
-inline settings remain compatible because the plugin ID is unchanged.
+The widget defaults to the right bar section.
 
 ## Use
 
 Select the widget to open its panel. Enter up to 12,000 characters and select
-Send, or press Ctrl+Enter. Escape closes the panel. Tab, Shift+Tab, Up, and Down
-move between controls and repository choices.
+Send, or press Ctrl+Enter. Escape closes the panel. Tab moves from the editor to
+Send. Up and Down move through the repository filter and available choices.
+
+Submissions run one at a time. Further submissions wait in memory, and closing
+the panel does not cancel them. The queue is lost if `omarchy-shell` restarts.
+Clear removes queued submissions and clears the displayed result of an active
+submission, but it does not stop the active wrapper process.
 
 The repository picker includes an Automatic target. Optional explicit choices
 come from this host-owned JSON file:
@@ -68,6 +76,11 @@ The expected shape is:
 ]
 ```
 
+The plugin reloads the file when it changes. Invalid JSON or a value other than
+an array leaves only Automatic resolution. Keep each entry to the shown shape
+because entries are displayed and passed to the wrapper without further
+validation.
+
 The plugin exposes the `timmo.notes-capture` shell IPC target with `open`,
 `close`, `show`, `hide`, and `toggle` methods:
 
@@ -86,16 +99,22 @@ User-owned shortcuts can invoke that command without changing the plugin.
 
 ## Local files
 
-The plugin reads the optional repository list above. It reads and writes these
-plain-text recovery files:
+The plugin reads the optional repository list above. It saves the current draft
+to this plain-text file and restores it when the plugin loads:
 
 ```text
 ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-draft.txt
+```
+
+A failed submission is copied to a separate recovery file:
+
+```text
 ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-failed-draft.txt
 ```
 
-Drafts are not encrypted. Clear the panel to remove the current and failed
-draft files' contents.
+The failed draft is not restored into the editor automatically. Open the file
+directly to recover it. A later failure replaces it, and a successful capture
+does not remove it. Drafts are not encrypted. Clear empties both files.
 
 ## Network behaviour
 
@@ -122,6 +141,9 @@ Review and apply the next fast-forward update:
 omarchy plugin update timmo.notes-capture
 ```
 
+Plugin changes are published from the Notes repository independently of stable
+Notes CLI releases.
+
 ## Remove
 
 ```bash
@@ -131,7 +153,30 @@ omarchy plugin remove timmo.notes-capture
 Removing the plugin does not remove its host-owned service, wrapper command,
 repository list, daemon configuration, credentials, or draft files.
 
+## Troubleshooting
+
+Confirm that the wrapper is available and its status check succeeds:
+
+```bash
+command -v notes-capture-local
+notes-capture-local --status --json
+```
+
+If your wrapper uses `notes-capture-opencode.service`, inspect its status and
+logs:
+
+```bash
+systemctl --user status notes-capture-opencode.service
+journalctl --user -u notes-capture-opencode.service
+```
+
+Check the failed-draft file after a rejected or malformed submission. If
+explicit repositories disappear, validate the repository JSON against the
+array shape above.
+
 ## Validate from source
+
+Run these commands from the `omarchy-plugin/` directory:
 
 ```bash
 omarchy plugin validate .
@@ -141,6 +186,9 @@ omarchy plugin validate .
   --unqualified disable \
   ./*.qml
 ```
+
+These checks validate the manifest and lint the QML. They do not exercise the
+wrapper, keyboard navigation, queue, or draft recovery at runtime.
 
 ## Security
 

@@ -32,12 +32,12 @@ features:
 | Neovim        | Default editor when `EDITOR` is unset        |
 | OpenCode      | The TUI's `o` and `O` actions                |
 | `notify-send` | Optional MCP write and delete notifications  |
-| GitHub CLI    | The optional capture daemon                  |
+| GitHub CLI    | Queued capture daemon mode                   |
 
 Git is installed by the Linux packages. Set `EDITOR` and `VISUAL` to use other
 editors instead of Neovim. Missing `notify-send` only disables desktop
-notifications. The [capture daemon](/integrations/capture-daemon/) also needs a
-running OpenCode server.
+notifications. The [capture processor](/integrations/capture-daemon/) needs a
+running OpenCode server in both queued and direct modes.
 
 Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
 GitHub draft, optionally generate its release notes, then publish it to build
