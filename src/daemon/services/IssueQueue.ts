@@ -62,7 +62,10 @@ export class IssueQueue extends Context.Service<
             ),
           );
           return yield* Effect.try({
-            try: () => JSON.parse(output) as unknown,
+            try: () =>
+              Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(
+                output,
+              ),
             catch: (error) =>
               new IssueQueueError({
                 operation,
@@ -267,7 +270,7 @@ function mapIssue(issue: typeof GhIssue.Type): QueueIssue {
   });
 }
 
-function decodeIssue(value: unknown) {
+function decodeIssue(value: Schema.Json) {
   return Schema.decodeUnknownEffect(GhIssue)(value).pipe(
     Effect.map(mapIssue),
     Effect.mapError(

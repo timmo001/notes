@@ -334,7 +334,7 @@ describe("Notes service", () => {
   });
 
   test("retains known project directories when listing all repositories", async () => {
-    const { root, layer } = fixture();
+    const { layer } = fixture();
     const currentScope = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).tuiScope();

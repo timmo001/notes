@@ -1,24 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import type { CliRenderer } from "@opentui/core";
+import { createTestRenderer } from "@opentui/core/testing";
 import { runWithRendererSuspended } from "../../src/tui/SuspendedCommand.js";
 
-function rendererFixture(events: string[]) {
-  const renderer = {
-    suspend: () => events.push("suspend"),
-    currentRenderBuffer: { clear: () => events.push("clear") },
-    resume: () => events.push("resume"),
-    requestRender: () => events.push("render"),
-  } as unknown as CliRenderer;
+async function rendererFixture(events: string[]) {
+  const { renderer } = await createTestRenderer({ width: 1, height: 1 });
+  renderer.suspend = () => {
+    events.push("suspend");
+  };
+  renderer.currentRenderBuffer.clear = () => {
+    events.push("clear");
+  };
+  renderer.resume = () => {
+    events.push("resume");
+  };
+  renderer.requestRender = () => {
+    events.push("render");
+  };
   return renderer;
 }
 
 describe("runWithRendererSuspended", () => {
   test("returns the work result and restores rendering in order", async () => {
     const events: string[] = [];
+    const renderer = await rendererFixture(events);
 
     const result = await runWithRendererSuspended(
       {
-        renderer: rendererFixture(events),
+        renderer,
         afterResume: () => events.push("afterResume"),
       },
       async () => {
@@ -37,15 +45,17 @@ describe("runWithRendererSuspended", () => {
       "afterResume",
       "render",
     ]);
+    renderer.destroy();
   });
 
   test("restores rendering when work rejects", async () => {
     const events: string[] = [];
+    const renderer = await rendererFixture(events);
 
     await expect(
       runWithRendererSuspended(
         {
-          renderer: rendererFixture(events),
+          renderer,
           afterResume: () => events.push("afterResume"),
         },
         async () => {
@@ -63,5 +73,6 @@ describe("runWithRendererSuspended", () => {
       "afterResume",
       "render",
     ]);
+    renderer.destroy();
   });
 });

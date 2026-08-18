@@ -18,10 +18,7 @@ import {
 
 const temporaryDirectories: string[] = [];
 
-function temporaryVault(): {
-  readonly root: string;
-  readonly projects: string;
-} {
+function temporaryVault() {
   const root = mkdtempSync(join(tmpdir(), "notes-files-"));
   temporaryDirectories.push(root);
   return { root, projects: join(root, "projects") };

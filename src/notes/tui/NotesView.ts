@@ -748,7 +748,7 @@ export class NotesView {
       this.setFilter(Object.keys(nextFilter).length > 0 ? nextFilter : null);
       return;
     }
-    this.setFilter({ ...(currentFilter ?? {}), includeAllRepos: true });
+    this.setFilter({ ...currentFilter, includeAllRepos: true });
   }
 
   private async loadNote(entry: NoteEntry): Promise<void> {
@@ -1562,7 +1562,7 @@ function stripMarkdownExtension(filename: string): string {
   return filename.replace(/\.md$/i, "");
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage<Failure>(error: Failure): string {
   if (error instanceof Error) return error.message;
   return String(error);
 }

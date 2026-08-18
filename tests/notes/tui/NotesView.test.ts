@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createTestRenderer } from "@opentui/core/testing";
-import type { CliRenderer } from "@opentui/core";
+import { KeyEvent, type CliRenderer } from "@opentui/core";
 import {
   NotesView,
   type NotesViewOptions,
@@ -10,7 +10,6 @@ import {
 import type { NoteEntry } from "../../../src/notes/types.js";
 import { TEST_THEME } from "../../support/tui.js";
 import { Dialog } from "../../../src/tui/components/Dialog.js";
-import type { KeyEvent } from "@opentui/core";
 
 const ENTRIES: readonly NoteEntry[] = [
   {
@@ -96,11 +95,7 @@ describe("NotesView", () => {
     setup.mockInput.pressKey("?");
     await settle(setup);
     expect(setup.captureCharFrame()).toContain("Keyboard help");
-    Dialog.handleTopmostKey({
-      name: "escape",
-      preventDefault() {},
-      stopPropagation() {},
-    } as KeyEvent);
+    Dialog.handleTopmostKey(keyEvent("escape"));
     await settle(setup);
     expect(back).toBe(0);
     expect(setup.captureCharFrame()).not.toContain("Keyboard help");
@@ -203,15 +198,22 @@ async function waitForDocument(
 }
 
 function emitGlobalKey(renderer: CliRenderer, name: string): void {
-  renderer.keyInput.emit("keypress", {
+  renderer.keyInput.emit("keypress", keyEvent(name));
+}
+
+function keyEvent(name: string): KeyEvent {
+  return new KeyEvent({
     name,
     sequence: name,
     ctrl: false,
     shift: false,
     meta: false,
-    preventDefault() {},
-    stopPropagation() {},
-  } as KeyEvent);
+    option: false,
+    number: false,
+    raw: name,
+    eventType: "press",
+    source: "raw",
+  });
 }
 
 function assertGolden(frame: string, name: string) {

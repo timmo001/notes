@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { OpenCodeClient } from "../../../src/daemon/services/OpenCodeClient.js";
 import type { DaemonConfig } from "../../../src/daemon/schema.js";
 
@@ -14,7 +14,7 @@ interface RecordedRequest {
   readonly path: string;
   readonly auth: string | null;
   readonly directory: string | null;
-  readonly body: unknown;
+  readonly body: Schema.Json | undefined;
 }
 
 describe("OpenCodeClient", () => {
@@ -257,7 +257,9 @@ function makeServer(
         path: url.pathname,
         auth: request.headers.get("Authorization"),
         directory: url.searchParams.get("directory"),
-        body: text ? (JSON.parse(text) as unknown) : undefined,
+        body: text
+          ? Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(text)
+          : undefined,
       });
       if (request.method === "POST" && url.pathname === "/session") {
         const sessionNumber = requests.filter(

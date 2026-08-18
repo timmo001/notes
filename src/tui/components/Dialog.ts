@@ -163,7 +163,7 @@ export class Dialog {
     key.preventDefault();
     key.stopPropagation();
     const current = this.renderer.currentFocusedRenderable;
-    const index = Math.max(0, focusables.indexOf(current as Renderable));
+    const index = Math.max(0, current ? focusables.indexOf(current) : -1);
     const delta = key.shift ? -1 : 1;
     focusables[(index + delta + focusables.length) % focusables.length].focus();
   }

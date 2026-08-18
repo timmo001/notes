@@ -356,6 +356,8 @@ describe("runProcessingPass", () => {
       }),
       Layer.succeed(OpenCodeClient, {
         status: Effect.void,
+        // SAFETY: This deliberately violates the service error contract to test
+        // that the coordinator does not expose an unexpected failure.
         process: () => Effect.fail(unexpected as never),
       }),
     );

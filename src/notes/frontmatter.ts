@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import { isMap, parseDocument, stringify } from "yaml";
 import type {
   NoteFrontmatter,
@@ -6,7 +7,18 @@ import type {
 } from "./types.js";
 import { parseNotePriority } from "./types.js";
 
-type FrontmatterRecord = Record<string, unknown>;
+const Frontmatter = Schema.Struct({
+  repo: Schema.optional(Schema.String),
+  date: Schema.optional(Schema.String),
+  type: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+  title: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  tags: Schema.optional(Schema.Array(Schema.String)),
+  priority: Schema.optional(Schema.String),
+});
+
+type FrontmatterRecord = typeof Frontmatter.Type;
 
 export interface DraftFrontmatter {
   readonly repo: string;
@@ -41,50 +53,28 @@ function parseFrontmatter(content: string): ParsedFrontmatter {
     throw new Error("Note frontmatter must be a YAML mapping");
   }
 
-  let data: unknown;
+  let data: FrontmatterRecord;
   try {
-    data = document.toJS({ maxAliasCount: 0 });
+    data = Schema.decodeUnknownSync(Frontmatter)(
+      document.toJS({ maxAliasCount: 0 }),
+    );
   } catch (error) {
     throw new Error(
       `Invalid note frontmatter: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    throw new Error("Note frontmatter must be a YAML mapping");
-  }
-
-  validateKnownFields(data as FrontmatterRecord);
+  validateKnownFields(data);
   return {
     document,
-    data: data as FrontmatterRecord,
+    data,
     body: content.slice(match[0].length),
   };
 }
 
 function validateKnownFields(data: FrontmatterRecord): void {
-  for (const key of [
-    "repo",
-    "date",
-    "type",
-    "name",
-    "title",
-    "description",
-  ] as const) {
-    if (data[key] !== undefined && typeof data[key] !== "string") {
-      throw new Error(`Note frontmatter field ${key} must be a string`);
-    }
-  }
-  if (
-    data.tags !== undefined &&
-    (!Array.isArray(data.tags) ||
-      data.tags.some((tag: unknown) => typeof tag !== "string"))
-  ) {
-    throw new Error("Note frontmatter field tags must be a string array");
-  }
   if (
     data.priority !== undefined &&
-    (typeof data.priority !== "string" ||
-      parseNotePriority(data.priority) === null)
+    parseNotePriority(data.priority) === null
   ) {
     throw new Error(
       "Note frontmatter field priority must be low, medium, high, or critical",
@@ -98,17 +88,15 @@ export function readFrontmatter(content: string): NoteFrontmatter {
   const heading = body.match(/^#\s+(.+)\s*$/m)?.[1]?.trim();
   return {
     name:
-      typeof data.name === "string"
+      data.name !== undefined
         ? data.name
-        : typeof data.title === "string"
+        : data.title !== undefined
           ? data.title
           : heading || null,
-    description: typeof data.description === "string" ? data.description : null,
-    tags: Array.isArray(data.tags) ? (data.tags as readonly string[]) : [],
+    description: data.description ?? null,
+    tags: data.tags ?? [],
     priority:
-      typeof data.priority === "string"
-        ? parseNotePriority(data.priority)
-        : null,
+      data.priority === undefined ? null : parseNotePriority(data.priority),
   };
 }
 
@@ -131,17 +119,24 @@ export function renderDraft(
   name: string,
   description: string,
 ): string {
-  const frontmatter: DraftFrontmatter = {
-    repo: `${identity.owner}/${identity.repo}`,
-    date,
-    ...(kind === "handoff" ? { type: "handoff" as const } : {}),
-    name,
-    description:
-      description ||
-      `Draft ${kind === "handoff" ? "handoff" : "repository"} note.`,
-    ...(kind === "handoff" ? { priority: "medium" as const } : {}),
-    tags: kind === "handoff" ? ["handoff", "draft"] : ["draft"],
-  };
+  const frontmatter: DraftFrontmatter =
+    kind === "handoff"
+      ? {
+          repo: `${identity.owner}/${identity.repo}`,
+          date,
+          type: "handoff",
+          name,
+          description: description || "Draft handoff note.",
+          priority: "medium",
+          tags: ["handoff", "draft"],
+        }
+      : {
+          repo: `${identity.owner}/${identity.repo}`,
+          date,
+          name,
+          description: description || "Draft repository note.",
+          tags: ["draft"],
+        };
   const body =
     kind === "handoff"
       ? [

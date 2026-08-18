@@ -24,7 +24,7 @@ export class DaemonProcessingError extends Schema.TaggedErrorClass<DaemonProcess
 
 function sanitizePublicErrorText(value: string, redactPaths = false): string {
   const sanitized = value
-    .replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ")
+    .replace(/\p{Cc}+/gu, " ")
     .replace(/\s+/g, " ")
     .replace(/`/g, "'")
     .replace(
@@ -45,7 +45,10 @@ function sanitizePublicErrorText(value: string, redactPaths = false): string {
     .trim();
 }
 
-function publicErrorSummary(error: unknown): string {
+type PublicError =
+  OpenCodeClientError | IssueQueueError | DaemonProcessingError | Error;
+
+function publicErrorSummary(error: PublicError): string {
   let operation: string | undefined;
   let message: string;
   if (

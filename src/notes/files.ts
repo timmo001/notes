@@ -25,6 +25,7 @@ import {
   resolve,
   sep,
 } from "node:path";
+import { Option, Schema } from "effect";
 import { isSafeRepositorySegment } from "../git/remotes.js";
 import { expandHomePath } from "../lib/paths.js";
 
@@ -37,6 +38,20 @@ export interface ReadNoteFileResult {
   readonly mtime: number;
 }
 
+interface NotePathParts {
+  readonly path: string;
+  readonly owner: string;
+  readonly repo: string;
+  readonly filename: string;
+}
+
+const ErrorCode = Schema.Struct({ code: Schema.optional(Schema.String) });
+
+function errorCode<ErrorValue>(error: ErrorValue): string | undefined {
+  return Option.getOrUndefined(Schema.decodeUnknownOption(ErrorCode)(error))
+    ?.code;
+}
+
 function isInsideDirectory(parent: string, child: string): boolean {
   const relativePath = relative(parent, child);
   return (
@@ -45,15 +60,7 @@ function isInsideDirectory(parent: string, child: string): boolean {
   );
 }
 
-function notePathParts(
-  projectsRoot: string,
-  input: string,
-): {
-  readonly path: string;
-  readonly owner: string;
-  readonly repo: string;
-  readonly filename: string;
-} {
+function notePathParts(projectsRoot: string, input: string): NotePathParts {
   const expanded = expandHomePath(input);
   if (!isAbsolute(expanded))
     throw new Error(`Note path must be absolute: ${input}`);
@@ -97,11 +104,7 @@ function lstatIfPresent(path: string) {
   try {
     return lstatSync(path);
   } catch (error) {
-    const code =
-      typeof error === "object" && error !== null
-        ? (error as { readonly code?: unknown }).code
-        : undefined;
-    if (code === "ENOENT") return undefined;
+    if (errorCode(error) === "ENOENT") return undefined;
     throw error;
   }
 }
@@ -320,11 +323,7 @@ export function createExclusiveNoteFile(
       return path;
     } catch (error) {
       unlinkSync(temporary);
-      const code =
-        typeof error === "object" && error !== null
-          ? (error as { readonly code?: unknown }).code
-          : undefined;
-      if (code !== "EEXIST") throw error;
+      if (errorCode(error) !== "EEXIST") throw error;
     }
   }
 }

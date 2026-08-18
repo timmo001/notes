@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createTestRenderer } from "@opentui/core/testing";
-import type { CliRenderer } from "@opentui/core";
-import { BoxRenderable } from "@opentui/core";
+import { BoxRenderable, KeyEvent, type CliRenderer } from "@opentui/core";
 import { CreateNoteDialog } from "../../../src/notes/tui/dialogs/CreateNoteDialog.js";
 import { DeleteNoteDialog } from "../../../src/notes/tui/dialogs/DeleteNoteDialog.js";
 import { HelpDialog } from "../../../src/notes/tui/dialogs/HelpDialog.js";
@@ -9,7 +8,6 @@ import { PriorityDialog } from "../../../src/notes/tui/dialogs/PriorityDialog.js
 import { MoveNoteDialog } from "../../../src/notes/tui/dialogs/MoveNoteDialog.js";
 import { TEST_THEME } from "../../support/tui.js";
 import { Dialog } from "../../../src/tui/components/Dialog.js";
-import type { KeyEvent } from "@opentui/core";
 
 describe("Notes dialogs", () => {
   let renderer: CliRenderer | undefined;
@@ -120,21 +118,13 @@ describe("Notes dialogs", () => {
     remove.show("owner/repo/note.md");
     await setup.flush();
     expect(setup.captureCharFrame()).toContain("Delete note?");
-    Dialog.handleTopmostKey({
-      name: "escape",
-      preventDefault() {},
-      stopPropagation() {},
-    } as KeyEvent);
+    Dialog.handleTopmostKey(keyEvent("escape"));
     await setup.flush();
     expect(deleted).toBe(false);
     expect(remove.visible).toBe(false);
     expect(help.visible).toBe(true);
     expect(setup.captureCharFrame()).toContain("Keyboard help");
-    Dialog.handleTopmostKey({
-      name: "escape",
-      preventDefault() {},
-      stopPropagation() {},
-    } as KeyEvent);
+    Dialog.handleTopmostKey(keyEvent("escape"));
     await setup.flush();
     expect(setup.captureCharFrame()).not.toContain("Keyboard help");
     expect(renderer.currentFocusedRenderable).toBe(restoredTarget);
@@ -158,3 +148,18 @@ describe("Notes dialogs", () => {
     help.destroy();
   });
 });
+
+function keyEvent(name: string): KeyEvent {
+  return new KeyEvent({
+    name,
+    ctrl: false,
+    meta: false,
+    shift: false,
+    option: false,
+    sequence: name,
+    number: false,
+    raw: name,
+    eventType: "press",
+    source: "raw",
+  });
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,9 +32,11 @@ describe("local capture", () => {
         if (url.pathname === "/permission" || url.pathname === "/question")
           return Response.json([]);
         if (url.pathname === "/session/capture-session/message") {
-          const body = (await request.json()) as {
-            parts: readonly { text: string }[];
-          };
+          const body = Schema.decodeUnknownSync(
+            Schema.Struct({
+              parts: Schema.Array(Schema.Struct({ text: Schema.String })),
+            }),
+          )(await request.json());
           prompts.push(body.parts[0]?.text ?? "");
           return Response.json({
             parts: [

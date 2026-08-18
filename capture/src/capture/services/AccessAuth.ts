@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 export interface AccessIdentity {
@@ -27,7 +28,8 @@ export async function verifyAccessRequest(
   });
   if (!payload.sub) throw new Error("Cloudflare Access token has no subject");
 
-  return typeof payload.email === "string"
-    ? { subject: payload.sub, email: payload.email }
+  const email = Schema.decodeUnknownOption(Schema.String)(payload.email);
+  return email._tag === "Some"
+    ? { subject: payload.sub, email: email.value }
     : { subject: payload.sub };
 }

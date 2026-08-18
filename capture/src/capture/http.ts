@@ -1,3 +1,5 @@
+import { Option, Schema } from "effect";
+
 export const CAPTURE_ERRORS = {
   expectedJson: "Expected application/json",
   tooLarge: "Capture is too large",
@@ -12,26 +14,16 @@ export type CaptureError = (typeof CAPTURE_ERRORS)[keyof typeof CAPTURE_ERRORS];
 export const GENERIC_CAPTURE_ERROR =
   "Could not queue this capture. Your text is still here.";
 
-const captureErrors: readonly CaptureError[] = Object.values(CAPTURE_ERRORS);
+const CaptureErrorResponse = Schema.Struct({
+  error: Schema.Literals(Object.values(CAPTURE_ERRORS)),
+});
+const decodeCaptureErrorOption =
+  Schema.decodeUnknownOption(CaptureErrorResponse);
 
-function isCaptureError(value: string): value is CaptureError {
-  return captureErrors.some((error) => error === value);
-}
+export const decodeCaptureError = <Input>(value: Input) =>
+  Option.getOrUndefined(decodeCaptureErrorOption(value))?.error;
 
-export function decodeCaptureError(value: unknown): CaptureError | undefined {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("error" in value) ||
-    typeof value.error !== "string" ||
-    !isCaptureError(value.error)
-  ) {
-    return undefined;
-  }
-  return value.error;
-}
-
-export function captureErrorMessage(value: unknown): string {
+export function captureErrorMessage<Input>(value: Input): string {
   const error = decodeCaptureError(value);
   return error ? `${error}. Your text is still here.` : GENERIC_CAPTURE_ERROR;
 }

@@ -10,8 +10,8 @@ import { noteGitOutcome } from "../../notes/gitOutcome.js";
 import { Notifier, type NotifierService } from "../services/Notifier.js";
 import {
   DESTRUCTIVE_HINTS,
-  makeToolRegistrar,
   READONLY_HINTS,
+  toolRegistrar,
 } from "./register.js";
 
 const NoteReadParams = Schema.Struct({
@@ -119,7 +119,7 @@ function notifyMutation(
 
 /** Register the note tools on the current MCP server. */
 export const registerNotesTools = Effect.gen(function* () {
-  const register = yield* makeToolRegistrar;
+  const register = yield* toolRegistrar;
   const notes = yield* Notes;
   const notifier = yield* Notifier;
 

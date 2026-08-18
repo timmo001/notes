@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer } from "effect/unstable/ai";
 import {
   existsSync,
@@ -36,6 +36,8 @@ const client = McpSchema.McpServerClient.of({
   getClient: Effect.die("not used in this test"),
 });
 
+type ToolArgument = string | number | boolean | null;
+
 function git(cwd: string, ...args: string[]): void {
   const result = Bun.spawnSync(["git", ...args], { cwd });
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
@@ -62,7 +64,7 @@ function fixture() {
 async function callTool(
   root: string,
   name: string,
-  args: Record<string, unknown>,
+  args: Record<string, ToolArgument>,
   notifications: string[] = [],
 ) {
   const layer = Layer.mergeAll(
@@ -133,10 +135,9 @@ describe("notes MCP tools", () => {
     const { root, path } = fixture();
     const notifications: string[] = [];
     const read = await callTool(root, "note_read", { path });
-    const { content, hash } = JSON.parse(resultText(read)) as {
-      content: string;
-      hash: string;
-    };
+    const { content, hash } = Schema.decodeUnknownSync(
+      Schema.Struct({ content: Schema.String, hash: Schema.String }),
+    )(JSON.parse(resultText(read)));
 
     const result = await callTool(
       root,

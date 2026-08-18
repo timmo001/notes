@@ -1,4 +1,12 @@
-import { Clock, Context, Effect, Layer, Schema, Semaphore } from "effect";
+import {
+  Clock,
+  Context,
+  Effect,
+  Layer,
+  Option,
+  Schema,
+  Semaphore,
+} from "effect";
 import { existsSync, lstatSync, readdirSync, renameSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import {
@@ -59,7 +67,6 @@ import {
   type NotesTuiScope,
   type NoteWriteOptions,
   type NoteWriteResult,
-  type RepoNoteIdentity,
 } from "../types.js";
 
 const PROJECTS_SUBDIR = "projects";
@@ -130,18 +137,33 @@ type CommandResult =
   | { readonly ok: true; readonly text: string }
   | { readonly ok: false; readonly error: string };
 
-function errorMessage(error: unknown): string {
-  if (!error) return "Unknown error";
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object") {
-    const record = error as Record<string, unknown>;
-    const stderr = record.stderr;
-    if (typeof stderr === "string" && stderr.trim()) return stderr.trim();
-    const message = record.message;
-    if (typeof message === "string" && message.trim()) return message.trim();
-  }
+const ErrorDetails = Schema.Struct({
+  stderr: Schema.optional(Schema.String),
+  message: Schema.optional(Schema.String),
+});
+const ErrorCode = Schema.Struct({ code: Schema.optional(Schema.String) });
+
+function errorMessage<ErrorValue>(error: ErrorValue): string {
+  const text = Option.getOrUndefined(
+    Schema.decodeUnknownOption(Schema.String)(error),
+  );
+  if (text !== undefined) return text;
+  const nativeError = Option.getOrUndefined(
+    Schema.decodeUnknownOption(Schema.instanceOf(Error))(error),
+  );
+  if (nativeError !== undefined) return nativeError.message;
+  const details = Option.getOrUndefined(
+    Schema.decodeUnknownOption(ErrorDetails)(error),
+  );
+  if (details?.stderr?.trim()) return details.stderr.trim();
+  if (details?.message?.trim()) return details.message.trim();
+  if (error === null || error === undefined) return "Unknown error";
   return String(error);
+}
+
+function errorCode<ErrorValue>(error: ErrorValue): string | undefined {
+  return Option.getOrUndefined(Schema.decodeUnknownOption(ErrorCode)(error))
+    ?.code;
 }
 
 function readNoteFrontmatter(
@@ -207,11 +229,7 @@ function listNoteRepoSections(
       );
     }
   } catch (error) {
-    const code =
-      typeof error === "object" && error !== null
-        ? (error as { readonly code?: unknown }).code
-        : undefined;
-    if (code === "ENOENT") return [];
+    if (errorCode(error) === "ENOENT") return [];
     throw error;
   }
 

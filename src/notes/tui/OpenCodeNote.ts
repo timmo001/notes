@@ -1,4 +1,5 @@
 import type { CliRenderer } from "@opentui/core";
+import { Option, Schema } from "effect";
 import { statSync } from "node:fs";
 import type { NoteEntry } from "../types.js";
 import {
@@ -20,6 +21,25 @@ export interface OpenNoteInOpenCodeOptions {
 }
 
 const DEFAULT_PLAN_INSTRUCTIONS = `Create an implementation-ready plan for the loaded note below. Inspect the relevant implementation and tests before planning, resolve repository facts with read-only tools, and include concrete locations, change mechanics, verification, and a Files tree. Split out deferred stages only when they are independently reviewable. If the loaded note is a handoff or temporary plan, make its deletion the final implementation step after all tracked work and validation are complete, requiring explicit user confirmation before deletion. Do not delete it while work remains deferred, blocked, or unresolved. Make no implementation changes while planning.`;
+
+interface OpenCodeConfigInput {
+  readonly command?: {
+    readonly plan?: {
+      readonly template?: string | number;
+    };
+  };
+}
+
+const OpenCodeConfig = Schema.Struct({
+  command: Schema.optional(
+    Schema.Struct({
+      plan: Schema.optional(
+        Schema.Struct({ template: Schema.optional(Schema.String) }),
+      ),
+    }),
+  ),
+});
+const OpenCodeConfigJson = Schema.fromJsonString(OpenCodeConfig);
 
 /** Suspend the TUI, launch a full OpenCode session for a note, then resume. */
 export async function openNoteInOpenCode(
@@ -114,7 +134,13 @@ export async function loadConfiguredPlanCommand(
       proc.exited,
     ]);
     if (exitCode !== 0) return null;
-    return planCommandTemplate(JSON.parse(stdout) as unknown);
+    return Option.match(
+      Schema.decodeUnknownOption(OpenCodeConfigJson)(stdout),
+      {
+        onNone: () => null,
+        onSome: (config) => config.command?.plan?.template ?? null,
+      },
+    );
   } catch {
     return null;
   }
@@ -138,13 +164,14 @@ export function opencodeNoteDirectory(entry: NoteEntry): string | undefined {
   }
 }
 
-/** Extract the plan command template from an unknown resolved config payload. */
-export function planCommandTemplate(config: unknown): string | null {
-  if (!isRecord(config) || !isRecord(config.command)) return null;
-  const plan = config.command.plan;
-  return isRecord(plan) && typeof plan.template === "string"
-    ? plan.template
-    : null;
+/** Extract the plan command template from a resolved config payload. */
+export function planCommandTemplate(
+  config: OpenCodeConfigInput,
+): string | null {
+  return Option.match(Schema.decodeUnknownOption(OpenCodeConfig)(config), {
+    onNone: () => null,
+    onSome: (decoded) => decoded.command?.plan?.template ?? null,
+  });
 }
 
 function projectsDisplayPath(entry: NoteEntry): string {
@@ -153,8 +180,4 @@ function projectsDisplayPath(entry: NoteEntry): string {
   const markerIndex = normalized.lastIndexOf(marker);
   if (markerIndex === -1) return entry.filename;
   return `projects/${normalized.slice(markerIndex + marker.length)}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

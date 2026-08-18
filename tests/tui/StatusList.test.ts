@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createTestRenderer } from "@opentui/core/testing";
-import type { CliRenderer, KeyEvent } from "@opentui/core";
+import { KeyEvent, type CliRenderer } from "@opentui/core";
 import { StatusList } from "../../src/tui/StatusList.js";
 import { TEST_THEME } from "../support/tui.js";
 
@@ -30,13 +30,13 @@ describe("StatusList", () => {
     renderer.root.add(list);
     list.setActive(true);
     await setup.flush();
-    list.handleKeyPress({ name: "pagedown" } as KeyEvent);
+    list.handleKeyPress(keyEvent("pagedown"));
     await setup.flush();
     expect([0, 1, 3, 5, 7, 9, 11, 13, 14, 16, 18, 20, 22]).toContain(
       list.scrollBox.scrollTop,
     );
     expect(list.getSelectedItem()?.id).toBe("4");
-    list.handleKeyPress({ name: "pageup" } as KeyEvent);
+    list.handleKeyPress(keyEvent("pageup"));
     await setup.flush();
     expect(list.getSelectedItem()?.id).toBe("0");
   });
@@ -91,5 +91,20 @@ function makeList(renderer: CliRenderer, count: number) {
       section: index < 6 ? "One" : "Two",
       value: index,
     })),
+  });
+}
+
+function keyEvent(name: string): KeyEvent {
+  return new KeyEvent({
+    name,
+    ctrl: false,
+    meta: false,
+    shift: false,
+    option: false,
+    sequence: name,
+    number: false,
+    raw: name,
+    eventType: "press",
+    source: "raw",
   });
 }

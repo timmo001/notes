@@ -84,8 +84,16 @@ export class OpenCodeClient extends Context.Service<
 type Request = (
   method: "GET" | "POST" | "DELETE",
   path: string,
-  body?: unknown,
-) => Effect.Effect<unknown, OpenCodeClientError>;
+  body?: Schema.Json,
+) => Effect.Effect<Schema.Json, OpenCodeClientError>;
+
+type SessionModel =
+  | { readonly providerID: string; readonly id: string }
+  | {
+      readonly providerID: string;
+      readonly id: string;
+      readonly variant: string;
+    };
 
 const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
   function* (config: DaemonConfig, request: Request, prompt: string) {
@@ -145,14 +153,19 @@ function processWithModel(
   prompt: string,
   model: OpenCodeModel,
 ) {
+  const selectedModel: SessionModel =
+    model.variant === undefined
+      ? { providerID: model.providerID, id: model.modelID }
+      : {
+          providerID: model.providerID,
+          id: model.modelID,
+          variant: model.variant,
+        };
+
   return request("POST", "/session", {
     title: `Notes daemon ${config.workerId}`,
     agent: config.opencodeAgent,
-    model: {
-      providerID: model.providerID,
-      id: model.modelID,
-      ...(model.variant === undefined ? {} : { variant: model.variant }),
-    },
+    model: selectedModel,
     permission: sessionPermissions(config),
   }).pipe(
     Effect.flatMap((session) => decodeId(session, "session.create")),
@@ -201,17 +214,19 @@ function makeRequest(
       try: async (signal) => {
         const url = new URL(path, config.opencodeUrl);
         url.searchParams.set("directory", config.opencodeDirectory);
-        const response = await fetch(url, {
+        const headers = new Headers({
+          Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+        });
+        const init: RequestInit = {
           method,
           signal,
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
-            ...(body === undefined
-              ? {}
-              : { "Content-Type": "application/json" }),
-          },
-          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        });
+          headers,
+        };
+        if (body !== undefined) {
+          headers.set("Content-Type", "application/json");
+          init.body = JSON.stringify(body);
+        }
+        const response = await fetch(url, init);
         if (!response.ok) {
           const detail = (await response.text())
             .trim()
@@ -223,7 +238,9 @@ function makeRequest(
         }
         if (response.status === 204) return null;
         const text = await response.text();
-        return text ? (JSON.parse(text) as unknown) : null;
+        return text
+          ? Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(text)
+          : null;
       },
       catch: (error) =>
         new OpenCodeClientError({
@@ -257,16 +274,17 @@ function monitorHeadlessState(request: Request, sessionId: string) {
   });
 }
 
-function containsSessionRequest(value: unknown, sessionId: string): boolean {
+const SessionRequests = Schema.Array(
+  Schema.Struct({ sessionID: Schema.String }),
+);
+
+function containsSessionRequest(
+  value: Schema.Json,
+  sessionId: string,
+): boolean {
   return (
-    Array.isArray(value) &&
-    value.some(
-      (entry) =>
-        entry !== null &&
-        typeof entry === "object" &&
-        "sessionID" in entry &&
-        entry.sessionID === sessionId,
-    )
+    Schema.is(SessionRequests)(value) &&
+    value.some((entry) => entry.sessionID === sessionId)
   );
 }
 
@@ -281,7 +299,7 @@ function cleanupSession(request: Request, sessionId: string) {
   );
 }
 
-function decodeId(value: unknown, operation: string) {
+function decodeId(value: Schema.Json, operation: string) {
   return Schema.decodeUnknownEffect(Schema.Struct({ id: Schema.String }))(
     value,
   ).pipe(
@@ -292,7 +310,7 @@ function decodeId(value: unknown, operation: string) {
   );
 }
 
-function decodeAssistantText(value: unknown) {
+function decodeAssistantText(value: Schema.Json) {
   return Schema.decodeUnknownEffect(
     Schema.Struct({
       parts: Schema.Array(

@@ -262,9 +262,15 @@ export function parseNotePriority(value: string): NotePriority | null {
     .trim()
     .replace(/^["']|["']$/g, "")
     .toLowerCase();
-  return PRIORITY_LEVELS.includes(normalised as NotePriority)
-    ? (normalised as NotePriority)
-    : null;
+  switch (normalised) {
+    case "low":
+    case "medium":
+    case "high":
+    case "critical":
+      return normalised;
+    default:
+      return null;
+  }
 }
 
 /** Resolve an entry's effective priority, defaulting absent values to medium. */

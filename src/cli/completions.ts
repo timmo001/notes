@@ -14,7 +14,7 @@ const COMMAND_NAME = "notes";
 
 /** Whether a shell name is supported. */
 export function isCompletionShell(shell: string): shell is CompletionShell {
-  return (SUPPORTED_SHELLS as readonly string[]).includes(shell);
+  return shell === "bash" || shell === "fish" || shell === "zsh";
 }
 
 /** Comma-separated shell list for error messages. */
@@ -42,10 +42,6 @@ function optionWords(command: CliCommandSpec): string {
   return (command.options ?? [])
     .flatMap((option) => [option.name, ...(option.short ? [option.short] : [])])
     .join(" ");
-}
-
-function commandForWord(word: string): CliCommandSpec | undefined {
-  return cliCommands.find((command) => command.name === word);
 }
 
 function choiceWords(option: CliOptionSpec): string | undefined {

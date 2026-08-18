@@ -1,4 +1,5 @@
 import { captureErrorMessage, GENERIC_CAPTURE_ERROR } from "../capture/http.js";
+import { Schema } from "effect";
 import {
   filterRepositories,
   REPOSITORY_STORAGE_KEY,
@@ -146,32 +147,31 @@ form.addEventListener("submit", async (event) => {
   status.textContent = "Adding note...";
   let responseError: string | undefined;
   try {
+    const capture = {
+      version: 1,
+      requestId: crypto.randomUUID(),
+      text: textarea.value,
+      capturedAt: new Date().toISOString(),
+      source: "text",
+      repository: repositoryForCapture,
+    };
     const response = await fetch("/api/captures", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        version: 1,
-        requestId: crypto.randomUUID(),
-        text: textarea.value,
-        capturedAt: new Date().toISOString(),
-        source: "text",
-        ...(repositoryForCapture ? { repository: repositoryForCapture } : {}),
-      }),
+      body: JSON.stringify(capture),
     });
-    const result: unknown = await response.json();
+    const result = await response.json();
     if (!response.ok) {
       responseError = captureErrorMessage(result);
       throw new Error("Capture request failed");
     }
-    if (
-      typeof result !== "object" ||
-      result === null ||
-      !("url" in result) ||
-      typeof result.url !== "string"
-    ) {
+    const issue = Schema.decodeUnknownOption(
+      Schema.Struct({ url: Schema.String }),
+    )(result);
+    if (issue._tag === "None") {
       throw new Error("Capture request failed");
     }
-    const issueUrl = new URL(result.url);
+    const issueUrl = new URL(issue.value.url);
     if (issueUrl.protocol !== "https:" || issueUrl.hostname !== "github.com") {
       throw new Error("Unexpected issue URL");
     }

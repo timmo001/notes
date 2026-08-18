@@ -45,7 +45,7 @@ export interface ToolRegistrar {
 }
 
 /** Acquire a ToolRegistrar bound to the current MCP server. */
-export const makeToolRegistrar: Effect.Effect<
+export const toolRegistrar: Effect.Effect<
   ToolRegistrar,
   never,
   McpServer.McpServer

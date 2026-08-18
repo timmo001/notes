@@ -172,7 +172,8 @@ export class CreateNoteDialog {
     this.description.value = "";
     this.kind = preferHandoff ? "handoff" : "note";
     this.templates.value = this.kind;
-    preferHandoff ? this.showDetails() : this.showTemplates();
+    if (preferHandoff) this.showDetails();
+    else this.showTemplates();
     this.dialog.show();
     if (preferHandoff) this.name.focus();
   }

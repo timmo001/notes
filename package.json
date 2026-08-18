@@ -13,6 +13,7 @@
     "dev": "bun run --watch src/index.ts",
     "build": "bun build src/index.ts --compile --outfile dist/notes",
     "test": "bun test",
+    "lint": "oxlint .",
     "format": "prettier --write \"{src,tests}/**/*.ts\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{md,mdx,astro,css}\"",
     "format:check": "prettier --check \"{src,tests}/**/*.ts\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{md,mdx,astro,css}\"",
     "prepare": "effect-tsgo patch"
@@ -28,8 +29,10 @@
   },
   "devDependencies": {
     "@effect/tsgo": "^0.36.0",
+    "@oxlint/plugins": "1.79.0",
     "@types/bun": "^1.3.14",
     "@types/proper-lockfile": "^4.1.4",
+    "oxlint": "1.79.0",
     "prettier": "^3.9.5",
     "typescript": "^7.0.0"
   },

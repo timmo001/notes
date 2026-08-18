@@ -15,12 +15,12 @@ import {
   type NotePriority,
 } from "../../types.js";
 
-const DESCRIPTIONS: Readonly<Record<NotePriority, string>> = {
+const DESCRIPTIONS = {
   critical: "Highest urgency, handle first",
   high: "Important, pick up soon",
   medium: "Normal priority",
   low: "Can wait",
-};
+} satisfies Readonly<Record<NotePriority, string>>;
 
 export function priorityColor(theme: Theme, priority: NotePriority): string {
   return priority === "critical"

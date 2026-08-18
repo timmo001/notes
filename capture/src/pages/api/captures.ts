@@ -10,11 +10,16 @@ import {
 import { CAPTURE_ERRORS } from "../../capture/http.js";
 import { decodeCapture, type Capture } from "../../capture/schema.js";
 import { processCapture } from "../../capture/services/CaptureProcessor.js";
-import { createGitHubIssue } from "../../capture/services/GitHubIssues.js";
+import {
+  createGitHubIssue,
+  type CreatedIssue,
+} from "../../capture/services/GitHubIssues.js";
 
 const MAX_REQUEST_BYTES = 16_384;
 
-function json(data: unknown, status: number): Response {
+type JsonResponse = CreatedIssue | { readonly error: string };
+
+function json(data: JsonResponse, status: number): Response {
   return Response.json(data, {
     status,
     headers: { "Cache-Control": "no-store" },

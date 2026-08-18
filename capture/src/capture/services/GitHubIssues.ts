@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import type { IssuePayload } from "../issuePayload.js";
 
 export interface CreatedIssue {
@@ -11,10 +12,10 @@ export interface GitHubIssueConfig {
   readonly token: string;
 }
 
-interface GitHubIssueResponse {
-  readonly html_url?: unknown;
-  readonly number?: unknown;
-}
+const GitHubIssueResponse = Schema.Struct({
+  html_url: Schema.String,
+  number: Schema.Number,
+});
 
 type Fetcher = (
   input: string | URL | Request,
@@ -44,11 +45,12 @@ export async function createGitHubIssue(
     throw new Error(`GitHub issue creation failed (${response.status})`);
   }
 
-  const result: GitHubIssueResponse = await response.json();
-  if (
-    typeof result.number !== "number" ||
-    typeof result.html_url !== "string"
-  ) {
+  let result: typeof GitHubIssueResponse.Type;
+  try {
+    result = Schema.decodeUnknownSync(GitHubIssueResponse)(
+      await response.json(),
+    );
+  } catch {
     throw new Error("GitHub returned an invalid issue response");
   }
   return { number: result.number, url: result.html_url };

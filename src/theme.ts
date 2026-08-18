@@ -87,10 +87,12 @@ function mix(a: string, b: string, t: number): string {
 }
 
 function luminance(hex: string): number {
-  const [r, g, b] = hexToRgb(hex).map((c) => {
+  const channelLuminance = (c: number) => {
     const s = c / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  }) as [number, number, number];
+  };
+  const [red, green, blue] = hexToRgb(hex);
+  const [r, g, b] = [red, green, blue].map(channelLuminance);
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
@@ -107,7 +109,7 @@ function pickAccentFg(
   return fgRatio >= bgRatio ? fgColor : bgColor;
 }
 
-function parseColorsToml(content: string): Record<string, string> {
+function parseColorsToml(content: string) {
   const result: Record<string, string> = {};
   for (const line of content.split("\n")) {
     const trimmed = line.trim();

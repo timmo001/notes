@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import {
   existsSync,
   mkdirSync,
@@ -41,7 +42,9 @@ export async function extractNativeLibIfNeeded(): Promise<string | undefined> {
     const nativeModule = await import(
       `@opentui/core-${process.platform}-${process.arch}`
     );
-    embeddedLibPath = nativeModule.default as string;
+    embeddedLibPath = Schema.decodeUnknownSync(Schema.String)(
+      nativeModule.default,
+    );
   } catch {
     return undefined;
   }

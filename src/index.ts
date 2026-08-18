@@ -581,16 +581,17 @@ function runNative(parsed: ParsedArgs, command: string): void {
         const repository = optionValue(parsed.rest, "--repository");
         NodeRuntime.runMain(
           Effect.promise(() => Bun.stdin.text()).pipe(
-            Effect.flatMap((text) =>
-              processLocalCapture(configPath, {
+            Effect.flatMap((text) => {
+              const capture = {
                 version: 1,
                 requestId: crypto.randomUUID(),
                 text,
                 capturedAt: new Date().toISOString(),
                 source: "text",
-                ...(repository ? { repository } : {}),
-              }),
-            ),
+                repository,
+              } as const;
+              return processLocalCapture(configPath, capture);
+            }),
             Effect.tap((result) =>
               Effect.sync(() =>
                 console.log(

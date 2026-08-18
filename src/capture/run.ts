@@ -3,7 +3,7 @@ import { loadDaemonConfig } from "../daemon/config.js";
 import { issuePrompt } from "../daemon/schema.js";
 import { OpenCodeClient } from "../daemon/services/OpenCodeClient.js";
 import { captureBody } from "./prompt.js";
-import { decodeCapture } from "./schema.js";
+import { CaptureInput, decodeCapture } from "./schema.js";
 
 const MAX_RESULT_LENGTH = 20_000;
 
@@ -19,7 +19,7 @@ export const captureStatus = Effect.fn("NotesCapture.status")(function* (
 /** Validate and process one capture directly through local OpenCode. */
 export const processLocalCapture = Effect.fn("NotesCapture.process")(function* (
   configPath: string,
-  input: unknown,
+  input: typeof CaptureInput.Encoded,
 ) {
   const capture = yield* Effect.try(() => decodeCapture(input));
   const client = yield* captureClient(configPath);
