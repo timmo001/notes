@@ -85,7 +85,7 @@ The plugin exposes the `timmo.notes-capture` shell IPC target with `open`,
 `close`, `show`, `hide`, and `toggle` methods:
 
 ```bash
-omarchy-shell timmo.notes-capture toggle
+omarchy-shell shell toggle timmo.notes-capture
 ```
 
 User-owned shortcuts can invoke that command without changing the plugin.
