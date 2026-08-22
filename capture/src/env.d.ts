@@ -1,5 +1,3 @@
-/// <reference path="../worker-configuration.d.ts" />
-
 interface ImportMetaEnv {
   readonly DEV: boolean;
 }
