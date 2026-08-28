@@ -87,6 +87,27 @@ export function stageIn(
   return runStep(opts?.cwd, args);
 }
 
+/** Restore selected index paths after a failed commit, preserving worktree changes. */
+export function unstageIn(
+  paths: readonly string[],
+  opts?: { readonly cwd?: string; readonly io?: GitIo },
+): Effect.Effect<GitStepResult, never, CommandExecutor> {
+  if (paths.length === 0) return Effect.succeed({ ok: true, text: "" });
+  return Effect.gen(function* () {
+    const hasHead =
+      (yield* gitExitCode(
+        ["rev-parse", "--verify", "HEAD"],
+        opts?.cwd ? { cwd: opts.cwd } : undefined,
+      )) === 0;
+    return yield* runStep(
+      opts?.cwd,
+      hasHead
+        ? ["reset", "--quiet", "HEAD", "--", ...paths]
+        : ["rm", "--cached", "--quiet", "--ignore-unmatch", "--", ...paths],
+    );
+  });
+}
+
 /** A commit request against a single repository. */
 export interface CommitStep {
   readonly cwd?: string;

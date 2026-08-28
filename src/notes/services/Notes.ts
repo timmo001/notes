@@ -16,6 +16,7 @@ import {
   preflightMutation,
   pushBranch,
   stageIn,
+  unstageIn,
 } from "../../git/committer.js";
 import {
   isSafeRepositorySegment,
@@ -595,11 +596,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             ...(sha?.ok && { sha: sha.text }),
           };
         }
+        const restored = yield* withExecutor(
+          unstageIn([relativePath], { cwd: notesRoot, io: "capture" }),
+        );
         return {
           ok: false as const,
           committed: false,
           text: "",
-          error: `git commit failed: ${outcome.error ?? "unknown error"}`,
+          error: `git commit failed: ${outcome.error ?? "unknown error"}${restored.ok ? "" : `; index cleanup failed: ${restored.error ?? "unknown error"}`}`,
         };
       });
 
@@ -643,11 +647,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           }),
         );
         if (!outcome.ok) {
+          const restored = yield* withExecutor(
+            unstageIn(paths, { cwd: notesRoot, io: "capture" }),
+          );
           return {
             ok: false as const,
             committed: false,
             text: "",
-            error: `git commit failed: ${outcome.error ?? "unknown error"}`,
+            error: `git commit failed: ${outcome.error ?? "unknown error"}${restored.ok ? "" : `; index cleanup failed: ${restored.error ?? "unknown error"}`}`,
           };
         }
         const sha = outcome.committed

@@ -553,6 +553,36 @@ describe("Notes service", () => {
     expect(after.content).toBe(before.content);
   });
 
+  test("restores the index after a commit failure", async () => {
+    const { root, path, layer } = fixture();
+    git(root, "config", "user.name", "");
+    git(root, "config", "user.email", "");
+
+    const failed = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).write(
+          path,
+          renderDraft("note", identity, "failed", "Failed", "Description"),
+        );
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(failed.commit).toMatchObject({ ok: false, committed: false });
+    git(root, "diff", "--cached", "--quiet");
+
+    git(root, "config", "user.name", "Notes Test");
+    git(root, "config", "user.email", "notes@example.invalid");
+    const retried = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).write(
+          path,
+          renderDraft("note", identity, "retry", "Retry", "Description"),
+        );
+      }).pipe(Effect.provide(layer)),
+    );
+    expect(retried.commit).toMatchObject({ ok: true, committed: true });
+  });
+
   test("validates editor output before committing", async () => {
     const { path, layer } = fixture();
     await expect(
