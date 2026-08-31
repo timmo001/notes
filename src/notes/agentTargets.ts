@@ -164,6 +164,7 @@ export async function openNoteAgent(
   await runner.run("herdr", ["pane", "run", paneId, target.executable]);
   await runner.run("herdr", ["workspace", "focus", workspaceId]);
   await runner.run("herdr", ["tab", "focus", tabId]);
+  await waitForAgentDetection(runner, paneId);
   await runner.run("herdr", ["agent", "wait", paneId, "--timeout", "30000"]);
   if (expectedOpenCode2) {
     const processInfo = await runner.run("herdr", [
@@ -186,6 +187,22 @@ export async function openNoteAgent(
     "120000",
   ]);
   return { note: entry.filePath, agent: target, workspaceId, tabId, paneId };
+}
+
+async function waitForAgentDetection(
+  runner: AgentCommandRunner,
+  paneId: string,
+): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (true) {
+    try {
+      await runner.run("herdr", ["agent", "get", paneId]);
+      return;
+    } catch (error) {
+      if (Date.now() >= deadline) throw error;
+      await Bun.sleep(100);
+    }
+  }
 }
 
 /** Check that a path resolves to a regular file the current user can execute. */

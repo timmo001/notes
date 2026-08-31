@@ -95,6 +95,7 @@ describe("agent targets", () => {
 
   test("opens a tab, waits for the agent, and sends full note context", async () => {
     const calls: { command: string; args: readonly string[] }[] = [];
+    let agentGetAttempts = 0;
     const runner: AgentCommandRunner = {
       run: async (command, args) => {
         calls.push({ command, args });
@@ -110,6 +111,10 @@ describe("agent targets", () => {
               root_pane: { pane_id: "w1:p2" },
             },
           });
+        }
+        if (args[0] === "agent" && args[1] === "get") {
+          agentGetAttempts++;
+          if (agentGetAttempts === 1) throw new Error("agent not detected");
         }
         return "{}";
       },
@@ -138,6 +143,7 @@ describe("agent targets", () => {
       tabId: "w1:t2",
       paneId: "w1:p2",
     });
+    expect(agentGetAttempts).toBe(2);
     expect(calls).toContainEqual({
       command: "herdr",
       args: ["pane", "run", "w1:p2", "cursor-agent"],
