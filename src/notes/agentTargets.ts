@@ -1,4 +1,5 @@
 import { accessSync, constants, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { basename } from "node:path";
 import { Schema } from "effect";
 import type { NoteEntry } from "./types.js";
@@ -110,12 +111,7 @@ export async function openNoteAgent(
   ) {
     throw new Error(`${target.executable} is not a regular executable file`);
   }
-  if (!entry.projectDir) {
-    throw new Error(
-      `No source checkout is known for ${entry.repoSlug ?? entry.filename}. Run Notes from that repository once to record it.`,
-    );
-  }
-  const cwd = entry.projectDir;
+  const cwd = entry.projectDir ?? homedir();
   const workspaceLabel = basename(cwd);
   const listed = Schema.decodeSync(WorkspaceListResponse)(
     await runner.run("herdr", ["workspace", "list"]),
@@ -185,6 +181,9 @@ export async function openNoteAgent(
     "prompt",
     paneId,
     noteAgentPrompt(entry, content),
+    "--wait",
+    "--timeout",
+    "120000",
   ]);
   return { note: entry.filePath, agent: target, workspaceId, tabId, paneId };
 }

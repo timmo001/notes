@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import {
   detectAgentTargets,
   isRegularExecutable,
@@ -147,6 +147,67 @@ describe("agent targets", () => {
     )?.args[3];
     expect(prompt).toContain("# Full body");
     expect(prompt).toContain(entry.filePath);
+    expect(
+      calls
+        .find((call) => call.args[0] === "agent" && call.args[1] === "prompt")
+        ?.args.slice(4),
+    ).toEqual(["--wait", "--timeout", "120000"]);
+  });
+
+  test("uses the home directory when no source checkout is known", async () => {
+    const calls: { command: string; args: readonly string[] }[] = [];
+    const runner: AgentCommandRunner = {
+      run: async (command, args) => {
+        calls.push({ command, args });
+        if (args[0] === "workspace" && args[1] === "list") {
+          return JSON.stringify({
+            result: {
+              workspaces: [{ workspace_id: "w1", label: basename(homedir()) }],
+            },
+          });
+        }
+        if (args[0] === "tab" && args[1] === "create") {
+          return JSON.stringify({
+            result: {
+              tab: { tab_id: "w1:t2" },
+              root_pane: { pane_id: "w1:p2" },
+            },
+          });
+        }
+        return "{}";
+      },
+    };
+
+    await openNoteAgent(
+      runner,
+      {
+        filename: "work.md",
+        filePath: "/vault/projects/example/work.md",
+        repoSlug: "example/repo",
+        name: "Work",
+        description: null,
+        tags: [],
+        priority: null,
+        mtime: 0,
+      },
+      "body",
+      { command: "cursor", executable: "cursor-agent", label: "Cursor Agent" },
+    );
+
+    expect(calls).toContainEqual({
+      command: "herdr",
+      args: [
+        "tab",
+        "create",
+        "--workspace",
+        "w1",
+        "--cwd",
+        homedir(),
+        "--label",
+        "Cursor Agent",
+        "--no-focus",
+      ],
+    });
   });
 
   test("includes metadata and content in prompts", () => {
