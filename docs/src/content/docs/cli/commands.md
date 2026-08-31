@@ -80,6 +80,30 @@ notes list --tag handoff
 notes list --format json
 ```
 
+## `notes search`
+
+Search repository note metadata
+
+```text
+notes search --query <text> [--all] [--tag <tag>] --format labels|json
+```
+
+**Options**
+
+| Option                      | Description                              |
+| --------------------------- | ---------------------------------------- |
+| `--query` `<text>`          | Fuzzy search text                        |
+| `--all`                     | Show notes from every projects directory |
+| `--tag` `<tag>`             | Only include notes with this tag         |
+| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
+
+**Examples**
+
+```bash
+notes search --query architecture --format labels
+notes search --query handoff --all --format json
+```
+
 ## `notes read`
 
 Print a note file
@@ -165,6 +189,117 @@ notes move --path <path> --to <owner/repo> [--json]
 
 ```bash
 notes move --path ~/Documents/notes/projects/local/captures/topic.md --to local/aidan
+```
+
+## `notes create`
+
+Create a note from stdin, then commit and push it
+
+```text
+notes create --repository <owner/repo> --kind <note|handoff> --name <name> --description <description> --stdin [--json]
+```
+
+**Options**
+
+| Option                          | Description                                    |
+| ------------------------------- | ---------------------------------------------- |
+| `--repository` `<owner/repo>`   | Repository scope for the new note              |
+| `--kind` `<note\|handoff>`      | Note template kind (one of: `note`, `handoff`) |
+| `--name` `<name>`               | Note name                                      |
+| `--description` `<description>` | Note description                               |
+| `--stdin`                       | Read the note body from stdin                  |
+| `--json`                        | Emit the complete create result as JSON        |
+
+**Examples**
+
+```bash
+printf '# Follow-up' | notes create --repository owner/repo --kind note --name Follow-up --description 'Next steps' --stdin
+```
+
+## `notes targets`
+
+List known repository targets
+
+```text
+notes targets --format labels|json
+```
+
+**Options**
+
+| Option                      | Description                              |
+| --------------------------- | ---------------------------------------- |
+| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
+
+**Examples**
+
+```bash
+notes targets --format labels
+notes targets --format json
+```
+
+## `notes agents`
+
+List installed agent targets
+
+```text
+notes agents --format labels|json
+```
+
+**Options**
+
+| Option                      | Description                              |
+| --------------------------- | ---------------------------------------- |
+| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
+
+**Examples**
+
+```bash
+notes agents --format labels
+notes agents --format json
+```
+
+## `notes priority`
+
+Set a note priority, then commit and push it
+
+```text
+notes priority --path <path> --value <low|medium|high|critical> [--json]
+```
+
+**Options**
+
+| Option                                    | Description                                                |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| `--path` `<path>`                         | Absolute path to a note file inside the notes vault        |
+| `--value` `<low\|medium\|high\|critical>` | New priority (one of: `low`, `medium`, `high`, `critical`) |
+| `--json`                                  | Emit the mutation result as JSON                           |
+
+**Examples**
+
+```bash
+notes priority --path ~/Documents/notes/projects/owner/repo/topic.md --value high
+```
+
+## `notes open-agent`
+
+Open a note in an installed agent through Herdr
+
+```text
+notes open-agent --path <path> --agent <command> --json
+```
+
+**Options**
+
+| Option                | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--path` `<path>`     | Absolute path to a note file inside the notes vault |
+| `--agent` `<command>` | Command from notes agents                           |
+| `--json`              | Emit the opened workspace and tab IDs               |
+
+**Examples**
+
+```bash
+notes open-agent --path ~/Documents/notes/projects/owner/repo/topic.md --agent opencode2 --json
 ```
 
 ## `notes handoffs`
@@ -295,9 +430,9 @@ notes help [command]
 
 **Arguments**
 
-| Argument    | Description                                                                                                                                                     |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `read`, `write`, `delete`, `move`, `handoffs`, `mcp`, `capture`, `daemon`, `completions`. |
+| Argument    | Description                                                                                                                                                                                                                        |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `search`, `read`, `write`, `delete`, `move`, `create`, `targets`, `agents`, `priority`, `open-agent`, `handoffs`, `mcp`, `capture`, `daemon`, `completions`. |
 
 **Examples**
 

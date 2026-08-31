@@ -1,6 +1,12 @@
 import { Effect, Layer, Schema } from "effect";
 import { NodeRuntime } from "@effect/platform-node";
 import { basename } from "node:path";
+import {
+  detectAgentTargets,
+  openNoteAgent,
+  type AgentCommandRunner,
+} from "./notes/agentTargets.js";
+import { searchNoteEntries } from "./notes/search.js";
 import { renderHelp } from "./cli/help.js";
 import { getCliCommand, nativeCommandNames } from "./cli/spec.js";
 import {
@@ -14,7 +20,10 @@ import {
   renderCompletions,
   shellList,
 } from "./cli/completions.js";
-import { CommandExecutor } from "./services/CommandExecutor.js";
+import {
+  CommandExecutor,
+  type CommandExecutorService,
+} from "./services/CommandExecutor.js";
 import { Config } from "./services/Config.js";
 import { mcpServer, mcpTeardown } from "./mcp/commands/Mcp.js";
 import { runDaemon } from "./daemon/run.js";
@@ -27,8 +36,10 @@ import {
   notePriority,
   priorityLabel,
   priorityRank,
+  parseNotePriority,
   type NoteDeleteResult,
   type NoteEntry,
+  type NoteGitResult,
   type NotePushResult,
   type NoteRepoSection,
   type NotesViewFilter,
@@ -117,6 +128,15 @@ function parseListFormat(args: readonly string[]): NotesListFormat {
   ]);
 }
 
+function requireListFormat(
+  command: "agents" | "search" | "targets",
+  args: readonly string[],
+): NotesListFormat {
+  if (!optionValue(args, "--format"))
+    failUsage(`notes ${command} requires --format labels|json`);
+  return parseListFormat(args);
+}
+
 function formatPushLine(push: NotePushResult): string {
   return push.ok
     ? `Pushed to remote: ${push.message}`
@@ -132,6 +152,24 @@ function emitNoteResult(
   }
   return Effect.gen(function* () {
     yield* writeLine(result.output);
+    if (result.push) yield* writeLine(formatPushLine(result.push));
+  });
+}
+
+function emitGitMutation(
+  result: NoteGitResult,
+  output: string,
+  commitMessage: string,
+): Effect.Effect<void> {
+  return Effect.gen(function* () {
+    yield* writeLine(output);
+    if (result.commit.ok && result.commit.committed) {
+      yield* writeLine(`Committed to git: \`${commitMessage}\``);
+    } else if (!result.commit.ok) {
+      yield* writeLine(
+        `Git commit failed (saved locally): ${result.commit.error ?? "unknown error"}`,
+      );
+    }
     if (result.push) yield* writeLine(formatPushLine(result.push));
   });
 }
@@ -280,6 +318,34 @@ function runList(args: readonly string[]) {
   );
 }
 
+function runSearch(args: readonly string[]) {
+  validateOptions(args, {
+    "--query": "value",
+    "--all": "flag",
+    "--tag": "value",
+    "--format": "value",
+  });
+  return handleNotesError(
+    Effect.gen(function* () {
+      const query = optionValue(args, "--query");
+      if (!query) failUsage("notes search requires --query <text>");
+      const notes = yield* Notes;
+      const entries = hasOption(args, "--all")
+        ? (yield* notes.listAll()).flatMap((section) => section.entries)
+        : yield* notes.list();
+      const results = searchNoteEntries(
+        filterEntries(entries, optionValue(args, "--tag")),
+        query,
+      );
+      yield* writeLine(
+        requireListFormat("search", args) === "json"
+          ? JSON.stringify(results, null, 2)
+          : results.map(formatNoteLabel).join("\n"),
+      );
+    }),
+  );
+}
+
 function requirePath(subcommand: string, args: readonly string[]): string {
   const filePath = optionValue(args, "--path");
   if (!filePath) failUsage(`notes ${subcommand} requires --path <path>`);
@@ -346,6 +412,157 @@ function runMove(args: readonly string[]) {
       yield* emitNoteResult(result, hasOption(args, "--json"));
     }),
   );
+}
+
+function runCreate(args: readonly string[]) {
+  validateOptions(args, {
+    "--repository": "value",
+    "--kind": "value",
+    "--name": "value",
+    "--description": "value",
+    "--stdin": "flag",
+    "--json": "flag",
+  });
+  return handleNotesError(
+    Effect.gen(function* () {
+      const repository = optionValue(args, "--repository");
+      const kind = optionValue(args, "--kind");
+      const name = optionValue(args, "--name");
+      const description = optionValue(args, "--description");
+      if (!repository)
+        failUsage("notes create requires --repository <owner/repo>");
+      if (kind !== "note" && kind !== "handoff")
+        failUsage("notes create requires --kind note|handoff");
+      if (!name) failUsage("notes create requires --name <name>");
+      if (description === undefined)
+        failUsage("notes create requires --description <description>");
+      if (!hasOption(args, "--stdin"))
+        failUsage("notes create requires --stdin");
+      const notes = yield* Notes;
+      const result = yield* notes.createFromInput(
+        repository,
+        kind,
+        name,
+        description,
+        yield* Effect.promise(() => Bun.stdin.text()),
+      );
+      if (hasOption(args, "--json")) {
+        yield* writeLine(JSON.stringify(result));
+      } else {
+        yield* emitGitMutation(
+          result.git,
+          `Created: ${result.draft.entry.filePath}`,
+          `notes: create ${result.draft.entry.filename}`,
+        );
+      }
+    }),
+  );
+}
+
+function runTargets(args: readonly string[]) {
+  validateOptions(args, { "--format": "value" });
+  return handleNotesError(
+    Effect.gen(function* () {
+      const targets = yield* (yield* Notes).moveTargets();
+      yield* writeLine(
+        requireListFormat("targets", args) === "json"
+          ? JSON.stringify(targets, null, 2)
+          : targets.join("\n"),
+      );
+    }),
+  );
+}
+
+function runAgents(args: readonly string[]) {
+  validateOptions(args, { "--format": "value" });
+  return Effect.gen(function* () {
+    const executor = yield* CommandExecutor;
+    const agents = yield* Effect.tryPromise({
+      try: () => detectAgentTargets(commandRunner(executor)),
+      catch: (error) =>
+        new NotesError({
+          message: `Failed to detect agents: ${error instanceof Error ? error.message : String(error)}`,
+        }),
+    });
+    yield* writeLine(
+      requireListFormat("agents", args) === "json"
+        ? JSON.stringify(agents, null, 2)
+        : agents.map((agent) => `${agent.command} - ${agent.label}`).join("\n"),
+    );
+  }).pipe(handleNotesError);
+}
+
+function runPriority(args: readonly string[]) {
+  validateOptions(args, {
+    "--path": "value",
+    "--value": "value",
+    "--json": "flag",
+  });
+  return handleNotesError(
+    Effect.gen(function* () {
+      const value = optionValue(args, "--value");
+      const priority = value ? parseNotePriority(value) : null;
+      if (!priority)
+        failUsage("notes priority requires --value low|medium|high|critical");
+      const path = requirePath("priority", args);
+      const result = yield* (yield* Notes).setPriority(path, priority);
+      if (hasOption(args, "--json")) {
+        yield* writeLine(JSON.stringify({ path, priority, ...result }));
+      } else {
+        yield* emitGitMutation(
+          result,
+          `Priority set to ${priority}: ${path}`,
+          `notes: set priority ${basename(path)}`,
+        );
+      }
+    }),
+  );
+}
+
+function runOpenAgent(args: readonly string[]) {
+  validateOptions(args, {
+    "--path": "value",
+    "--agent": "value",
+    "--json": "flag",
+  });
+  return handleNotesError(
+    Effect.gen(function* () {
+      const command = optionValue(args, "--agent");
+      if (!command) failUsage("notes open-agent requires --agent <command>");
+      if (!hasOption(args, "--json"))
+        failUsage("notes open-agent requires --json");
+      const notes = yield* Notes;
+      const executor = yield* CommandExecutor;
+      const runner = commandRunner(executor);
+      const target = (yield* Effect.tryPromise({
+        try: () => detectAgentTargets(runner),
+        catch: (error) =>
+          new NotesError({
+            message: `Failed to detect agent targets: ${error instanceof Error ? error.message : String(error)}`,
+          }),
+      })).find((candidate) => candidate.command === command);
+      if (!target)
+        return yield* new NotesError({
+          message: `Agent target is not installed: ${command}`,
+        });
+      const note = yield* notes.resolveEntry(requirePath("open-agent", args));
+      const result = yield* Effect.tryPromise({
+        try: () => openNoteAgent(runner, note.entry, note.content, target),
+        catch: (error) =>
+          new NotesError({
+            message: `Failed to open note agent: ${error instanceof Error ? error.message : String(error)}`,
+          }),
+      });
+      yield* writeLine(JSON.stringify(result));
+    }),
+  );
+}
+
+function commandRunner(executor: CommandExecutorService): AgentCommandRunner {
+  return {
+    run: (command, args, options) =>
+      Effect.runPromise(executor.run(command, args, options)),
+  };
 }
 
 function runHandoffs(args: readonly string[]) {
@@ -620,6 +837,8 @@ function runNative(parsed: ParsedArgs, command: string): void {
           return runContext(parsed.rest);
         case "list":
           return runList(parsed.rest);
+        case "search":
+          return runSearch(parsed.rest);
         case "read":
           return runRead(parsed.rest);
         case "write":
@@ -628,6 +847,16 @@ function runNative(parsed: ParsedArgs, command: string): void {
           return runDelete(parsed.rest);
         case "move":
           return runMove(parsed.rest);
+        case "create":
+          return runCreate(parsed.rest);
+        case "targets":
+          return runTargets(parsed.rest);
+        case "agents":
+          return runAgents(parsed.rest);
+        case "priority":
+          return runPriority(parsed.rest);
+        case "open-agent":
+          return runOpenAgent(parsed.rest);
         case "handoffs":
           return runHandoffs(parsed.rest);
         case "completions":

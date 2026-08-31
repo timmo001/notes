@@ -1,0 +1,170 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  detectAgentTargets,
+  isRegularExecutable,
+  noteAgentPrompt,
+  openNoteAgent,
+  type AgentCommandRunner,
+} from "../../src/notes/agentTargets.js";
+import type { NoteEntry } from "../../src/notes/types.js";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
+});
+
+describe("agent targets", () => {
+  test("preserves timmo.git labels, order, and executable overrides", async () => {
+    const runner: AgentCommandRunner = {
+      run: async () =>
+        "cursor: current\nopencode: current\nclaude: outdated\npi: current\n",
+    };
+
+    const targets = await detectAgentTargets(runner, () => true);
+
+    expect(targets).toEqual([
+      {
+        command: "opencode2",
+        executable: "/home/aidan/.local/bin/opencode2",
+        label: "OpenCode 2",
+      },
+      { command: "opencode", executable: "opencode", label: "OpenCode 1" },
+      { command: "pi", executable: "pi", label: "Pi" },
+      { command: "cursor", executable: "cursor-agent", label: "Cursor Agent" },
+      { command: "claude", executable: "claude", label: "Claude Code" },
+    ]);
+  });
+
+  test("does not advertise OpenCode 2 for a non-executable file", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "notes-agent-target-"));
+    temporaryDirectories.push(directory);
+    const executable = join(directory, "opencode2");
+    writeFileSync(executable, "#!/bin/sh\n");
+    chmodSync(executable, 0o644);
+    const runner: AgentCommandRunner = {
+      run: async () => "opencode: current (v10) (/plugin)\n",
+    };
+
+    const targets = await detectAgentTargets(runner, () =>
+      isRegularExecutable(executable),
+    );
+
+    expect(targets.map((target) => target.command)).toEqual(["opencode"]);
+  });
+
+  test("rejects an unavailable OpenCode 2 wrapper before Herdr topology", async () => {
+    const calls: string[][] = [];
+    const runner: AgentCommandRunner = {
+      run: async (_command, args) => {
+        calls.push([...args]);
+        return "{}";
+      },
+    };
+    const entry: NoteEntry = {
+      filename: "work.md",
+      filePath: "/vault/projects/timmo001/notes/work.md",
+      repoSlug: "timmo001/notes",
+      projectDir: "/repos/notes",
+      name: "Work",
+      description: "Continue work",
+      tags: [],
+      priority: null,
+      mtime: 0,
+    };
+
+    await expect(
+      openNoteAgent(
+        runner,
+        entry,
+        "body",
+        {
+          command: "opencode2",
+          executable: "/home/aidan/.local/bin/opencode2",
+          label: "OpenCode 2",
+        },
+        () => false,
+      ),
+    ).rejects.toThrow("not a regular executable file");
+    expect(calls).toEqual([]);
+  });
+
+  test("opens a tab, waits for the agent, and sends full note context", async () => {
+    const calls: { command: string; args: readonly string[] }[] = [];
+    const runner: AgentCommandRunner = {
+      run: async (command, args) => {
+        calls.push({ command, args });
+        if (args[0] === "workspace" && args[1] === "list") {
+          return JSON.stringify({
+            result: { workspaces: [{ workspace_id: "w1", label: "notes" }] },
+          });
+        }
+        if (args[0] === "tab" && args[1] === "create") {
+          return JSON.stringify({
+            result: {
+              tab: { tab_id: "w1:t2" },
+              root_pane: { pane_id: "w1:p2" },
+            },
+          });
+        }
+        return "{}";
+      },
+    };
+    const entry: NoteEntry = {
+      filename: "work.md",
+      filePath: "/vault/projects/timmo001/notes/work.md",
+      repoSlug: "timmo001/notes",
+      projectDir: "/repos/notes",
+      name: "Work",
+      description: "Continue work",
+      tags: ["handoff"],
+      priority: "high",
+      mtime: 0,
+    };
+    const target = {
+      command: "cursor",
+      executable: "cursor-agent",
+      label: "Cursor Agent",
+    } as const;
+
+    const result = await openNoteAgent(runner, entry, "# Full body", target);
+
+    expect(result).toMatchObject({
+      workspaceId: "w1",
+      tabId: "w1:t2",
+      paneId: "w1:p2",
+    });
+    expect(calls).toContainEqual({
+      command: "herdr",
+      args: ["pane", "run", "w1:p2", "cursor-agent"],
+    });
+    const prompt = calls.find(
+      (call) => call.args[0] === "agent" && call.args[1] === "prompt",
+    )?.args[3];
+    expect(prompt).toContain("# Full body");
+    expect(prompt).toContain(entry.filePath);
+  });
+
+  test("includes metadata and content in prompts", () => {
+    const prompt = noteAgentPrompt(
+      {
+        filename: "note.md",
+        filePath: "/note.md",
+        name: "Note",
+        description: "Description",
+        tags: ["one"],
+        priority: null,
+        mtime: 0,
+      },
+      "body",
+    );
+    expect(prompt).toContain("Name: Note");
+    expect(prompt).toContain("Description: Description");
+    expect(prompt).toContain("Tags: one");
+    expect(prompt).toContain("body");
+  });
+});

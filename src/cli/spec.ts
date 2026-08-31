@@ -168,6 +168,26 @@ export const cliCommands: readonly CliCommandSpec[] = [
     ],
   },
   {
+    name: "search",
+    summary: "Search repository note metadata",
+    usage: "--query <text> [--all] [--tag <tag>] --format labels|json",
+    options: [
+      { name: "--query", valueName: "text", description: "Fuzzy search text" },
+      allOption,
+      {
+        name: "--tag",
+        valueName: "tag",
+        description: "Only include notes with this tag",
+      },
+      formatOption,
+      helpOption,
+    ],
+    examples: [
+      "notes search --query architecture --format labels",
+      "notes search --query handoff --all --format json",
+    ],
+  },
+  {
     name: "read",
     summary: "Print a note file",
     usage: "--path <path> [--json]",
@@ -233,6 +253,96 @@ export const cliCommands: readonly CliCommandSpec[] = [
     ],
     examples: [
       "notes move --path ~/Documents/notes/projects/local/captures/topic.md --to local/aidan",
+    ],
+  },
+  {
+    name: "create",
+    summary: "Create a note from stdin, then commit and push it",
+    usage:
+      "--repository <owner/repo> --kind <note|handoff> --name <name> --description <description> --stdin [--json]",
+    options: [
+      {
+        name: "--repository",
+        valueName: "owner/repo",
+        description: "Repository scope for the new note",
+      },
+      {
+        name: "--kind",
+        valueName: "note|handoff",
+        description: "Note template kind",
+        choices: [{ value: "note" }, { value: "handoff" }],
+      },
+      { name: "--name", valueName: "name", description: "Note name" },
+      {
+        name: "--description",
+        valueName: "description",
+        description: "Note description",
+      },
+      { name: "--stdin", description: "Read the note body from stdin" },
+      {
+        name: "--json",
+        description: "Emit the complete create result as JSON",
+      },
+      helpOption,
+    ],
+    examples: [
+      "printf '# Follow-up' | notes create --repository owner/repo --kind note --name Follow-up --description 'Next steps' --stdin",
+    ],
+  },
+  {
+    name: "targets",
+    summary: "List known repository targets",
+    usage: "--format labels|json",
+    options: [formatOption, helpOption],
+    examples: ["notes targets --format labels", "notes targets --format json"],
+  },
+  {
+    name: "agents",
+    summary: "List installed agent targets",
+    usage: "--format labels|json",
+    options: [formatOption, helpOption],
+    examples: ["notes agents --format labels", "notes agents --format json"],
+  },
+  {
+    name: "priority",
+    summary: "Set a note priority, then commit and push it",
+    usage: "--path <path> --value <low|medium|high|critical> [--json]",
+    options: [
+      pathOption,
+      {
+        name: "--value",
+        valueName: "low|medium|high|critical",
+        description: "New priority",
+        choices: [
+          { value: "low" },
+          { value: "medium" },
+          { value: "high" },
+          { value: "critical" },
+        ],
+      },
+      { name: "--json", description: "Emit the mutation result as JSON" },
+      helpOption,
+    ],
+    examples: [
+      "notes priority --path ~/Documents/notes/projects/owner/repo/topic.md --value high",
+    ],
+  },
+  {
+    name: "open-agent",
+    summary: "Open a note in an installed agent through Herdr",
+    usage: "--path <path> --agent <command> --json",
+    options: [
+      pathOption,
+      {
+        name: "--agent",
+        valueName: "command",
+        description: "Command from notes agents",
+      },
+      { name: "--json", description: "Emit the opened workspace and tab IDs" },
+      helpOption,
+    ],
+    examples: [
+      "notes open-agent --path ~/Documents/notes/projects/owner/repo/topic.md --agent opencode2 --json",
     ],
   },
   {
@@ -345,10 +455,16 @@ export const cliCommands: readonly CliCommandSpec[] = [
           { value: "root" },
           { value: "context" },
           { value: "list" },
+          { value: "search" },
           { value: "read" },
           { value: "write" },
           { value: "delete" },
           { value: "move" },
+          { value: "create" },
+          { value: "targets" },
+          { value: "agents" },
+          { value: "priority" },
+          { value: "open-agent" },
           { value: "handoffs" },
           { value: "mcp" },
           { value: "capture" },

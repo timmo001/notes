@@ -11,7 +11,6 @@ import {
   bold,
   fg,
 } from "@opentui/core";
-import Fuse, { type IFuseOptions } from "fuse.js";
 import type { Theme } from "../../theme.js";
 import { AppHeader } from "../../tui/AppHeader.js";
 import { CommandBar, type CommandHint } from "../../tui/CommandBar.js";
@@ -44,6 +43,7 @@ import {
 } from "../types.js";
 import { formatLocalNoteDateTimeFromEpochSeconds } from "../time.js";
 import { noteGitOutcome } from "../gitOutcome.js";
+import { searchNoteEntries } from "../search.js";
 import type { NoteEditorKind } from "./NoteEditor.js";
 import {
   CreateNoteDialog,
@@ -82,17 +82,6 @@ const SORT_CYCLE: readonly NoteSortMode[] = [
   "name-asc",
   "name-desc",
 ];
-const NOTE_SEARCH_OPTIONS: IFuseOptions<NoteEntry> = {
-  keys: [
-    { name: "name", weight: 4 },
-    { name: "tags", weight: 2 },
-    { name: "description", weight: 1 },
-    { name: "filename", weight: 1 },
-  ],
-  threshold: 0.4,
-  ignoreLocation: true,
-};
-
 /** Configuration callbacks for the repository notes view. */
 export interface NotesViewOptions {
   /** Resolve the initial repository scope and its note entries. */
@@ -182,7 +171,6 @@ export class NotesView {
   private groupMode: NoteGroupMode = "repo";
   private searchActive = false;
   private searchQuery = "";
-  private searchIndex: Fuse<NoteEntry> | null = null;
   private entries: readonly NoteEntry[] = [];
   private visibleEntries: readonly NoteEntry[] = [];
   private showingAllRepos = false;
@@ -488,7 +476,6 @@ export class NotesView {
       this.clearDeleteConfirmation(false);
       this.searchActive = false;
       this.searchQuery = "";
-      this.searchIndex = null;
       this.selectedFilePath = null;
       this.selectedEntry = null;
       this.loadedNoteContent = null;
@@ -548,7 +535,6 @@ export class NotesView {
       const loaded = await this.loadEntriesForActiveScope();
       if (version !== this.loadVersion) return false;
       this.entries = loaded.entries;
-      this.searchIndex = null;
       this.showingAllRepos = loaded.allRepos;
       this.usingAllReposFallback = loaded.fallback;
       this.preferredInitialRepoSlug = loaded.preferredRepoSlug ?? null;
@@ -559,7 +545,6 @@ export class NotesView {
     } catch (error) {
       if (version !== this.loadVersion) return false;
       this.entries = [];
-      this.searchIndex = null;
       this.visibleEntries = [];
       this.noteList.setItems([]);
       this.showEmptyContent("Unable to load notes", errorMessage(error));
@@ -625,9 +610,7 @@ export class NotesView {
     candidates: readonly NoteEntry[],
     query: string,
   ): readonly NoteEntry[] {
-    if (!this.searchIndex)
-      this.searchIndex = new Fuse([...candidates], NOTE_SEARCH_OPTIONS);
-    return this.searchIndex.search(query).map((result) => result.item);
+    return searchNoteEntries(candidates, query);
   }
 
   private enterSearch(): void {

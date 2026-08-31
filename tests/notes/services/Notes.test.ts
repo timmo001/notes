@@ -464,6 +464,74 @@ describe("Notes service", () => {
     expect(result.git.commit).toMatchObject({ ok: true, committed: true });
   });
 
+  test("creates a note in an explicit repository with stdin as its body", async () => {
+    const { root, layer } = fixture();
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).createFromInput(
+          "other/project",
+          "handoff",
+          "Continue work",
+          "Current implementation state",
+          "    const first = true;  \n    const second = true;\n\n",
+        );
+      }).pipe(Effect.provide(layer)),
+    );
+    const content = readFileSync(result.draft.entry.filePath, "utf8");
+
+    expect(result.draft.entry.filePath).toBe(
+      join(root, "projects", "other", "project", "continue-work.md"),
+    );
+    expect(content).toContain("repo: other/project");
+    expect(content).toContain("type: handoff");
+    expect(content).toEndWith(
+      "\n---\n\n    const first = true;  \n    const second = true;\n",
+    );
+    expect(result.git.commit).toMatchObject({ ok: true, committed: true });
+  });
+
+  test("rejects an unsafe explicit repository before creating a note", async () => {
+    const { layer } = fixture();
+
+    await expect(
+      Effect.runPromise(
+        Effect.gen(function* () {
+          return yield* (yield* Notes).createFromInput(
+            "../outside",
+            "note",
+            "Unsafe",
+            "Unsafe target",
+            "body",
+          );
+        }).pipe(Effect.provide(layer)),
+      ),
+    ).rejects.toThrow("Invalid repository");
+  });
+
+  test("resolves note metadata, content, and a remembered checkout", async () => {
+    const { root, path, layer } = fixture();
+    rememberRepositoryDirectory(
+      join(root, "state"),
+      "timmo001/notes",
+      "/repos/notes",
+    );
+
+    const resolved = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).resolveEntry(path);
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(resolved.entry).toMatchObject({
+      filename: "note.md",
+      repoSlug: "timmo001/notes",
+      projectDir: "/repos/notes",
+      name: "Note",
+    });
+    expect(resolved.content).toContain("# Note");
+  });
+
   test("updates priority without changing the note body", async () => {
     const { path, layer } = fixture();
     const bodyBefore = readFileSync(path, "utf8").split("---\n").at(-1);

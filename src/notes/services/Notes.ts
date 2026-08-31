@@ -68,6 +68,7 @@ import {
   type NotesTuiScope,
   type NoteWriteOptions,
   type NoteWriteResult,
+  type RepoNoteIdentity,
 } from "../types.js";
 
 const PROJECTS_SUBDIR = "projects";
@@ -104,6 +105,12 @@ interface NotesService {
   readonly read: (
     filePath: string,
   ) => Effect.Effect<NoteReadResult, NotesError>;
+  readonly resolveEntry: (
+    filePath: string,
+  ) => Effect.Effect<
+    { readonly entry: NoteEntry; readonly content: string },
+    NotesError
+  >;
   readonly write: (
     filePath: string,
     content: string,
@@ -122,6 +129,13 @@ interface NotesService {
     name: string,
     description: string,
     runEditor: (entry: NoteEntry) => Promise<void>,
+  ) => Effect.Effect<NoteCreateResult, NotesError>;
+  readonly createFromInput: (
+    repository: string,
+    kind: NoteCreateKind,
+    name: string,
+    description: string,
+    body: string,
   ) => Effect.Effect<NoteCreateResult, NotesError>;
   readonly edit: (
     filePath: string,
@@ -754,6 +768,52 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         return yield* commitAndPush(resolvedPath, message);
       });
 
+      const createNote = Effect.fn("Notes.createNote")(function* (
+        identity: Pick<RepoNoteIdentity, "owner" | "repo">,
+        kind: NoteCreateKind,
+        name: string,
+        description: string,
+        body: string | undefined,
+        runEditor: (entry: NoteEntry) => Promise<void>,
+      ) {
+        const slug = slugifyName(name) || "note";
+        const now = new Date(yield* Clock.currentTimeMillis);
+        const draftContent = renderDraft(
+          kind,
+          identity,
+          formatNoteTimestamp(now),
+          name,
+          description,
+        );
+        const content =
+          body === undefined
+            ? draftContent
+            : `${draftContent.slice(0, draftContent.indexOf("\n---\n") + 5)}\n${body.replace(/(?:\r\n|\r|\n)+$/, "")}\n`;
+        const filePath = yield* Effect.try({
+          try: () =>
+            createExclusiveNoteFile(
+              projectsRoot,
+              identity.owner,
+              identity.repo,
+              slug,
+              content,
+            ),
+          catch: (error) =>
+            fail(`createDraft: failed to write draft: ${errorMessage(error)}`),
+        });
+        const note = readNoteFile(projectsRoot, filePath);
+        const entry: NoteEntry = {
+          filename: basename(filePath),
+          filePath,
+          repoSlug: `${identity.owner}/${identity.repo}`,
+          mtime: note.mtime,
+          ...readFrontmatter(note.content),
+        };
+        const draft = { entry, content } satisfies NoteCreateDraft;
+        const git = yield* editAndCommit(filePath, runEditor, true);
+        return { draft, git, created: existsSync(filePath) };
+      });
+
       const buildContextPayload = ({ command }: NoteContextOptions) =>
         Effect.gen(function* () {
           const generatedAt = new Date().toISOString();
@@ -919,6 +979,35 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             catch: (error) =>
               fail(
                 `Failed to read note file ${filePath}: ${errorMessage(error)}`,
+              ),
+          }),
+        resolveEntry: (filePath) =>
+          Effect.try({
+            try: () => {
+              const note = readNoteFile(projectsRoot, filePath);
+              const pathParts = relative(projectsRoot, note.path).split("/");
+              const owner = pathParts[0];
+              const repo = pathParts[1];
+              if (!owner || !repo || pathParts.length !== 3) {
+                throw new Error(`Invalid repository note path: ${filePath}`);
+              }
+              const repoSlug = `${owner}/${repo}`;
+              const directories = readRepositoryDirectories(config.stateDir);
+              return {
+                entry: {
+                  filename: basename(note.path),
+                  filePath: note.path,
+                  repoSlug,
+                  projectDir: directories[repoSlug],
+                  mtime: note.mtime,
+                  ...readFrontmatter(note.content),
+                },
+                content: note.content,
+              };
+            },
+            catch: (error) =>
+              fail(
+                `Failed to resolve note file ${filePath}: ${errorMessage(error)}`,
               ),
           }),
         write: (filePath, content, options = {}) =>
@@ -1126,39 +1215,41 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             Effect.gen(function* () {
               yield* prepareMutation();
               const { identity } = yield* resolveIdentity();
-              const slug = slugifyName(name) || "note";
-              const now = new Date(yield* Clock.currentTimeMillis);
-              const content = renderDraft(
-                kind,
+              return yield* createNote(
                 identity,
-                formatNoteTimestamp(now),
+                kind,
                 name,
                 description,
+                undefined,
+                runEditor,
               );
-              const filePath = yield* Effect.try({
-                try: () =>
-                  createExclusiveNoteFile(
-                    projectsRoot,
-                    identity.owner,
-                    identity.repo,
-                    slug,
-                    content,
-                  ),
-                catch: (error) =>
-                  fail(
-                    `createDraft: failed to write draft: ${errorMessage(error)}`,
-                  ),
-              });
-              const note = readNoteFile(projectsRoot, filePath);
-              const entry: NoteEntry = {
-                filename: basename(filePath),
-                filePath,
-                mtime: note.mtime,
-                ...readFrontmatter(note.content),
-              };
-              const draft = { entry, content } satisfies NoteCreateDraft;
-              const git = yield* editAndCommit(filePath, runEditor, true);
-              return { draft, git, created: existsSync(filePath) };
+            }),
+          ),
+        createFromInput: (repository, kind, name, description, body) =>
+          withMutationLock(
+            Effect.gen(function* () {
+              const [owner, repo, ...extra] = repository.split("/");
+              if (
+                !owner ||
+                !repo ||
+                extra.length > 0 ||
+                !isSafeRepositorySegment(owner) ||
+                !isSafeRepositorySegment(repo)
+              ) {
+                return yield* fail(
+                  `Invalid repository: ${repository}`,
+                  "Expected owner/repo with safe path segments.",
+                );
+              }
+              yield* prepareMutation();
+              return yield* createNote(
+                { owner, repo },
+                kind,
+                name,
+                description,
+                body,
+                async () => {},
+              );
             }),
           ),
         edit: (filePath, runEditor, create) =>

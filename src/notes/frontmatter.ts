@@ -114,7 +114,8 @@ export function setFrontmatterField(
 /** Render a new note with YAML-safe frontmatter values. */
 export function renderDraft(
   kind: "note" | "handoff",
-  identity: RepoNoteIdentity,
+  identity:
+    RepoNoteIdentity | { readonly owner: string; readonly repo: string },
   date: string,
   name: string,
   description: string,
