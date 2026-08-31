@@ -430,6 +430,7 @@ Panel {
       model: root.panelRows
       navigationModel: root.navigationRows
       bypassFilter: root.rankedSearchActive
+      backOnEmptyFilter: true
       keyboardEnabled: root.view !== "edit" && root.view !== "create" && root.view !== "capture"
       onFilterTextChanged: {
         if (root.service) root.service.invalidateSearch(filterText)
@@ -438,6 +439,7 @@ Panel {
       onRevealRequested: revealTimer.restart()
       onActivateRequested: function(entry) { root.activate(entry) }
       onBackRequested: root.back()
+      onCloseRequested: root.close()
       onRefreshRequested: if (root.service) root.service.refresh()
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
@@ -467,9 +469,16 @@ Panel {
           }
 
           Text {
-            visible: (root.view === "notes" || root.view === "handoffs") && filterController.filterText
-            width: parent.width; text: (root.service && root.service.searching ? "Searching: " : "Search: ") + filterController.filterText
-            color: Qt.darker(root.foreground, 1.3); font.family: root.fontFamily; font.pixelSize: Style.font.caption
+            visible: root.view === "overview" || root.view === "notes" || root.view === "handoffs"
+            width: parent.width
+            text: filterController.filterText
+              ? (root.service && root.service.searching ? "SEARCHING · " : "SEARCH · ") + filterController.filterText
+              : "TYPE TO SEARCH"
+            color: Qt.darker(root.foreground, 1.4)
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            font.letterSpacing: 1.2
           }
 
           Column {

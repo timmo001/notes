@@ -11,11 +11,13 @@ Item {
   property bool cursorActive: true
   property bool keyboardEnabled: true
   property bool bypassFilter: false
+  property bool backOnEmptyFilter: false
   readonly property var filteredModel: bypassFilter ? (model || []) : filterModel(model, filterText)
   readonly property var navigationEntries: navigationModel === null ? filteredModel : navigationModel
   readonly property int count: filteredModel.length
 
   signal activateRequested(var entry, int modifiers)
+  signal closeRequested()
   signal backRequested()
   signal refreshRequested()
   signal tabRequested(int direction)
@@ -64,10 +66,13 @@ Item {
   Keys.onPressed: function(event) {
     if (event.key === Qt.Key_Escape) {
       if (root.filterText) root.setFilter("")
-      else root.backRequested()
+      else root.closeRequested()
       event.accepted = true
     } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
       root.tabRequested((event.modifiers & Qt.ShiftModifier) || event.key === Qt.Key_Backtab ? -1 : 1)
+      event.accepted = true
+    } else if (event.key === Qt.Key_Backspace && !root.filterText && root.backOnEmptyFilter) {
+      root.backRequested()
       event.accepted = true
     } else if (Util.editsFilter(event, root.filterText)) {
       root.setFilter(event.key === Qt.Key_Backspace && !(event.modifiers & Qt.ControlModifier)
