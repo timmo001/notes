@@ -51,6 +51,7 @@ Panel {
     && captureInput.text.trim().length <= 12000
   readonly property var panelRows: buildRows()
   readonly property var visibleRows: filterController.filteredModel
+  readonly property var navigationRows: visibleRows.filter(function(row) { return row.kind !== "heading" })
   readonly property bool rankedSearchActive: (view === "overview" || view === "notes" || view === "handoffs")
     && filterController.filterText.trim() !== ""
 
@@ -96,12 +97,19 @@ Panel {
     return { key: "action:" + action, kind: "action", action: action, primaryText: label,
       secondaryText: detail || "", icon: icon || "" }
   }
+  function headingRow(value, count) {
+    return { key: "heading:" + groupMode + ":" + value, kind: "heading",
+      primaryText: String(value).toUpperCase() + " · " + count + (count === 1 ? " NOTE" : " NOTES") }
+  }
   function noteRow(note, index) {
-    var group = groupMode === "repo" ? String(note.repoSlug || "Unknown repository")
-      : (groupMode === "priority" ? String(note.priority || "medium") : "")
     return { key: "note:" + String(note.filePath || index), kind: "note", value: note,
       primaryText: String(note.name || note.filename || "Untitled"),
-      secondaryText: (group ? group + " | " : "") + String(note.description || "") }
+      secondaryText: String(note.description || "") }
+  }
+  function noteGroup(note) {
+    if (groupMode === "repo") return String(note.repoSlug || "Unknown repository")
+    if (groupMode === "priority") return String(note.priority || "medium")
+    return ""
   }
   function uniqueValues(field, nested) {
     var values = []
@@ -167,8 +175,17 @@ Panel {
       rows.push(actionRow("filter-priority", "Priority: " + priorityFilter, "Enter to cycle", "!"))
       rows.push(actionRow("sort", "Sort: " + sortField + " " + (sortAscending ? "ascending" : "descending"), "Enter to change", "󰒺"))
       rows.push(actionRow("group", "Group: " + groupMode, "repo, priority, or none", "󰙅"))
+      rows.push(actionRow("back", "Back to Notes overview", "", ""))
       var notes = filteredNotes()
-      for (var i = 0; i < notes.length; i++) rows.push(noteRow(notes[i], i))
+      for (var i = 0; i < notes.length; i++) {
+        var group = noteGroup(notes[i])
+        if (!rankedSearchActive && group && (i === 0 || group !== noteGroup(notes[i - 1]))) {
+          var count = 0
+          for (var g = i; g < notes.length && noteGroup(notes[g]) === group; g++) count++
+          rows.push(headingRow(group, count))
+        }
+        rows.push(noteRow(notes[i], i))
+      }
     } else if (view === "detail") {
       rows.push(actionRow("edit", "Edit", "Edit in this panel", ""))
       rows.push(actionRow("external", "Open external editor", "Open with nvim", ""))
@@ -176,19 +193,19 @@ Panel {
       rows.push(actionRow("priority", "Priority", String(selectedNote && selectedNote.priority || "medium"), "!"))
       rows.push(actionRow("move", "Move", "Choose a repository", "󰁔"))
       rows.push(actionRow("delete", "Delete", "Confirmation required", "󰆴"))
-      rows.push(actionRow("back", "Back", "", ""))
+      rows.push(actionRow("back", "Back to " + (selectedListView === "overview" ? "Notes overview" : (selectedListView === "handoffs" ? "Handoffs" : "Notes")), "", ""))
     } else if (view === "agent") {
       var agents = service ? service.agents : []
       for (var a = 0; a < agents.length; a++) rows.push(actionRow("agent:" + agents[a].command, agents[a].label, agents[a].command, "󱚣"))
-      rows.push(actionRow("back", "Back", "", ""))
+      rows.push(actionRow("back", "Back to note", "", ""))
     } else if (view === "priority") {
       var priorities = ["critical", "high", "medium", "low"]
       for (var p = 0; p < priorities.length; p++) rows.push(actionRow("priority:" + priorities[p], priorities[p], "", "!"))
-      rows.push(actionRow("back", "Back", "", ""))
+      rows.push(actionRow("back", "Back to note", "", ""))
     } else if (view === "move") {
       var targets = service ? service.targets : []
       for (var t = 0; t < targets.length; t++) rows.push(actionRow("move:" + targets[t], String(targets[t]), "", "󰁔"))
-      rows.push(actionRow("back", "Back", "", ""))
+      rows.push(actionRow("back", "Back to note", "", ""))
     } else if (view === "delete") {
       rows.push(actionRow("confirm-delete", "Delete this note", "This cannot be undone", "󰆴"))
       rows.push(actionRow("back", "Cancel", "", ""))
@@ -232,7 +249,10 @@ Panel {
       pendingMutation = "delete"; service.deleteNote(selectedNote.filePath)
     }
   }
-  function cursorItem() { return rowRepeater.itemAt(filterController.cursorIndex) }
+  function cursorItem() {
+    var selected = filterController.selectedEntry()
+    return selected ? rowRepeater.itemAt(visibleRows.indexOf(selected)) : null
+  }
   function revealCursor() {
     var item = cursorItem()
     if (!item) return
@@ -408,6 +428,7 @@ Panel {
       id: filterController
       anchors.fill: parent
       model: root.panelRows
+      navigationModel: root.navigationRows
       bypassFilter: root.rankedSearchActive
       keyboardEnabled: root.view !== "edit" && root.view !== "create" && root.view !== "capture"
       onFilterTextChanged: {
@@ -456,21 +477,38 @@ Panel {
             width: parent.width; spacing: Style.space(2)
             Repeater {
               id: rowRepeater; model: root.visibleRows
-              CursorSurface {
+              Item {
                 required property int index
                 required property var modelData
-                x: Style.space(8); width: Math.max(0, contentColumn.width - Style.space(16))
-                implicitHeight: rowColumn.implicitHeight + Style.space(12)
-                hasCursor: filterController.cursorIndex === index
-                foreground: root.foreground; accent: root.foreground
-                Column {
-                  id: rowColumn
-                  anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                  anchors.leftMargin: Style.space(8); anchors.rightMargin: Style.space(8); spacing: Style.space(2)
-                  Text { width: parent.width; text: (modelData.icon ? modelData.icon + "  " : "") + modelData.primaryText; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.body; elide: Text.ElideRight }
-                  Text { visible: modelData.secondaryText !== ""; width: parent.width; text: modelData.secondaryText; color: Qt.darker(root.foreground, 1.4); font.family: root.fontFamily; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
+                width: contentColumn.width
+                implicitHeight: modelData.kind === "heading" ? heading.implicitHeight + Style.space(8) : rowSurface.implicitHeight
+                Text {
+                  id: heading
+                  visible: modelData.kind === "heading"
+                  width: parent.width
+                  text: modelData.primaryText
+                  color: Qt.darker(root.foreground, 1.4)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  font.letterSpacing: 1.2
                 }
-                MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: filterController.cursorIndex = index; onClicked: root.activate(modelData) }
+                CursorSurface {
+                  id: rowSurface
+                  visible: modelData.kind !== "heading"
+                  x: Style.space(8); width: Math.max(0, parent.width - Style.space(16))
+                  implicitHeight: rowColumn.implicitHeight + Style.space(12)
+                  hasCursor: filterController.cursorIndex === filterController.indexForKey(modelData.key)
+                  foreground: root.foreground; accent: root.foreground
+                  Column {
+                    id: rowColumn
+                    anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: Style.space(8); anchors.rightMargin: Style.space(8); spacing: Style.space(2)
+                    Text { width: parent.width; text: (modelData.icon ? modelData.icon + "  " : "") + modelData.primaryText; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.body; elide: Text.ElideRight }
+                    Text { visible: modelData.secondaryText !== ""; width: parent.width; text: modelData.secondaryText; color: Qt.darker(root.foreground, 1.4); font.family: root.fontFamily; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
+                  }
+                  MouseArea { anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onEntered: filterController.cursorIndex = filterController.indexForKey(modelData.key); onClicked: root.activate(modelData) }
+                }
               }
             }
             Text { visible: root.visibleRows.length === 0; width: parent.width; text: root.service && root.service.error ? root.service.error : "No matching notes"; color: Qt.darker(root.foreground, 1.4); font.family: root.fontFamily; horizontalAlignment: Text.AlignHCenter }
@@ -478,12 +516,14 @@ Panel {
 
           Column {
             visible: root.view === "edit"; width: parent.width; spacing: Style.space(8)
+            Button { width: parent.width; text: "Back to note"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.back() }
             ScrollView { width: parent.width; height: Style.space(390); TextArea { id: editInput; color: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; selectByMouse: true; Keys.onEscapePressed: root.back() } }
             Button { width: parent.width; text: root.pendingMutation === "edit" ? "Saving" : "Save (Ctrl+Enter)"; enabled: !root.pendingMutation; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitEdit() }
           }
 
           Column {
             visible: root.view === "create"; width: parent.width; spacing: Style.space(8)
+            Button { width: parent.width; text: "Back to Notes overview"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.back() }
             ComboBox { id: createKind; width: parent.width; model: ["Note", "Handoff"] }
             ComboBox { id: createRepository; width: parent.width; editable: true; model: root.service ? root.service.targets : [] }
             TextField { id: createName; width: parent.width; placeholderText: "Name"; color: root.foreground; font.family: root.fontFamily }
@@ -494,6 +534,7 @@ Panel {
 
           Column {
             visible: root.view === "capture"; width: parent.width; spacing: Style.space(8)
+            Button { width: parent.width; text: "Back to Notes overview"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.back() }
             ScrollView { width: parent.width; height: Style.space(180); TextArea { id: captureInput; placeholderText: "What should be investigated or remembered?"; color: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: draftSaveTimer.restart(); Keys.onPressed: function(event) { if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { root.submitCapture(); event.accepted = true } else if (event.key === Qt.Key_Escape) { root.back(); event.accepted = true } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) { captureSend.forceActiveFocus(); event.accepted = true } } } }
             Button { id: captureSend; width: parent.width; text: "Send (Ctrl+Enter)"; enabled: root.canCapture; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitCapture() }
             Button { width: parent.width; text: "Clear"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.resetCapture() }

@@ -5,12 +5,14 @@ Item {
   id: root
 
   property var model: []
+  property var navigationModel: null
   property string filterText: ""
   property int cursorIndex: 0
   property bool cursorActive: true
   property bool keyboardEnabled: true
   property bool bypassFilter: false
   readonly property var filteredModel: bypassFilter ? (model || []) : filterModel(model, filterText)
+  readonly property var navigationEntries: navigationModel === null ? filteredModel : navigationModel
   readonly property int count: filteredModel.length
 
   signal activateRequested(var entry, int modifiers)
@@ -23,6 +25,7 @@ Item {
   Keys.priority: Keys.BeforeItem
   Keys.enabled: keyboardEnabled
   onFilteredModelChanged: { clampCursor(); revealRequested() }
+  onNavigationEntriesChanged: { clampCursor(); revealRequested() }
 
   function filterModel(entries, query) {
     var term = String(query || "").trim().toLowerCase()
@@ -33,19 +36,19 @@ Item {
   }
   function reset() { filterText = ""; cursorIndex = 0; cursorActive = true }
   function setFilter(value) { filterText = value; cursorIndex = 0; cursorActive = true }
-  function clampCursor() { cursorIndex = Math.max(0, Math.min(cursorIndex, Math.max(0, filteredModel.length - 1))) }
+  function clampCursor() { cursorIndex = Math.max(0, Math.min(cursorIndex, Math.max(0, navigationEntries.length - 1))) }
   function moveCursor(delta) {
-    if (!filteredModel.length) return
-    cursorIndex = Math.max(0, Math.min(cursorIndex + delta, filteredModel.length - 1))
+    if (!navigationEntries.length) return
+    cursorIndex = Math.max(0, Math.min(cursorIndex + delta, navigationEntries.length - 1))
     cursorActive = true
     revealRequested()
   }
   function selectedEntry() {
-    return cursorActive && cursorIndex >= 0 && cursorIndex < filteredModel.length
-      ? filteredModel[cursorIndex] : null
+    return cursorActive && cursorIndex >= 0 && cursorIndex < navigationEntries.length
+      ? navigationEntries[cursorIndex] : null
   }
   function indexForKey(key) {
-    for (var i = 0; i < filteredModel.length; i++) if (filteredModel[i].key === key) return i
+    for (var i = 0; i < navigationEntries.length; i++) if (navigationEntries[i].key === key) return i
     return -1
   }
   function deletesLastCharacter(text) {
