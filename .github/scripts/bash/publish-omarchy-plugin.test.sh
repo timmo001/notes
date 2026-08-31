@@ -12,7 +12,7 @@ publish_dir="$test_root/publish"
 mkdir -p "$source_dir" "$publish_dir"
 git -C "$publish_dir" init --quiet
 
-for file in BarWidget.qml Panel.qml README.md manifest.json; do
+for file in BarWidget.qml FilterablePanel.qml Panel.qml README.md Service.qml manifest.json; do
   printf '%s\n' "$file" >"$source_dir/$file"
 done
 printf 'stale\n' >"$publish_dir/stale"
@@ -22,7 +22,7 @@ printf 'stale\n' >"$publish_dir/stale"
 test -d "$publish_dir/.git"
 test ! -e "$publish_dir/stale"
 cmp "$repo_root/LICENSE" "$publish_dir/LICENSE"
-for file in BarWidget.qml Panel.qml README.md manifest.json; do
+for file in BarWidget.qml FilterablePanel.qml Panel.qml README.md Service.qml manifest.json; do
   cmp "$source_dir/$file" "$publish_dir/$file"
 done
 
@@ -32,6 +32,13 @@ if "$publisher" "$source_dir" "$publish_dir" >/dev/null 2>&1; then
   exit 1
 fi
 rm "$source_dir/preview.png"
+
+printf 'undeclared\n' >"$source_dir/undeclared.qml"
+if "$publisher" "$source_dir" "$publish_dir" >/dev/null 2>&1; then
+  printf 'Publisher accepted an undeclared regular file.\n' >&2
+  exit 1
+fi
+rm "$source_dir/undeclared.qml"
 
 mkdir "$source_dir/unexpected"
 if "$publisher" "$source_dir" "$publish_dir" >/dev/null 2>&1; then

@@ -79,7 +79,7 @@ jobs:
       - name: Checkout publish repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          repository: ${{ github.repository_owner }}/omarchy-notes-capture
+          repository: timmo001/omarchy-notes
           path: _publish
           ssh-key: ${{ secrets.OMARCHY_PLUGIN_DEPLOY_KEY }}
 

@@ -1,18 +1,20 @@
 {
   "schemaVersion": 1,
-  "id": "timmo.notes-capture",
-  "name": "Notes Capture",
+  "id": "timmo.notes",
+  "name": "Notes",
   "version": "1.0.0",
   "author": "Timmo",
   "license": "Apache-2.0",
-  "description": "Capture notes through the local Notes processor",
-  "kinds": ["bar-widget"],
+  "description": "Browse, edit, create, and capture repository notes",
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
   "entryPoints": {
+    "service": "Service.qml",
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Notes Capture",
-    "description": "Capture a note through local OpenCode",
+    "displayName": "Notes",
+    "description": "Browse and manage repository notes",
     "category": "Utility",
     "allowMultiple": false,
     "defaultSection": "right",

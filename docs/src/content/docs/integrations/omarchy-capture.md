@@ -1,86 +1,92 @@
 ---
-title: Omarchy capture
-description: Capture notes directly from an Omarchy bar widget.
+title: Omarchy plugin
+description: Browse, edit, create, and capture notes from the Omarchy bar.
 ---
 
-The Notes Capture plugin adds a bar widget and panel to Omarchy Quattro. It
-sends text directly to the local Notes capture processor without using the web
-capture app or GitHub issue queue.
-
-The integration has three parts:
-
-```text
-Omarchy plugin -> notes-capture-local -> notes capture -> OpenCode server
-```
-
-The plugin repository contains the QML interface. The host owns the wrapper,
-processor configuration, OpenCode service, and credentials.
+The Notes plugin adds a persistent service, bar widget, and keyboard-first panel
+to Omarchy Quattro. It uses the Notes CLI for note management and keeps local
+capture as one panel subview.
 
 ## Requirements
 
 - Omarchy Quattro
-- [Notes installed](/install/)
-- A `notes-capture-local` executable on `PATH`
-- A configured, password-protected OpenCode server
+- [Notes installed](/install/) and available on `PATH`
+- A configured Notes vault
+- `notes-capture-local` on `PATH` for capture
 
-Installing the plugin does not create the wrapper, service, Notes
-configuration, or `OPENCODE_SERVER_PASSWORD` environment variable.
+Install and enable the standalone plugin after reviewing its source:
 
-The wrapper must support these commands:
+```bash
+omarchy plugin add https://github.com/timmo001/omarchy-notes.git
+```
+
+For an unattended installation from a repository you trust:
+
+```bash
+omarchy plugin add https://github.com/timmo001/omarchy-notes.git --enable --yes
+```
+
+## Browse and search
+
+Select the Notes widget to open an overview with Notes, Handoffs, New note, New
+handoff, and Capture note actions.
+
+Notes and Handoffs show entries from every repository. Each view provides
+repository, tag, and priority filters; modified and name sorting in either
+direction; and repository, priority, or ungrouped display. Typing runs a
+debounced ranked search across all repositories. Search ranking comes from:
+
+```text
+notes search --query <text> --all --format json
+```
+
+Normal lists use `notes list --all --format json`. Up and Down move the cursor,
+Enter opens an item, and the selected row is kept visible. Escape clears the
+active filter before going back. Tab switches bar panels where the shell
+supports it.
+
+## Note actions
+
+The detail view shows repository, tags, priority, modified time, and rendered
+Markdown. Its action menu can:
+
+- edit the full Markdown content in the panel
+- open the note in an external editor
+- open the note using any target returned by `notes agents --format json`
+- set low, medium, high, or critical priority
+- move to a target returned by `notes targets --format json`
+- delete after an explicit confirmation
+
+Native edits read the current content and revision hash with `notes read
+--json`, then submit content on standard input to `notes write --stdin
+--expected-hash ... --json`. Ctrl+Enter saves. Mutating commands are serialised,
+and successful mutations refresh the list.
+
+New note and New handoff provide native forms for repository, name,
+description, and Markdown content. They submit content on standard input to
+`notes create`.
+
+## Capture
+
+Capture note retains the local capture workflow. The host-owned wrapper must
+support:
 
 ```text
 notes-capture-local --status --json
 notes-capture-local --stdin --json [--repository owner/repository]
 ```
 
-The status command reports availability through its exit code: zero means the
-processor is ready. The submission command reads capture text from standard
-input. A successful submission exits with zero and prints JSON containing
-`"status": "success"`; an optional `summary` string is shown in the panel.
+The status command exits with zero when available. The submission command reads
+the capture from standard input and returns JSON with `"status": "success"`.
+It normally forwards to a configured [capture processor](/integrations/capture-daemon/)
+and may require `OPENCODE_SERVER_PASSWORD`.
 
-A typical wrapper forwards both forms to `notes capture --config ...` and
-supplies the configuration and password required by the
-[capture processor](/integrations/capture-daemon/).
+Ctrl+Enter sends a capture. Submissions run one at a time, further submissions
+wait in memory, and closing the panel does not cancel them. A shell restart loses
+the pending queue. Failures save the submitted text and send a local
+notification.
 
-## Install
-
-Review the plugin repository, then add and enable it:
-
-```bash
-omarchy plugin add \
-  https://github.com/timmo001/omarchy-notes-capture.git
-```
-
-For an unattended installation from a repository you already trust:
-
-```bash
-omarchy plugin add \
-  https://github.com/timmo001/omarchy-notes-capture.git \
-  --enable --yes
-```
-
-## Use
-
-Select the widget to open the panel. Enter up to 12,000 characters, then select
-Send or press Ctrl+Enter. Escape closes the panel. Tab moves from the editor to
-Send. Up and Down move through the repository filter and available targets.
-
-Submissions run one at a time. Further submissions wait in memory, and closing
-the panel does not cancel them. The queue is lost if `omarchy-shell` restarts.
-Clear removes queued submissions and clears the displayed result of an active
-submission, but it does not stop the active wrapper process.
-
-The plugin exposes the `timmo.notes-capture` shell IPC target with `open`,
-`close`, `show`, `hide`, and `toggle` methods:
-
-```bash
-omarchy-shell timmo.notes-capture toggle
-```
-
-## Repository targets
-
-The picker always includes Automatic repository resolution. Add explicit
-targets with this host-owned file:
+Optional repository choices are read from:
 
 ```text
 ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-repositories.json
@@ -95,66 +101,38 @@ ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-repositories.json
 ]
 ```
 
-The plugin reloads this file when it changes. Invalid JSON or a value other
-than an array leaves only Automatic resolution. Keep each entry to the shown
-shape because entries are displayed and passed to the wrapper without further
-validation.
-
-## Draft recovery
-
-The editor saves its current draft to:
+The current draft and latest failed submission are stored unencrypted at:
 
 ```text
 ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-draft.txt
-```
-
-This draft is restored when the plugin loads. A failed submission is copied to
-a separate recovery file:
-
-```text
 ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-failed-draft.txt
 ```
 
-The failed draft is not restored into the editor automatically. Open the file
-directly to recover it. A later failure replaces it, and a successful capture
-does not remove it. Clear empties both files. Drafts are plain text and are not
-encrypted.
+## IPC
 
-## Troubleshooting
-
-Confirm that the wrapper is available and that its status check succeeds:
+The `timmo.notes` target provides `open`, `close`, `show`, `hide`, `toggle`, and
+`capture`. The capture method opens the panel directly in the capture subview.
 
 ```bash
-command -v notes-capture-local
-notes-capture-local --status --json
+omarchy-shell timmo.notes toggle
+omarchy-shell timmo.notes capture
 ```
-
-If your wrapper uses `notes-capture-opencode.service`, inspect its status and
-logs:
-
-```bash
-systemctl --user status notes-capture-opencode.service
-journalctl --user -u notes-capture-opencode.service
-```
-
-Check the failed-draft file after a rejected or malformed submission. If
-explicit repositories disappear, validate the repository JSON file against the
-array shape above.
 
 ## Update and remove
 
 ```bash
-omarchy plugin update timmo.notes-capture
-omarchy plugin remove timmo.notes-capture
+omarchy plugin update timmo.notes
+omarchy plugin remove timmo.notes
 ```
 
-Removing the plugin does not remove host-owned services, wrapper commands,
-configuration, credentials, repository targets, or draft files. Plugin changes
-are published from the Notes repository independently of stable Notes CLI
-releases.
+Removing the plugin does not remove Notes, capture services, configuration,
+credentials, targets, or drafts. Plugin publication from the Notes repository is
+independent of stable CLI releases.
 
 ## Security
 
-The plugin runs unsandboxed inside `omarchy-shell`. Its QML does not connect to
-the network directly, but the wrapper may send captures to the configured
-OpenCode server. Review both the plugin and wrapper before installation.
+The plugin runs unsandboxed inside `omarchy-shell`. It starts local Notes,
+capture, editor, agent, and notification commands. The QML does not make direct
+network requests, but Notes mutations may commit and push, and capture may use
+the configured OpenCode server. Review the plugin and host configuration before
+installation.

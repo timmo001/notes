@@ -6,7 +6,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "timmo.notes-capture"
+  moduleName: "timmo.notes"
 
   readonly property bool primaryOnly: setting("primaryOnly", true)
   readonly property string preferredOutput: setting("primaryOutput", "")
@@ -23,6 +23,7 @@ BarWidget {
   }
   readonly property bool activeInstance: !primaryOnly
     || (currentOutput !== "" && currentOutput === activeOutput)
+  readonly property var notesService: bar?.shell?.serviceFor("timmo.notes")
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property bool popoutSwitchClosing: panelLoader.item
     ? panelLoader.item.popoutSwitchClosing === true : false
@@ -64,6 +65,7 @@ BarWidget {
     target.settings = settings
     target.anchorItem = button
     target.hostWidget = root
+    target.service = root.notesService
   }
 
   visible: activeInstance
@@ -72,6 +74,7 @@ BarWidget {
 
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
+  onNotesServiceChanged: injectPanel()
 
   Loader {
     id: panelLoader
@@ -85,12 +88,16 @@ BarWidget {
     active: root.activeInstance
     sourceComponent: Component {
       IpcHandler {
-        target: "timmo.notes-capture"
+        target: "timmo.notes"
         function open(): void { root.open() }
         function close(): void { root.close() }
         function show(): void { root.open() }
         function hide(): void { root.close() }
         function toggle(): void { root.togglePanel() }
+        function capture(): void {
+          root.open()
+          if (panelLoader.item) panelLoader.item.showView("capture")
+        }
       }
     }
   }
@@ -101,7 +108,7 @@ BarWidget {
     bar: root.bar
     fontSize: 11
     text: "󰠮"
-    tooltipText: "Capture note"
+    tooltipText: "Notes"
     horizontalMargin: 6
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton) root.togglePanel()
