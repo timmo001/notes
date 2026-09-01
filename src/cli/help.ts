@@ -1,133 +1,19 @@
-import { cliCommands, getCliCommand, type CliCommandSpec } from "./spec.js";
+import { Effect } from "effect";
 
-const rootExamples = [
-  "notes                          Browse notes in the TUI",
-  "notes --all                    Browse all repo notes in the TUI",
-  "notes list                     List notes for the current repository",
-  "notes list --tag handoff       List handoff-tagged notes",
-  "notes read --path <path>       Print a note file",
-  "notes write --path <path> --stdin",
-  "notes handoffs                 Browse handoff notes in the TUI",
-  "notes handoffs --list          List handoff notes",
-  "notes mcp                      MCP server over stdio",
-];
+type HelpRenderer = (commandName?: string) => Effect.Effect<string>;
 
-function usageFor(command: CliCommandSpec): string {
-  return `Usage: notes ${command.name}${command.usage ? ` ${command.usage}` : ""}`;
+let renderer: HelpRenderer | undefined;
+
+/** Register the renderer after the application command tree is constructed. */
+export function setHelpRenderer(value: HelpRenderer): void {
+  renderer = value;
 }
 
-function optionLabel(
-  option: NonNullable<CliCommandSpec["options"]>[number],
-): string {
-  const names = option.short ? `${option.name}, ${option.short}` : option.name;
-  return option.valueName ? `${names} <${option.valueName}>` : names;
-}
-
-function renderAligned(
-  title: string,
-  rows: readonly [string, string][],
-): string[] {
-  if (rows.length === 0) return [];
-  const width = Math.max(...rows.map(([label]) => label.length));
-  return [
-    `${title}:`,
-    ...rows.map(
-      ([label, description]) => `  ${label.padEnd(width)}  ${description}`,
-    ),
-  ];
-}
-
-function commandLine(command: CliCommandSpec): string {
-  const args =
-    command.arguments?.map((arg) =>
-      arg.repeatable ? `[${arg.name}...]` : `<${arg.name}>`,
-    ) ?? [];
-  const options = command.options?.length ? " [options]" : "";
-  return `${command.name}${options}${args.length ? ` ${args.join(" ")}` : ""}`;
-}
-
-function parseRows(lines: readonly string[]): readonly [string, string][] {
-  return lines.map((line) => {
-    const match = /^(\S+(?:\s+\S+)*)\s{2,}(.+)$/.exec(line.trimEnd());
-    return match ? [match[1], match[2]] : [line, ""];
-  });
-}
-
-function trimBlankTail(lines: string[]): string[] {
-  while (lines[lines.length - 1] === "") lines.pop();
-  return lines;
-}
-
-function renderCommand(command: CliCommandSpec): string {
-  const lines: string[] = [usageFor(command), ""];
-  if (command.description) lines.push(...command.description, "");
-  if (command.modes)
-    lines.push(...renderAligned("Modes", parseRows(command.modes)), "");
-  if (command.commands) {
-    lines.push(
-      ...renderAligned(
-        "Commands",
-        command.commands.map((subcommand) => [
-          commandLine(subcommand),
-          subcommand.summary,
-        ]),
-      ),
-      "",
-    );
-  }
-  if (command.options) {
-    lines.push(
-      ...renderAligned(
-        "Options",
-        command.options.map((option) => [
-          optionLabel(option),
-          option.description,
-        ]),
-      ),
-      "",
-    );
-  }
-  if (command.sections) {
-    for (const section of command.sections) {
-      lines.push(
-        `${section.title}:`,
-        ...section.lines.map((line) => `  ${line}`),
-        "",
-      );
-    }
-  }
-  if (command.examples)
-    lines.push(
-      "Examples:",
-      ...command.examples.map((example) => `  ${example}`),
-    );
-  return trimBlankTail(lines).join("\n");
-}
-
-function renderRootHelp(): string {
-  return [
-    "Usage: notes [--all] [command] [options]",
-    "",
-    "Standalone TUI, CLI, and MCP server for repo-scoped Markdown notes.",
-    "With no command, notes opens the interactive TUI for the current repository.",
-    "",
-    ...renderAligned(
-      "Commands",
-      cliCommands.map((command) => [command.name, command.summary]),
-    ),
-    "",
-    "Options:",
-    "  --help, -h  Show this help message",
-    "",
-    "Examples:",
-    ...rootExamples.map((example) => `  ${example}`),
-    "",
-    "Run 'notes <command> --help' for command-specific options.",
-  ].join("\n");
-}
-
-/** Render root or command-specific CLI help from the command registry. */
-export function renderHelp(commandName?: string): string {
-  if (!commandName) return renderRootHelp();
-  return renderCommand(getCliCommand(commandName) ?? getCliCommand("help")!);
+/** Render help from the application command tree. */
+export function renderHelp(commandName?: string): Effect.Effect<string> {
+  return Effect.suspend(() =>
+    renderer
+      ? renderer(commandName)
+      : Effect.die("The notes command tree has not been initialised"),
+  );
 }

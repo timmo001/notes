@@ -38,5 +38,5 @@ jobs:
 
       - name: Smoke test CLI
         run: |
-          ./dist/notes help
+          ./dist/notes --help
           ./dist/notes root

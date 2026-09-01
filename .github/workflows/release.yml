@@ -44,9 +44,9 @@ jobs:
         root
       package-prepare-command: |-
         mkdir -p .scripts/linux/completions
-        ./dist/release/root/notes completions bash > .scripts/linux/completions/notes.bash
-        ./dist/release/root/notes completions fish > .scripts/linux/completions/notes.fish
-        ./dist/release/root/notes completions zsh > .scripts/linux/completions/_notes
+        ./dist/release/root/notes --completions bash > .scripts/linux/completions/notes.bash
+        ./dist/release/root/notes --completions fish > .scripts/linux/completions/notes.fish
+        ./dist/release/root/notes --completions zsh > .scripts/linux/completions/_notes
       release-version: >-
         ${{ inputs.release-version || github.event.release.tag_name }}
       source-ref: >-

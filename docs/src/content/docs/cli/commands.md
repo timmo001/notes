@@ -1,442 +1,392 @@
 ---
 title: Command Reference
-description: Every notes command, flag and example, generated from the CLI registry.
+description: Every notes command and flag, generated from the Effect command tree.
 sidebar:
   order: 2
 ---
 
-<!-- Generated from src/cli/spec.ts by `mise run docs:gen:cli`. Do not edit by hand. -->
+<!-- Generated from the Effect command tree by `mise run docs:gen:cli`. Do not edit by hand. -->
 
-This page lists every `notes` command, generated from the same registry that powers `notes help`.
+This page is generated from the same `Command` values that parse and run the CLI.
 
 ## `notes root`
 
-Print the notes vault root
-
 ```text
-notes root [--projects]
-```
+DESCRIPTION
+  Print the notes vault root
 
-**Options**
+USAGE
+  notes root [flags]
 
-| Option       | Description                  |
-| ------------ | ---------------------------- |
-| `--projects` | Print the projects directory |
+FLAGS
+  --projects    Print the projects directory
 
-**Examples**
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 
-```bash
-notes root
-notes root --projects
+EXAMPLES
+  notes root
+  notes root --projects
 ```
 
 ## `notes context`
 
-Print project-note context for integration plugins
-
 ```text
-notes context --command <name> [--json]
-```
+DESCRIPTION
+  Resolve project-note context for integration plugins.
 
-Resolve the current project, its notes directory, and relevant existing notes.
-The --json form is intended for OpenCode plugins that render their own prompt context.
+USAGE
+  notes context [flags]
 
-**Options**
+FLAGS
+  --command string    Integration command name requesting context
+  --json              Emit structured context JSON
 
-| Option               | Description                                 |
-| -------------------- | ------------------------------------------- |
-| `--command` `<name>` | Integration command name requesting context |
-| `--json`             | Emit structured context JSON                |
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 
-**Examples**
-
-```bash
-notes context --command notes-list
-notes context --command note-reference --json
+EXAMPLES
+  notes context --command notes-list
+  notes context --command note-reference --json
 ```
 
 ## `notes list`
 
-List repository notes
-
 ```text
-notes list [--all] [--tag <tag>] [--format labels|json]
-```
+DESCRIPTION
+  List repository notes
 
-**Options**
+USAGE
+  notes list [flags]
 
-| Option                      | Description                              |
-| --------------------------- | ---------------------------------------- |
-| `--all`                     | Show notes from every projects directory |
-| `--tag` `<tag>`             | Only include notes with this tag         |
-| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
+FLAGS
+  --all              Show notes from every projects directory
+  --tag string       Only include notes with this tag
+  --format choice    Output format (choices: labels, json)
 
-**Examples**
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 
-```bash
-notes list
-notes list --all
-notes list --tag handoff
-notes list --format json
+EXAMPLES
+  notes list
+  notes list --all
+  notes list --tag handoff
 ```
 
 ## `notes search`
 
-Search repository note metadata
-
 ```text
-notes search --query <text> [--all] [--tag <tag>] --format labels|json
-```
+DESCRIPTION
+  Search repository note metadata
 
-**Options**
+USAGE
+  notes search [flags]
 
-| Option                      | Description                              |
-| --------------------------- | ---------------------------------------- |
-| `--query` `<text>`          | Fuzzy search text                        |
-| `--all`                     | Show notes from every projects directory |
-| `--tag` `<tag>`             | Only include notes with this tag         |
-| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
+FLAGS
+  --query string     Fuzzy search text
+  --all              Show notes from every projects directory
+  --tag string       Only include notes with this tag
+  --format choice    Output format (choices: labels, json)
 
-**Examples**
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 
-```bash
-notes search --query architecture --format labels
-notes search --query handoff --all --format json
+EXAMPLES
+  notes search --query architecture --format labels
 ```
 
 ## `notes read`
 
-Print a note file
-
 ```text
-notes read --path <path> [--json]
-```
+DESCRIPTION
+  Print a note file
 
-**Options**
+USAGE
+  notes read [flags]
 
-| Option            | Description                                         |
-| ----------------- | --------------------------------------------------- |
-| `--path` `<path>` | Absolute path to a note file inside the notes vault |
-| `--json`          | Emit content and revision hash as JSON              |
+FLAGS
+  --path path    Absolute path to a note file inside the notes vault
+  --json         Emit content and revision hash as JSON
 
-**Examples**
-
-```bash
-notes read --path ~/Documents/notes/projects/owner/repo/topic.md
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes write`
 
-Write stdin to a note file, then commit and push it
-
 ```text
-notes write --path <path> --stdin [--expected-hash <sha256>] [--json]
-```
+DESCRIPTION
+  Write stdin to a note file, then commit and push it
 
-**Options**
+USAGE
+  notes write [flags]
 
-| Option                       | Description                                               |
-| ---------------------------- | --------------------------------------------------------- |
-| `--path` `<path>`            | Absolute path to a note file inside the notes vault       |
-| `--stdin`                    | Read note content from stdin                              |
-| `--expected-hash` `<sha256>` | Fail if the existing note no longer has this SHA-256 hash |
-| `--json`                     | Emit the complete mutation result as JSON                 |
+FLAGS
+  --path path               Absolute path to a note file inside the notes vault
+  --stdin                   Read note content from stdin
+  --expected-hash string    Fail if the existing note no longer has this SHA-256 hash
+  --json                    Emit the complete mutation result as JSON
 
-**Examples**
-
-```bash
-notes write --path ~/Documents/notes/projects/owner/repo/topic.md --stdin
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes delete`
 
-Delete a note file, then commit and push it
-
 ```text
-notes delete --path <path> [--json]
-```
+DESCRIPTION
+  Delete a note file, then commit and push it
 
-**Options**
+USAGE
+  notes delete [flags]
 
-| Option            | Description                                         |
-| ----------------- | --------------------------------------------------- |
-| `--path` `<path>` | Absolute path to a note file inside the notes vault |
-| `--json`          | Emit the complete mutation result as JSON           |
+FLAGS
+  --path path    Absolute path to a note file inside the notes vault
+  --json         Emit the complete mutation result as JSON
 
-**Examples**
-
-```bash
-notes delete --path ~/Documents/notes/projects/owner/repo/topic.md
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes move`
 
-Move a note to another known repository scope
-
 ```text
-notes move --path <path> --to <owner/repo> [--json]
-```
+DESCRIPTION
+  Move a note to another known repository scope
 
-**Options**
+USAGE
+  notes move [flags]
 
-| Option                | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| `--path` `<path>`     | Absolute path to a note file inside the notes vault |
-| `--to` `<owner/repo>` | Existing or remembered repository scope             |
-| `--json`              | Emit the complete mutation result as JSON           |
+FLAGS
+  --path path    Absolute path to a note file inside the notes vault
+  --to string    Existing or remembered repository scope
+  --json         Emit the complete mutation result as JSON
 
-**Examples**
-
-```bash
-notes move --path ~/Documents/notes/projects/local/captures/topic.md --to local/aidan
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes create`
 
-Create a note from stdin, then commit and push it
-
 ```text
-notes create --repository <owner/repo> --kind <note|handoff> --name <name> --description <description> --stdin [--json]
-```
+DESCRIPTION
+  Create a note from stdin, then commit and push it
 
-**Options**
+USAGE
+  notes create [flags]
 
-| Option                          | Description                                    |
-| ------------------------------- | ---------------------------------------------- |
-| `--repository` `<owner/repo>`   | Repository scope for the new note              |
-| `--kind` `<note\|handoff>`      | Note template kind (one of: `note`, `handoff`) |
-| `--name` `<name>`               | Note name                                      |
-| `--description` `<description>` | Note description                               |
-| `--stdin`                       | Read the note body from stdin                  |
-| `--json`                        | Emit the complete create result as JSON        |
+FLAGS
+  --repository string     Repository scope for the new note
+  --kind choice           Note template kind (choices: note, handoff)
+  --name string           Note name
+  --description string    Note description
+  --stdin                 Read the note body from stdin
+  --json                  Emit the complete create result as JSON
 
-**Examples**
-
-```bash
-printf '# Follow-up' | notes create --repository owner/repo --kind note --name Follow-up --description 'Next steps' --stdin
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes targets`
 
-List known repository targets
-
 ```text
-notes targets --format labels|json
-```
+DESCRIPTION
+  List known repository targets
 
-**Options**
+USAGE
+  notes targets [flags]
 
-| Option                      | Description                              |
-| --------------------------- | ---------------------------------------- |
-| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
+FLAGS
+  --format choice    Output format (choices: labels, json)
 
-**Examples**
-
-```bash
-notes targets --format labels
-notes targets --format json
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes agents`
 
-List installed agent targets
-
 ```text
-notes agents --format labels|json
-```
+DESCRIPTION
+  List installed agent targets
 
-**Options**
+USAGE
+  notes agents [flags]
 
-| Option                      | Description                              |
-| --------------------------- | ---------------------------------------- |
-| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`) |
+FLAGS
+  --format choice    Output format (choices: labels, json)
 
-**Examples**
-
-```bash
-notes agents --format labels
-notes agents --format json
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes priority`
 
-Set a note priority, then commit and push it
-
 ```text
-notes priority --path <path> --value <low|medium|high|critical> [--json]
-```
+DESCRIPTION
+  Set a note priority, then commit and push it
 
-**Options**
+USAGE
+  notes priority [flags]
 
-| Option                                    | Description                                                |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| `--path` `<path>`                         | Absolute path to a note file inside the notes vault        |
-| `--value` `<low\|medium\|high\|critical>` | New priority (one of: `low`, `medium`, `high`, `critical`) |
-| `--json`                                  | Emit the mutation result as JSON                           |
+FLAGS
+  --path path       Absolute path to a note file inside the notes vault
+  --value choice    New priority (choices: low, medium, high, critical)
+  --json            Emit the mutation result as JSON
 
-**Examples**
-
-```bash
-notes priority --path ~/Documents/notes/projects/owner/repo/topic.md --value high
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes open-agent`
 
-Open a note in an installed agent through Herdr
-
 ```text
-notes open-agent --path <path> --agent <command> --json
-```
+DESCRIPTION
+  Open a note in an installed agent through Herdr
 
-**Options**
+USAGE
+  notes open-agent [flags]
 
-| Option                | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| `--path` `<path>`     | Absolute path to a note file inside the notes vault |
-| `--agent` `<command>` | Command from notes agents                           |
-| `--json`              | Emit the opened workspace and tab IDs               |
+FLAGS
+  --path path       Absolute path to a note file inside the notes vault
+  --agent string    Command from notes agents
+  --json            Emit the opened workspace and tab IDs
 
-**Examples**
-
-```bash
-notes open-agent --path ~/Documents/notes/projects/owner/repo/topic.md --agent opencode2 --json
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes handoffs`
 
-Browse handoff-tagged notes
-
 ```text
-notes handoffs [--all] [--list] [--format labels|json]
-```
+DESCRIPTION
+  Browse handoff-tagged notes
 
-Handoffs are normal notes tagged handoff. Priority metadata is shared with notes.
-With no flags this opens the interactive notes TUI filtered to handoffs.
+USAGE
+  notes handoffs [flags]
 
-**Options**
+FLAGS
+  --all              Show notes from every projects directory
+  --list             List handoffs to stdout instead of opening the TUI
+  --format choice    Output format (choices: labels, json)
 
-| Option                      | Description                                        |
-| --------------------------- | -------------------------------------------------- |
-| `--all`                     | Show notes from every projects directory           |
-| `--list`                    | List handoffs to stdout instead of opening the TUI |
-| `--format` `<labels\|json>` | Output format (one of: `labels`, `json`)           |
-
-**Examples**
-
-```bash
-notes handoffs
-notes handoffs --all
-notes handoffs --list
-notes handoff
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes mcp`
 
-Run the notes MCP server over stdio
-
 ```text
-notes mcp
-```
+DESCRIPTION
+  Run the notes MCP server over stdio
 
-Start a Model Context Protocol server exposing note read, list, write, and delete tools.
+USAGE
+  notes mcp [flags]
 
-**Examples**
-
-```bash
-notes mcp
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes capture`
 
-Process a captured note through local OpenCode
-
 ```text
-notes capture --config <path> (--status | --stdin [--repository <owner/repo>]) [--json]
-```
+DESCRIPTION
+  Process a captured note through local OpenCode
 
-**Options**
+USAGE
+  notes capture [flags]
 
-| Option                        | Description                            |
-| ----------------------------- | -------------------------------------- |
-| `--config` `<path>`           | Daemon YAML configuration path         |
-| `--status`                    | Check local processor availability     |
-| `--stdin`                     | Read captured note text from stdin     |
-| `--repository` `<owner/repo>` | Target repository (omit for Automatic) |
-| `--json`                      | Emit a machine-readable result         |
+FLAGS
+  --config path          Daemon YAML configuration path
+  --status               Check local processor availability
+  --stdin                Read captured note text from stdin
+  --repository string    Target repository (omit for Automatic)
+  --json                 Emit a machine-readable result
 
-**Examples**
-
-```bash
-notes capture --config ~/.config/notes/daemon.yml --status --json
-printf 'Investigate this' | notes capture --config ~/.config/notes/daemon.yml --stdin --json
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
 
 ## `notes daemon`
 
-Process captured notes through local OpenCode
-
 ```text
-notes daemon --config <path> [--once]
-```
+DESCRIPTION
+  Process captured notes through local OpenCode
 
-Poll a configured GitHub issue queue, claim work through custom Git refs, and post local OpenCode results.
-The OpenCode server password is read from OPENCODE_SERVER_PASSWORD.
+USAGE
+  notes daemon [flags]
 
-**Options**
+FLAGS
+  --config path    Daemon YAML configuration path
+  --once           Process one queue snapshot and exit
 
-| Option              | Description                         |
-| ------------------- | ----------------------------------- |
-| `--config` `<path>` | Daemon YAML configuration path      |
-| `--once`            | Process one queue snapshot and exit |
-
-**Examples**
-
-```bash
-notes daemon --config ~/.config/notes/daemon.yml
-notes daemon --config ~/.config/notes/daemon.yml --once
-```
-
-## `notes completions`
-
-Generate shell completions
-
-```text
-notes completions [bash|fish|zsh]
-```
-
-Generate shell completions for notes.
-
-**Arguments**
-
-| Argument  | Description                    |
-| --------- | ------------------------------ |
-| `<shell>` | One of: `bash`, `fish`, `zsh`. |
-
-**Examples**
-
-```bash
-notes completions zsh
-notes completions bash
-notes completions fish
-```
-
-## `notes help`
-
-Show notes help
-
-```text
-notes help [command]
-```
-
-**Arguments**
-
-| Argument    | Description                                                                                                                                                                                                                        |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<command>` | Optional command to show help for. One of: `root`, `context`, `list`, `search`, `read`, `write`, `delete`, `move`, `create`, `targets`, `agents`, `priority`, `open-agent`, `handoffs`, `mcp`, `capture`, `daemon`, `completions`. |
-
-**Examples**
-
-```bash
-notes help
-notes help list
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|sh>                                    Print shell completion script (choices: bash, zsh, fish, sh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```

@@ -1,5 +1,6 @@
-import { Effect, Layer, Schema } from "effect";
-import { NodeRuntime } from "@effect/platform-node";
+import { Cause, Console, Effect, Layer, Schema } from "effect";
+import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { CliError, Command, Flag } from "effect/unstable/cli";
 import { basename } from "node:path";
 import {
   detectAgentTargets,
@@ -7,25 +8,12 @@ import {
   type AgentCommandRunner,
 } from "./notes/agentTargets.js";
 import { searchNoteEntries } from "./notes/search.js";
-import { renderHelp } from "./cli/help.js";
-import { getCliCommand, nativeCommandNames } from "./cli/spec.js";
-import {
-  expectedHashOption,
-  hasOption,
-  optionValue,
-  validateOptions,
-} from "./cli/args.js";
-import {
-  isCompletionShell,
-  renderCompletions,
-  shellList,
-} from "./cli/completions.js";
+import { setHelpRenderer } from "./cli/help.js";
 import {
   CommandExecutor,
   type CommandExecutorService,
 } from "./services/CommandExecutor.js";
 import { Config } from "./services/Config.js";
-import { mcpServer, mcpTeardown } from "./mcp/commands/Mcp.js";
 import { runDaemon } from "./daemon/run.js";
 import { captureStatus, processLocalCapture } from "./capture/run.js";
 import { Notes, NotesError } from "./notes/services/Notes.js";
@@ -36,7 +24,6 @@ import {
   notePriority,
   priorityLabel,
   priorityRank,
-  parseNotePriority,
   type NoteDeleteResult,
   type NoteEntry,
   type NoteGitResult,
@@ -48,12 +35,6 @@ import {
   type NoteMoveResult,
 } from "./notes/types.js";
 
-type ParsedArgs = {
-  readonly command: string | undefined;
-  readonly rest: readonly string[];
-  readonly help: boolean;
-};
-
 type TuiMode = {
   readonly initialNotesFilter?: NotesViewFilter;
 };
@@ -62,35 +43,9 @@ class UsageError extends Schema.TaggedErrorClass<UsageError>()("UsageError", {
   message: Schema.String,
 }) {}
 
-function parseArgs(args: readonly string[]): ParsedArgs {
-  const [first, ...rest] = args;
-  if (!first) return { command: undefined, rest: [], help: false };
-  if (first === "--help" || first === "-h") {
-    return { command: undefined, rest: [], help: true };
-  }
-  return {
-    command: first,
-    rest,
-    help: rest.includes("--help") || rest.includes("-h"),
-  };
-}
-
 function invokedCommand(): string | undefined {
   const name = basename(process.argv[1] ?? "");
   return name === "handoffs" || name === "handoff" ? "handoffs" : undefined;
-}
-
-function failUsage(message: string): never {
-  console.error(usageMessage(message));
-  process.exit(1);
-}
-
-function usageMessage(message: string): string {
-  return `${message}\nRun 'notes --help' to see available commands.`;
-}
-
-function helpCommandArg(args: readonly string[]): string | undefined {
-  return args.find((arg) => !arg.startsWith("-"));
 }
 
 function writeText(text: string): Effect.Effect<void> {
@@ -118,23 +73,6 @@ function handleNotesError<R>(effect: Effect.Effect<void, NotesError, R>) {
       }),
     ),
   );
-}
-
-function parseListFormat(args: readonly string[]): NotesListFormat {
-  const format = optionValue(args, "--format") ?? "labels";
-  if (format === "labels" || format === "json") return format;
-  exitWithError([
-    `Unknown --format value: ${format} (expected: labels or json)`,
-  ]);
-}
-
-function requireListFormat(
-  command: "agents" | "search" | "targets",
-  args: readonly string[],
-): NotesListFormat {
-  if (!optionValue(args, "--format"))
-    failUsage(`notes ${command} requires --format labels|json`);
-  return parseListFormat(args);
 }
 
 function formatPushLine(push: NotePushResult): string {
@@ -224,10 +162,6 @@ function includeAllRepos(filter: NotesViewFilter): NotesViewFilter {
   return { ...filter, includeAllRepos: true };
 }
 
-function isHandoffsTuiInvocation(args: readonly string[]): boolean {
-  return args.length === 0 || (args.length === 1 && args[0] === "--all");
-}
-
 function guardInteractiveTui(mode: TuiMode): void {
   if (process.stdout.isTTY) return;
   const filter = mode.initialNotesFilter;
@@ -253,31 +187,27 @@ function formatHandoffSections(sections: readonly NoteRepoSection[]): string {
     .join("\n\n");
 }
 
-function runRoot(args: readonly string[]) {
-  validateOptions(args, { "--projects": "flag" });
+function runRoot({ projects }: { readonly projects: boolean }) {
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      const root = args.includes("--projects")
-        ? yield* notes.projectsRoot
-        : yield* notes.root;
+      const root = projects ? yield* notes.projectsRoot : yield* notes.root;
       yield* writeLine(root);
     }),
   );
 }
 
-function runContext(args: readonly string[]) {
-  validateOptions(args, { "--command": "value", "--json": "flag" });
+function runContext({
+  command,
+  json,
+}: {
+  readonly command: string;
+  readonly json: boolean;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
-      const command = optionValue(args, "--command");
-      if (!command) {
-        return yield* new NotesError({
-          message: "notes context requires --command <name>",
-        });
-      }
       const notes = yield* Notes;
-      if (args.includes("--json")) {
+      if (json) {
         const payload = yield* notes.contextPayload({ command });
         yield* writeLine(JSON.stringify(payload, null, 2));
         return;
@@ -287,18 +217,19 @@ function runContext(args: readonly string[]) {
   );
 }
 
-function runList(args: readonly string[]) {
-  validateOptions(args, {
-    "--all": "flag",
-    "--tag": "value",
-    "--format": "value",
-  });
+function runList({
+  all,
+  tag,
+  format,
+}: {
+  readonly all: boolean;
+  readonly tag: string | undefined;
+  readonly format: NotesListFormat;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      const format = parseListFormat(args);
-      const tag = optionValue(args, "--tag");
-      if (hasOption(args, "--all")) {
+      if (all) {
         const sections = filterSections(yield* notes.listAll(), tag);
         const output =
           format === "json"
@@ -318,27 +249,26 @@ function runList(args: readonly string[]) {
   );
 }
 
-function runSearch(args: readonly string[]) {
-  validateOptions(args, {
-    "--query": "value",
-    "--all": "flag",
-    "--tag": "value",
-    "--format": "value",
-  });
+function runSearch({
+  query,
+  all,
+  tag,
+  format,
+}: {
+  readonly query: string;
+  readonly all: boolean;
+  readonly tag: string | undefined;
+  readonly format: NotesListFormat;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
-      const query = optionValue(args, "--query");
-      if (!query) failUsage("notes search requires --query <text>");
       const notes = yield* Notes;
-      const entries = hasOption(args, "--all")
+      const entries = all
         ? (yield* notes.listAll()).flatMap((section) => section.entries)
         : yield* notes.list();
-      const results = searchNoteEntries(
-        filterEntries(entries, optionValue(args, "--tag")),
-        query,
-      );
+      const results = searchNoteEntries(filterEntries(entries, tag), query);
       yield* writeLine(
-        requireListFormat("search", args) === "json"
+        format === "json"
           ? JSON.stringify(results, null, 2)
           : results.map(formatNoteLabel).join("\n"),
       );
@@ -346,98 +276,92 @@ function runSearch(args: readonly string[]) {
   );
 }
 
-function requirePath(subcommand: string, args: readonly string[]): string {
-  const filePath = optionValue(args, "--path");
-  if (!filePath) failUsage(`notes ${subcommand} requires --path <path>`);
-  return filePath;
-}
-
-function runRead(args: readonly string[]) {
-  validateOptions(args, { "--path": "value", "--json": "flag" });
+function runRead({
+  path,
+  json,
+}: {
+  readonly path: string;
+  readonly json: boolean;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      const result = yield* notes.read(requirePath("read", args));
-      yield* hasOption(args, "--json")
+      const result = yield* notes.read(path);
+      yield* json
         ? writeLine(JSON.stringify(result))
         : writeText(result.content);
     }),
   );
 }
 
-function runWrite(args: readonly string[]) {
-  validateOptions(args, {
-    "--path": "value",
-    "--stdin": "flag",
-    "--expected-hash": "value",
-    "--json": "flag",
-  });
+function runWrite({
+  path,
+  expectedHash,
+  json,
+}: {
+  readonly path: string;
+  readonly expectedHash: string | undefined;
+  readonly json: boolean;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
-      if (!hasOption(args, "--stdin"))
-        failUsage("notes write requires --stdin");
       const notes = yield* Notes;
       const content = yield* Effect.promise(() => Bun.stdin.text());
-      const result = yield* notes.write(requirePath("write", args), content, {
-        expectedHash: expectedHashOption(args),
-      });
-      yield* emitNoteResult(result, hasOption(args, "--json"));
+      const result = yield* notes.write(path, content, { expectedHash });
+      yield* emitNoteResult(result, json);
     }),
   );
 }
 
-function runDelete(args: readonly string[]) {
-  validateOptions(args, { "--path": "value", "--json": "flag" });
+function runDelete({
+  path,
+  json,
+}: {
+  readonly path: string;
+  readonly json: boolean;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      const result = yield* notes.delete(requirePath("delete", args));
-      yield* emitNoteResult(result, hasOption(args, "--json"));
+      const result = yield* notes.delete(path);
+      yield* emitNoteResult(result, json);
     }),
   );
 }
 
-function runMove(args: readonly string[]) {
-  validateOptions(args, {
-    "--path": "value",
-    "--to": "value",
-    "--json": "flag",
-  });
+function runMove({
+  path,
+  to,
+  json,
+}: {
+  readonly path: string;
+  readonly to: string;
+  readonly json: boolean;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
-      const repoSlug = optionValue(args, "--to");
-      if (!repoSlug) failUsage("notes move requires --to <owner/repo>");
       const notes = yield* Notes;
-      const result = yield* notes.move(requirePath("move", args), repoSlug);
-      yield* emitNoteResult(result, hasOption(args, "--json"));
+      const result = yield* notes.move(path, to);
+      yield* emitNoteResult(result, json);
     }),
   );
 }
 
-function runCreate(args: readonly string[]) {
-  validateOptions(args, {
-    "--repository": "value",
-    "--kind": "value",
-    "--name": "value",
-    "--description": "value",
-    "--stdin": "flag",
-    "--json": "flag",
-  });
+function runCreate({
+  repository,
+  kind,
+  name,
+  description,
+  json,
+}: {
+  readonly repository: string;
+  readonly kind: "note" | "handoff";
+  readonly name: string;
+  readonly description: string;
+  readonly json: boolean;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
-      const repository = optionValue(args, "--repository");
-      const kind = optionValue(args, "--kind");
-      const name = optionValue(args, "--name");
-      const description = optionValue(args, "--description");
-      if (!repository)
-        failUsage("notes create requires --repository <owner/repo>");
-      if (kind !== "note" && kind !== "handoff")
-        failUsage("notes create requires --kind note|handoff");
-      if (!name) failUsage("notes create requires --name <name>");
-      if (description === undefined)
-        failUsage("notes create requires --description <description>");
-      if (!hasOption(args, "--stdin"))
-        failUsage("notes create requires --stdin");
       const notes = yield* Notes;
       const result = yield* notes.createFromInput(
         repository,
@@ -446,7 +370,7 @@ function runCreate(args: readonly string[]) {
         description,
         yield* Effect.promise(() => Bun.stdin.text()),
       );
-      if (hasOption(args, "--json")) {
+      if (json) {
         yield* writeLine(JSON.stringify(result));
       } else {
         yield* emitGitMutation(
@@ -459,13 +383,12 @@ function runCreate(args: readonly string[]) {
   );
 }
 
-function runTargets(args: readonly string[]) {
-  validateOptions(args, { "--format": "value" });
+function runTargets({ format }: { readonly format: NotesListFormat }) {
   return handleNotesError(
     Effect.gen(function* () {
       const targets = yield* (yield* Notes).moveTargets();
       yield* writeLine(
-        requireListFormat("targets", args) === "json"
+        format === "json"
           ? JSON.stringify(targets, null, 2)
           : targets.join("\n"),
       );
@@ -473,8 +396,7 @@ function runTargets(args: readonly string[]) {
   );
 }
 
-function runAgents(args: readonly string[]) {
-  validateOptions(args, { "--format": "value" });
+function runAgents({ format }: { readonly format: NotesListFormat }) {
   return Effect.gen(function* () {
     const executor = yield* CommandExecutor;
     const agents = yield* Effect.tryPromise({
@@ -485,33 +407,31 @@ function runAgents(args: readonly string[]) {
         }),
     });
     yield* writeLine(
-      requireListFormat("agents", args) === "json"
+      format === "json"
         ? JSON.stringify(agents, null, 2)
         : agents.map((agent) => `${agent.command} - ${agent.label}`).join("\n"),
     );
   }).pipe(handleNotesError);
 }
 
-function runPriority(args: readonly string[]) {
-  validateOptions(args, {
-    "--path": "value",
-    "--value": "value",
-    "--json": "flag",
-  });
+function runPriority({
+  path,
+  value,
+  json,
+}: {
+  readonly path: string;
+  readonly value: "low" | "medium" | "high" | "critical";
+  readonly json: boolean;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
-      const value = optionValue(args, "--value");
-      const priority = value ? parseNotePriority(value) : null;
-      if (!priority)
-        failUsage("notes priority requires --value low|medium|high|critical");
-      const path = requirePath("priority", args);
-      const result = yield* (yield* Notes).setPriority(path, priority);
-      if (hasOption(args, "--json")) {
-        yield* writeLine(JSON.stringify({ path, priority, ...result }));
+      const result = yield* (yield* Notes).setPriority(path, value);
+      if (json) {
+        yield* writeLine(JSON.stringify({ path, priority: value, ...result }));
       } else {
         yield* emitGitMutation(
           result,
-          `Priority set to ${priority}: ${path}`,
+          `Priority set to ${value}: ${path}`,
           `notes: set priority ${basename(path)}`,
         );
       }
@@ -519,18 +439,15 @@ function runPriority(args: readonly string[]) {
   );
 }
 
-function runOpenAgent(args: readonly string[]) {
-  validateOptions(args, {
-    "--path": "value",
-    "--agent": "value",
-    "--json": "flag",
-  });
+function runOpenAgent({
+  path,
+  agent,
+}: {
+  readonly path: string;
+  readonly agent: string;
+}) {
   return handleNotesError(
     Effect.gen(function* () {
-      const command = optionValue(args, "--agent");
-      if (!command) failUsage("notes open-agent requires --agent <command>");
-      if (!hasOption(args, "--json"))
-        failUsage("notes open-agent requires --json");
       const notes = yield* Notes;
       const executor = yield* CommandExecutor;
       const runner = commandRunner(executor);
@@ -540,12 +457,12 @@ function runOpenAgent(args: readonly string[]) {
           new NotesError({
             message: `Failed to detect agent targets: ${error instanceof Error ? error.message : String(error)}`,
           }),
-      })).find((candidate) => candidate.command === command);
+      })).find((candidate) => candidate.command === agent);
       if (!target)
         return yield* new NotesError({
-          message: `Agent target is not installed: ${command}`,
+          message: `Agent target is not installed: ${agent}`,
         });
-      const note = yield* notes.resolveEntry(requirePath("open-agent", args));
+      const note = yield* notes.resolveEntry(path);
       const result = yield* Effect.tryPromise({
         try: () => openNoteAgent(runner, note.entry, note.content, target),
         catch: (error) =>
@@ -565,18 +482,28 @@ function commandRunner(executor: CommandExecutorService): AgentCommandRunner {
   };
 }
 
-function runHandoffs(args: readonly string[]) {
-  validateOptions(args, {
-    "--all": "flag",
-    "--list": "flag",
-    "--format": "value",
-  });
+function runHandoffs({
+  all,
+  list,
+  format,
+}: {
+  readonly all: boolean;
+  readonly list: boolean;
+  readonly format: NotesListFormat;
+}) {
+  if (!list) {
+    return Effect.promise(() =>
+      runTui({
+        initialNotesFilter: all
+          ? includeAllRepos(handoffNotesFilter)
+          : handoffNotesFilter,
+      }),
+    );
+  }
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      const format = parseListFormat(args);
-      const listArgs = args.filter((arg) => arg !== "--list");
-      if (hasOption(listArgs, "--all")) {
+      if (all) {
         const sections = filterSections(yield* notes.listAll(), "handoff");
         const output =
           format === "json"
@@ -593,20 +520,6 @@ function runHandoffs(args: readonly string[]) {
       yield* writeLine(output || "No handoff notes found.");
     }),
   );
-}
-
-function runCompletions(args: readonly string[]) {
-  const positional = args.filter((arg) => !arg.startsWith("-"));
-  if (args.some((arg) => arg.startsWith("-")) || positional.length > 1) {
-    failUsage("notes completions accepts at most one shell name");
-  }
-  const shell = args.find((arg) => !arg.startsWith("-")) ?? "zsh";
-  if (!isCompletionShell(shell)) {
-    throw new Error(
-      `notes completions: unsupported shell '${shell}' (expected: ${shellList()})`,
-    );
-  }
-  return Effect.sync(() => process.stdout.write(renderCompletions(shell)));
 }
 
 async function runTui(mode: TuiMode): Promise<void> {
@@ -681,214 +594,361 @@ async function runTui(mode: TuiMode): Promise<void> {
   );
 }
 
-const initialCommand = invokedCommand();
-const cliArgs = initialCommand
-  ? [initialCommand, ...process.argv.slice(2)]
-  : process.argv.slice(2);
-const parsed = parseArgs(cliArgs);
-const command = parsed.command;
-
-async function runTuiOrExit(mode: TuiMode): Promise<void> {
-  try {
-    await runTui(mode);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
-}
-
-if (parsed.help && !command) {
-  console.log(renderHelp());
-  process.exit(0);
-}
-
-if (!initialCommand && cliArgs.length === 1 && cliArgs[0] === "--all") {
-  await runTuiOrExit({ initialNotesFilter: allNotesFilter });
-} else if (!command) {
-  await runTuiOrExit({});
-} else if (
-  (command === "handoffs" || command === "handoff") &&
-  !parsed.help &&
-  isHandoffsTuiInvocation(parsed.rest)
-) {
-  await runTuiOrExit({
-    initialNotesFilter: parsed.rest.includes("--all")
-      ? includeAllRepos(handoffNotesFilter)
-      : handoffNotesFilter,
-  });
-} else {
-  runNative(parsed, command);
-}
-
-function runNative(parsed: ParsedArgs, command: string): void {
-  if (!nativeCommandNames.has(command)) {
-    failUsage(`notes: unknown command '${command}'`);
-  }
-
-  if (parsed.help && command !== "help") {
-    console.log(renderHelp(command));
-    process.exit(0);
-  }
-
-  const CliLayers = Notes.layer.pipe(
-    Layer.provideMerge(CommandExecutor.layer),
-    Layer.provideMerge(Config.layer),
+const describedFlag = <A>(flag: Flag.Flag<A>, description: string) =>
+  flag.pipe(Flag.withDescription(description));
+const optionalString = (name: string, description: string) =>
+  describedFlag(Flag.string(name), description).pipe(
+    Flag.withDefault(undefined),
   );
+const booleanFlag = (name: string, description: string) =>
+  describedFlag(Flag.boolean(name), description);
+const requiredBooleanFlag = (name: string, description: string) =>
+  booleanFlag(name, description).pipe(
+    Flag.mapEffect((enabled) =>
+      enabled
+        ? Effect.succeed(true)
+        : new CliError.MissingOption({ option: name }),
+    ),
+  );
+const pathFlag = () =>
+  describedFlag(
+    Flag.path("path"),
+    "Absolute path to a note file inside the notes vault",
+  );
+const formatFlag = (required = false) => {
+  const flag = describedFlag(
+    Flag.choice("format", ["labels", "json"] as const),
+    "Output format",
+  );
+  return required ? flag : flag.pipe(Flag.withDefault("labels" as const));
+};
+const examples = (...commands: readonly string[]) =>
+  Command.withExamples(commands.map((command) => ({ command })));
 
-  if (command === "mcp") {
-    try {
-      validateOptions(parsed.rest, {});
-    } catch (error) {
-      failUsage(error instanceof Error ? error.message : String(error));
-    }
-    NodeRuntime.runMain(mcpServer.pipe(Effect.provide(CliLayers)), {
-      teardown: mcpTeardown,
-    });
-    return;
-  }
+const rootCommand = Command.make(
+  "root",
+  { projects: booleanFlag("projects", "Print the projects directory") },
+  runRoot,
+).pipe(
+  Command.withDescription("Print the notes vault root"),
+  examples("notes root", "notes root --projects"),
+);
 
-  if (command === "daemon") {
-    try {
-      validateOptions(parsed.rest, { "--config": "value", "--once": "flag" });
-      const configPath = optionValue(parsed.rest, "--config");
-      if (!configPath) failUsage("notes daemon requires --config <path>");
-      NodeRuntime.runMain(
-        runDaemon(configPath, hasOption(parsed.rest, "--once")),
-      );
-    } catch (error) {
-      failUsage(error instanceof Error ? error.message : String(error));
-    }
-    return;
-  }
+const contextCommand = Command.make(
+  "context",
+  {
+    command: describedFlag(
+      Flag.string("command"),
+      "Integration command name requesting context",
+    ),
+    json: booleanFlag("json", "Emit structured context JSON"),
+  },
+  runContext,
+).pipe(
+  Command.withDescription(
+    "Resolve project-note context for integration plugins.",
+  ),
+  examples(
+    "notes context --command notes-list",
+    "notes context --command note-reference --json",
+  ),
+);
 
-  if (command === "capture") {
-    try {
-      validateOptions(parsed.rest, {
-        "--config": "value",
-        "--status": "flag",
-        "--stdin": "flag",
-        "--repository": "value",
-        "--json": "flag",
-      });
-      const configPath = optionValue(parsed.rest, "--config");
-      if (!configPath) failUsage("notes capture requires --config <path>");
-      const status = hasOption(parsed.rest, "--status");
-      const stdin = hasOption(parsed.rest, "--stdin");
-      if (status === stdin) {
-        failUsage("notes capture requires exactly one of --status or --stdin");
+const listCommand = Command.make(
+  "list",
+  {
+    all: booleanFlag("all", "Show notes from every projects directory"),
+    tag: optionalString("tag", "Only include notes with this tag"),
+    format: formatFlag(),
+  },
+  runList,
+).pipe(
+  Command.withDescription("List repository notes"),
+  examples("notes list", "notes list --all", "notes list --tag handoff"),
+);
+
+const searchCommand = Command.make(
+  "search",
+  {
+    query: describedFlag(Flag.string("query"), "Fuzzy search text"),
+    all: booleanFlag("all", "Show notes from every projects directory"),
+    tag: optionalString("tag", "Only include notes with this tag"),
+    format: formatFlag(true),
+  },
+  runSearch,
+).pipe(
+  Command.withDescription("Search repository note metadata"),
+  examples("notes search --query architecture --format labels"),
+);
+
+const readCommand = Command.make(
+  "read",
+  {
+    path: pathFlag(),
+    json: booleanFlag("json", "Emit content and revision hash as JSON"),
+  },
+  runRead,
+).pipe(Command.withDescription("Print a note file"));
+
+const expectedHashFlag = describedFlag(
+  Flag.string("expected-hash"),
+  "Fail if the existing note no longer has this SHA-256 hash",
+).pipe(
+  Flag.mapTryCatch(
+    (value) => {
+      if (!/^[0-9a-f]{64}$/.test(value)) {
+        throw new Error("must be a lowercase SHA-256 hash");
       }
-      if (status && optionValue(parsed.rest, "--repository")) {
-        failUsage("notes capture --status does not accept --repository");
+      return value;
+    },
+    () => "Expected a lowercase SHA-256 hash",
+  ),
+  Flag.withDefault(undefined),
+);
+
+const writeCommand = Command.make(
+  "write",
+  {
+    path: pathFlag(),
+    stdin: requiredBooleanFlag("stdin", "Read note content from stdin"),
+    expectedHash: expectedHashFlag,
+    json: booleanFlag("json", "Emit the complete mutation result as JSON"),
+  },
+  runWrite,
+).pipe(
+  Command.withDescription(
+    "Write stdin to a note file, then commit and push it",
+  ),
+);
+
+const deleteCommand = Command.make(
+  "delete",
+  {
+    path: pathFlag(),
+    json: booleanFlag("json", "Emit the complete mutation result as JSON"),
+  },
+  runDelete,
+).pipe(Command.withDescription("Delete a note file, then commit and push it"));
+
+const moveCommand = Command.make(
+  "move",
+  {
+    path: pathFlag(),
+    to: describedFlag(
+      Flag.string("to"),
+      "Existing or remembered repository scope",
+    ),
+    json: booleanFlag("json", "Emit the complete mutation result as JSON"),
+  },
+  runMove,
+).pipe(
+  Command.withDescription("Move a note to another known repository scope"),
+);
+
+const createCommand = Command.make(
+  "create",
+  {
+    repository: describedFlag(
+      Flag.string("repository"),
+      "Repository scope for the new note",
+    ),
+    kind: describedFlag(
+      Flag.choice("kind", ["note", "handoff"] as const),
+      "Note template kind",
+    ),
+    name: describedFlag(Flag.string("name"), "Note name"),
+    description: describedFlag(Flag.string("description"), "Note description"),
+    stdin: requiredBooleanFlag("stdin", "Read the note body from stdin"),
+    json: booleanFlag("json", "Emit the complete create result as JSON"),
+  },
+  runCreate,
+).pipe(
+  Command.withDescription("Create a note from stdin, then commit and push it"),
+);
+
+const targetsCommand = Command.make(
+  "targets",
+  { format: formatFlag(true) },
+  runTargets,
+).pipe(Command.withDescription("List known repository targets"));
+
+const agentsCommand = Command.make(
+  "agents",
+  { format: formatFlag(true) },
+  runAgents,
+).pipe(Command.withDescription("List installed agent targets"));
+
+const priorityCommand = Command.make(
+  "priority",
+  {
+    path: pathFlag(),
+    value: describedFlag(
+      Flag.choice("value", ["low", "medium", "high", "critical"] as const),
+      "New priority",
+    ),
+    json: booleanFlag("json", "Emit the mutation result as JSON"),
+  },
+  runPriority,
+).pipe(Command.withDescription("Set a note priority, then commit and push it"));
+
+const openAgentCommand = Command.make(
+  "open-agent",
+  {
+    path: pathFlag(),
+    agent: describedFlag(Flag.string("agent"), "Command from notes agents"),
+    json: requiredBooleanFlag("json", "Emit the opened workspace and tab IDs"),
+  },
+  runOpenAgent,
+).pipe(
+  Command.withDescription("Open a note in an installed agent through Herdr"),
+);
+
+const handoffsCommand = Command.make(
+  "handoffs",
+  {
+    all: booleanFlag("all", "Show notes from every projects directory"),
+    list: booleanFlag(
+      "list",
+      "List handoffs to stdout instead of opening the TUI",
+    ),
+    format: formatFlag(),
+  },
+  runHandoffs,
+).pipe(
+  Command.withAlias("handoff"),
+  Command.withDescription("Browse handoff-tagged notes"),
+);
+
+const mcpCommand = Command.make("mcp", {}, () =>
+  Effect.promise(() => import("./mcp/commands/Mcp.js")).pipe(
+    Effect.flatMap(({ mcpServer }) => mcpServer),
+    Effect.catchCauseIf(Cause.hasInterruptsOnly, () => Effect.void),
+  ),
+).pipe(Command.withDescription("Run the notes MCP server over stdio"));
+
+const daemonCommand = Command.make(
+  "daemon",
+  {
+    config: describedFlag(
+      Flag.path("config"),
+      "Daemon YAML configuration path",
+    ),
+    once: booleanFlag("once", "Process one queue snapshot and exit"),
+  },
+  ({ config, once }) => runDaemon(config, once),
+).pipe(
+  Command.withDescription("Process captured notes through local OpenCode"),
+);
+
+const captureCommand = Command.make(
+  "capture",
+  {
+    config: describedFlag(
+      Flag.path("config"),
+      "Daemon YAML configuration path",
+    ),
+    status: booleanFlag("status", "Check local processor availability"),
+    stdin: booleanFlag("stdin", "Read captured note text from stdin"),
+    repository: optionalString(
+      "repository",
+      "Target repository (omit for Automatic)",
+    ),
+    json: booleanFlag("json", "Emit a machine-readable result"),
+  },
+  ({ config, status, stdin, repository, json }) =>
+    Effect.gen(function* () {
+      if (status === stdin) {
+        return yield* new UsageError({
+          message: "notes capture requires exactly one of --status or --stdin",
+        });
+      }
+      if (status && repository !== undefined) {
+        return yield* new UsageError({
+          message: "notes capture --status does not accept --repository",
+        });
       }
       if (status) {
-        NodeRuntime.runMain(
-          captureStatus(configPath).pipe(
-            Effect.tap((result) =>
-              Effect.sync(() =>
-                console.log(
-                  hasOption(parsed.rest, "--json")
-                    ? JSON.stringify(result)
-                    : "Local capture is available",
-                ),
-              ),
-            ),
-          ),
+        const result = yield* captureStatus(config);
+        yield* writeLine(
+          json ? JSON.stringify(result) : "Local capture is available",
         );
-      } else {
-        const repository = optionValue(parsed.rest, "--repository");
-        NodeRuntime.runMain(
-          Effect.promise(() => Bun.stdin.text()).pipe(
-            Effect.flatMap((text) => {
-              const capture = {
-                version: 1,
-                requestId: crypto.randomUUID(),
-                text,
-                capturedAt: new Date().toISOString(),
-                source: "text",
-                repository,
-              } as const;
-              return processLocalCapture(configPath, capture);
-            }),
-            Effect.tap((result) =>
-              Effect.sync(() =>
-                console.log(
-                  hasOption(parsed.rest, "--json")
-                    ? JSON.stringify(result)
-                    : result.summary,
-                ),
-              ),
-            ),
-          ),
-        );
+        return;
       }
-    } catch (error) {
-      failUsage(error instanceof Error ? error.message : String(error));
-    }
-    return;
-  }
+      const text = yield* Effect.promise(() => Bun.stdin.text());
+      const result = yield* processLocalCapture(config, {
+        version: 1,
+        requestId: crypto.randomUUID(),
+        text,
+        capturedAt: new Date().toISOString(),
+        source: "text",
+        repository,
+      });
+      yield* writeLine(json ? JSON.stringify(result) : result.summary);
+    }),
+).pipe(
+  Command.withDescription("Process a captured note through local OpenCode"),
+);
 
-  const effect = Effect.try({
-    try: () => {
-      const canonical = getCliCommand(command)?.name ?? command;
-      switch (canonical) {
-        case "root":
-          return runRoot(parsed.rest);
-        case "context":
-          return runContext(parsed.rest);
-        case "list":
-          return runList(parsed.rest);
-        case "search":
-          return runSearch(parsed.rest);
-        case "read":
-          return runRead(parsed.rest);
-        case "write":
-          return runWrite(parsed.rest);
-        case "delete":
-          return runDelete(parsed.rest);
-        case "move":
-          return runMove(parsed.rest);
-        case "create":
-          return runCreate(parsed.rest);
-        case "targets":
-          return runTargets(parsed.rest);
-        case "agents":
-          return runAgents(parsed.rest);
-        case "priority":
-          return runPriority(parsed.rest);
-        case "open-agent":
-          return runOpenAgent(parsed.rest);
-        case "handoffs":
-          return runHandoffs(parsed.rest);
-        case "completions":
-          return runCompletions(parsed.rest);
-        case "help":
-          if (parsed.rest.some((arg) => arg.startsWith("-"))) {
-            failUsage("notes help does not accept options");
-          }
-          if (parsed.rest.filter((arg) => !arg.startsWith("-")).length > 1) {
-            failUsage("notes help accepts at most one command name");
-          }
-          return Effect.sync(() => {
-            console.log(renderHelp(helpCommandArg(parsed.rest)));
-          });
-        default:
-          return Effect.fail(
-            new UsageError({
-              message: usageMessage(`notes: unknown command '${command}'`),
-            }),
-          );
-      }
-    },
-    catch: (error) =>
-      new UsageError({
-        message: usageMessage(
-          error instanceof Error ? error.message : String(error),
-        ),
-      }),
-  }).pipe(Effect.flatten);
+export const notesCommand = Command.make(
+  "notes",
+  { all: booleanFlag("all", "Browse notes from every projects directory") },
+  ({ all }) =>
+    Effect.promise(() =>
+      runTui({ initialNotesFilter: all ? allNotesFilter : undefined }),
+    ),
+).pipe(
+  Command.withDescription(
+    "Standalone TUI, CLI, and MCP server for repo-scoped Markdown notes.",
+  ),
+  Command.withSubcommands([
+    rootCommand,
+    contextCommand,
+    listCommand,
+    searchCommand,
+    readCommand,
+    writeCommand,
+    deleteCommand,
+    moveCommand,
+    createCommand,
+    targetsCommand,
+    agentsCommand,
+    priorityCommand,
+    openAgentCommand,
+    handoffsCommand,
+    mcpCommand,
+    captureCommand,
+    daemonCommand,
+  ]),
+);
 
-  Effect.runPromise(effect.pipe(Effect.provide(CliLayers))).catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
+export function runCli(args: readonly string[]) {
+  return Command.runWith(notesCommand, { version: "0.1.0" })(args);
+}
+
+const CliLayers = Notes.layer.pipe(
+  Layer.provideMerge(CommandExecutor.layer),
+  Layer.provideMerge(Config.layer),
+);
+export const MainLayer = Layer.merge(CliLayers, NodeServices.layer);
+
+setHelpRenderer((commandName) => {
+  const lines: string[] = [];
+  const output: Console.Console = Object.assign(Object.create(console), {
+    log: (...values: readonly unknown[]) => lines.push(values.join(" ")),
+    error: (...values: readonly unknown[]) => lines.push(values.join(" ")),
   });
+  return runCli(commandName ? [commandName, "--help"] : ["--help"]).pipe(
+    Effect.provideService(Console.Console, output),
+    Effect.provide(MainLayer),
+    Effect.orDie,
+    Effect.map(() => lines.join("\n")),
+  );
+});
+
+if (import.meta.main) {
+  const initialCommand = invokedCommand();
+  const cliArgs = initialCommand
+    ? [initialCommand, ...process.argv.slice(2)]
+    : process.argv.slice(2);
+  NodeRuntime.runMain(runCli(cliArgs).pipe(Effect.provide(MainLayer)));
 }

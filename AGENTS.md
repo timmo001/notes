@@ -13,7 +13,7 @@ This repo contains the standalone `notes` CLI and MCP server.
 ## Rules
 
 - Keep code at the repo root under `src/`.
-- Keep CLI metadata in `src/cli/spec.ts`; help, completions, and generated docs consume it.
+- Keep CLI definitions and metadata in the Effect `Command` tree in `src/index.ts`; help, completions, and generated docs consume it.
 - Regenerate generated docs with `mise run docs:gen` after changing CLI or MCP metadata.
 - Do not hand-edit generated docs pages.
 - Keep portable Notes skills under `.agents/skills/`. Keep OpenCode plugins, commands, guards, and integration-specific skills in dotfiles/opencode-config.

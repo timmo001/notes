@@ -32,9 +32,9 @@ build() {
   cd "$pkgname"
   bun install --frozen-lockfile
   bun run build
-  ./dist/notes completions zsh >notes.zsh
-  ./dist/notes completions bash >notes.bash
-  ./dist/notes completions fish >notes.fish
+  ./dist/notes --completions zsh >notes.zsh
+  ./dist/notes --completions bash >notes.bash
+  ./dist/notes --completions fish >notes.fish
 }
 
 package() {

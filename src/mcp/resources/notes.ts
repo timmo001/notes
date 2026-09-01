@@ -1,7 +1,6 @@
 import { Effect, Schema } from "effect";
 import { McpSchema, McpServer } from "effect/unstable/ai";
 import { renderHelp } from "../../cli/help.js";
-import { nativeCommandNames } from "../../cli/spec.js";
 import { Notes } from "../../notes/services/Notes.js";
 
 const commandParam = McpSchema.param("name", Schema.String);
@@ -25,14 +24,6 @@ export const registerNotesResources = Effect.gen(function* () {
     name: "notes command help",
     description: "Help text for a single notes command.",
     mimeType: "text/plain",
-    completion: {
-      name: (input) =>
-        Effect.succeed(
-          [...nativeCommandNames]
-            .filter((name) => name.startsWith(input))
-            .sort(),
-        ),
-    },
-    content: (_uri, name) => Effect.sync(() => renderHelp(name)),
+    content: (_uri, name) => renderHelp(name),
   });
 });

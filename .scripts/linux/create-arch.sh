@@ -31,9 +31,9 @@ cp ../../LICENSE LICENSE
 cp ../../.scripts/linux/PKGBUILD.binary PKGBUILD
 cp ../../.scripts/linux/repo-notes.install repo-notes.install
 
-./notes completions zsh >notes.zsh
-./notes completions bash >notes.bash
-./notes completions fish >notes.fish
+./notes --completions zsh >notes.zsh
+./notes --completions bash >notes.bash
+./notes --completions fish >notes.fish
 
 ARCH_PKGVER="${VERSION:-0.1.0.r0.local}"
 ARCH_PKGVER="${ARCH_PKGVER//-/.}"
