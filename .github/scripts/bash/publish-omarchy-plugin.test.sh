@@ -12,7 +12,7 @@ publish_dir="$test_root/publish"
 mkdir -p "$source_dir" "$publish_dir"
 git -C "$publish_dir" init --quiet
 
-for file in BarWidget.qml FilterablePanel.qml Panel.qml README.md Service.qml manifest.json; do
+for file in BarWidget.qml FilterablePanel.qml MultilineTextField.qml Panel.qml README.md Service.qml manifest.json; do
   printf '%s\n' "$file" >"$source_dir/$file"
 done
 printf 'stale\n' >"$publish_dir/stale"
@@ -22,7 +22,7 @@ printf 'stale\n' >"$publish_dir/stale"
 test -d "$publish_dir/.git"
 test ! -e "$publish_dir/stale"
 cmp "$repo_root/LICENSE" "$publish_dir/LICENSE"
-for file in BarWidget.qml FilterablePanel.qml Panel.qml README.md Service.qml manifest.json; do
+for file in BarWidget.qml FilterablePanel.qml MultilineTextField.qml Panel.qml README.md Service.qml manifest.json; do
   cmp "$source_dir/$file" "$publish_dir/$file"
 done
 

@@ -6,7 +6,7 @@ source_dir=${1:-omarchy-plugin}
 publish_dir=${2:?Usage: publish-omarchy-plugin.sh [source-dir] publish-dir}
 repository_root=$(git rev-parse --show-toplevel)
 license="$repository_root/LICENSE"
-required=(BarWidget.qml FilterablePanel.qml Panel.qml README.md Service.qml manifest.json)
+required=(BarWidget.qml FilterablePanel.qml MultilineTextField.qml Panel.qml README.md Service.qml manifest.json)
 
 fail() {
   printf 'publish-omarchy-plugin: %s\n' "$*" >&2
@@ -26,7 +26,7 @@ for file in "${required[@]}"; do
 done
 
 mapfile -t source_entries < <(find "$source_dir" -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort)
-expected_source=(BarWidget.qml FilterablePanel.qml Panel.qml README.md Service.qml manifest.json)
+expected_source=(BarWidget.qml FilterablePanel.qml MultilineTextField.qml Panel.qml README.md Service.qml manifest.json)
 [[ ${source_entries[*]} == "${expected_source[*]}" ]] || fail "source directory contains unexpected files"
 
 find "$publish_dir" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf -- {} +
@@ -36,5 +36,5 @@ done
 cp -- "$license" "$publish_dir/LICENSE"
 
 mapfile -t published_entries < <(find "$publish_dir" -mindepth 1 -maxdepth 1 ! -name .git -printf '%f\n' | LC_ALL=C sort)
-expected_publish=(BarWidget.qml FilterablePanel.qml LICENSE Panel.qml README.md Service.qml manifest.json)
+expected_publish=(BarWidget.qml FilterablePanel.qml LICENSE MultilineTextField.qml Panel.qml README.md Service.qml manifest.json)
 [[ ${published_entries[*]} == "${expected_publish[*]}" ]] || fail "published repository contains unexpected files"
