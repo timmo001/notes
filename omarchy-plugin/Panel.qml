@@ -27,6 +27,9 @@ Panel {
   property string groupMode: "repo"
   property string pendingMutation: ""
   property string pendingCreateView: "notes"
+  property string createKind: "note"
+  property string createRepositorySearch: ""
+  property string selectedCreateRepository: ""
   property bool awaitingEditRead: false
   property var repositories: []
   property string captureRepositorySearch: ""
@@ -45,6 +48,14 @@ Panel {
     if (!query) return repositories
     return repositories.filter(function(option) {
       return (String(option.label) + " " + String(option.repository)).toLowerCase().indexOf(query) !== -1
+    })
+  }
+  readonly property var createRepositories: {
+    var query = createRepositorySearch.trim().toLowerCase()
+    var targets = service ? service.targets : []
+    if (!query) return targets
+    return targets.filter(function(target) {
+      return String(target).toLowerCase().indexOf(query) !== -1
     })
   }
   readonly property bool canCapture: captureAvailable && captureInput.text.trim().length > 0
@@ -170,12 +181,12 @@ Panel {
         rows.push(actionRow("capture", "Capture note", "Send to the local capture processor", "󰠮"))
       }
     } else if (view === "notes" || view === "handoffs") {
+      rows.push(actionRow("back", "Back to Notes overview", "", ""))
       rows.push(actionRow("filter-repo", "Repository: " + repositoryFilter, "Enter to cycle", "󰏗"))
       rows.push(actionRow("filter-tag", "Tag: " + tagFilter, "Enter to cycle", ""))
       rows.push(actionRow("filter-priority", "Priority: " + priorityFilter, "Enter to cycle", "!"))
       rows.push(actionRow("sort", "Sort: " + sortField + " " + (sortAscending ? "ascending" : "descending"), "Enter to change", "󰒺"))
       rows.push(actionRow("group", "Group: " + groupMode, "repo, priority, or none", "󰙅"))
-      rows.push(actionRow("back", "Back to Notes overview", "", ""))
       var notes = filteredNotes()
       for (var i = 0; i < notes.length; i++) {
         var group = noteGroup(notes[i])
@@ -187,28 +198,28 @@ Panel {
         rows.push(noteRow(notes[i], i))
       }
     } else if (view === "detail") {
+      rows.push(actionRow("back", "Back to " + (selectedListView === "overview" ? "Notes overview" : (selectedListView === "handoffs" ? "Handoffs" : "Notes")), "", ""))
       rows.push(actionRow("edit", "Edit", "Edit in this panel", ""))
       rows.push(actionRow("external", "Open external editor", "Open with nvim", ""))
       rows.push(actionRow("agent", "Open in agent", "Choose an installed agent", "󱚣"))
       rows.push(actionRow("priority", "Priority", String(selectedNote && selectedNote.priority || "medium"), "!"))
       rows.push(actionRow("move", "Move", "Choose a repository", "󰁔"))
       rows.push(actionRow("delete", "Delete", "Confirmation required", "󰆴"))
-      rows.push(actionRow("back", "Back to " + (selectedListView === "overview" ? "Notes overview" : (selectedListView === "handoffs" ? "Handoffs" : "Notes")), "", ""))
     } else if (view === "agent") {
+      rows.push(actionRow("back", "Back to note", "", ""))
       var agents = service ? service.agents : []
       for (var a = 0; a < agents.length; a++) rows.push(actionRow("agent:" + agents[a].command, agents[a].label, agents[a].command, "󱚣"))
-      rows.push(actionRow("back", "Back to note", "", ""))
     } else if (view === "priority") {
+      rows.push(actionRow("back", "Back to note", "", ""))
       var priorities = ["critical", "high", "medium", "low"]
       for (var p = 0; p < priorities.length; p++) rows.push(actionRow("priority:" + priorities[p], priorities[p], "", "!"))
-      rows.push(actionRow("back", "Back to note", "", ""))
     } else if (view === "move") {
+      rows.push(actionRow("back", "Back to note", "", ""))
       var targets = service ? service.targets : []
       for (var t = 0; t < targets.length; t++) rows.push(actionRow("move:" + targets[t], String(targets[t]), "", "󰁔"))
-      rows.push(actionRow("back", "Back to note", "", ""))
     } else if (view === "delete") {
-      rows.push(actionRow("confirm-delete", "Delete this note", "This cannot be undone", "󰆴"))
       rows.push(actionRow("back", "Cancel", "", ""))
+      rows.push(actionRow("confirm-delete", "Delete this note", "This cannot be undone", "󰆴"))
     }
     return rows
   }
@@ -224,7 +235,8 @@ Panel {
     var action = entry.action
     if (action === "notes" || action === "handoffs" || action === "capture") showView(action)
     else if (action === "new-note" || action === "new-handoff") {
-      createKind.currentIndex = action === "new-handoff" ? 1 : 0
+      createKind = action === "new-handoff" ? "handoff" : "note"
+      pendingCreateView = createKind === "handoff" ? "handoffs" : "notes"
       clearCreateForm(); showView("create")
     } else if (action === "back") back()
     else if (action === "filter-repo") repositoryFilter = cycle(repositoryFilter, ["all"].concat(uniqueValues("repoSlug", false)))
@@ -262,13 +274,12 @@ Panel {
   }
   function clearCreateForm() {
     createName.text = ""; createDescription.text = ""; createBody.text = ""
-    if (service && service.targets.length) createRepository.editText = String(service.targets[0])
+    createRepositorySearch = ""; selectedCreateRepository = ""
   }
   function submitCreate() {
-    if (!service || pendingMutation || !createRepository.editText.trim() || !createName.text.trim()) return
+    if (!service || pendingMutation || !selectedCreateRepository || !createName.text.trim()) return
     pendingMutation = "create"
-    pendingCreateView = createKind.currentIndex === 1 ? "handoffs" : "notes"
-    service.createNote(createRepository.editText.trim(), createKind.currentIndex === 1 ? "handoff" : "note",
+    service.createNote(selectedCreateRepository, createKind,
       createName.text.trim(), createDescription.text.trim(), createBody.text)
   }
   function submitEdit() {
@@ -454,7 +465,7 @@ Panel {
           width: panelFlick.width; spacing: Style.space(12)
           PanelHero {
             width: parent.width
-            title: root.view === "overview" ? "Notes" : (root.view === "handoffs" ? "Handoffs" : (root.view === "notes" ? "Notes" : (root.view === "create" ? "New note" : (root.view === "capture" ? "Capture note" : (root.view === "edit" ? "Edit note" : (root.view === "delete" ? "Confirm delete" : (root.selectedNote ? String(root.selectedNote.name || root.selectedNote.filename) : "Notes")))))))
+            title: root.view === "overview" ? "Notes" : (root.view === "handoffs" ? "Handoffs" : (root.view === "notes" ? "Notes" : (root.view === "create" ? (root.createKind === "handoff" ? "New handoff" : "New note") : (root.view === "capture" ? "Capture note" : (root.view === "edit" ? "Edit note" : (root.view === "delete" ? "Confirm delete" : (root.selectedNote ? String(root.selectedNote.name || root.selectedNote.filename) : "Notes")))))))
             meta: root.service && root.service.mutating ? "Saving changes" : (root.service ? root.service.mutationMessage : "")
             foreground: root.foreground; fontFamily: root.fontFamily
             iconComponent: Component { Text { text: "󰠮"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.display } }
@@ -533,12 +544,13 @@ Panel {
           Column {
             visible: root.view === "create"; width: parent.width; spacing: Style.space(8)
             Button { width: parent.width; text: "Back to Notes overview"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.back() }
-            ComboBox { id: createKind; width: parent.width; model: ["Note", "Handoff"] }
-            ComboBox { id: createRepository; width: parent.width; editable: true; model: root.service ? root.service.targets : [] }
             TextField { id: createName; width: parent.width; placeholderText: "Name"; color: root.foreground; font.family: root.fontFamily }
             TextField { id: createDescription; width: parent.width; placeholderText: "Description"; color: root.foreground; font.family: root.fontFamily }
             ScrollView { width: parent.width; height: Style.space(260); TextArea { id: createBody; placeholderText: "Markdown content"; color: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; Keys.onPressed: function(event) { if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { root.submitCreate(); event.accepted = true } else if (event.key === Qt.Key_Escape) { root.back(); event.accepted = true } } } }
-            Button { width: parent.width; text: root.pendingMutation === "create" ? "Creating" : "Create (Ctrl+Enter)"; enabled: !root.pendingMutation && createRepository.editText.trim() !== "" && createName.text.trim() !== ""; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitCreate() }
+            Button { width: parent.width; text: root.pendingMutation === "create" ? "Creating" : "Create " + (root.createKind === "handoff" ? "handoff" : "note") + " (Ctrl+Enter)"; enabled: !root.pendingMutation && root.selectedCreateRepository !== "" && createName.text.trim() !== ""; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitCreate() }
+            PanelSeparator { foreground: root.foreground }
+            TextField { id: createRepositoryFilter; width: parent.width; placeholderText: "Search target repositories"; color: root.foreground; font.family: root.fontFamily; text: root.createRepositorySearch; onTextChanged: root.createRepositorySearch = text }
+            Repeater { model: root.createRepositories; Button { required property var modelData; width: contentColumn.width; text: (root.selectedCreateRepository === String(modelData) ? "[x] " : "") + String(modelData); foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.selectedCreateRepository = String(modelData) } }
           }
 
           Column {
