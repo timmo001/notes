@@ -460,14 +460,6 @@ Panel {
             iconComponent: Component { Text { text: "󰠮"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.display } }
           }
 
-          Column {
-            visible: root.view === "detail" && root.selectedNote !== null
-            width: parent.width; spacing: Style.space(6)
-            Text { width: parent.width; text: "Repository: " + String(root.selectedNote && root.selectedNote.repoSlug || "") + "\nTags: " + String(root.selectedNote && (root.selectedNote.tags || []).join(", ") || "none") + "\nPriority: " + String(root.selectedNote && root.selectedNote.priority || "medium") + "\nModified: " + new Date(Number(root.selectedNote && root.selectedNote.mtime || 0) * 1000).toLocaleString(); color: Qt.darker(root.foreground, 1.3); font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
-            Text { width: parent.width; text: root.noteBody(root.service ? root.service.selectedContent : ""); textFormat: Text.MarkdownText; color: root.foreground; linkColor: Color.accent; font.family: root.fontFamily; font.pixelSize: Style.font.body; wrapMode: Text.Wrap; onLinkActivated: function(link) { Qt.openUrlExternally(link) } }
-            PanelSeparator { foreground: root.foreground }
-          }
-
           Text {
             visible: root.view === "overview" || root.view === "notes" || root.view === "handoffs"
             width: parent.width
@@ -521,6 +513,14 @@ Panel {
               }
             }
             Text { visible: root.visibleRows.length === 0; width: parent.width; text: root.service && root.service.error ? root.service.error : "No matching notes"; color: Qt.darker(root.foreground, 1.4); font.family: root.fontFamily; horizontalAlignment: Text.AlignHCenter }
+          }
+
+          Column {
+            visible: root.view === "detail" && root.selectedNote !== null
+            width: parent.width; spacing: Style.space(6)
+            PanelSeparator { foreground: root.foreground }
+            Text { width: parent.width; text: "Repository: " + String(root.selectedNote && root.selectedNote.repoSlug || "") + "\nTags: " + String(root.selectedNote && (root.selectedNote.tags || []).join(", ") || "none") + "\nPriority: " + String(root.selectedNote && root.selectedNote.priority || "medium") + "\nModified: " + new Date(Number(root.selectedNote && root.selectedNote.mtime || 0) * 1000).toLocaleString(); color: Qt.darker(root.foreground, 1.3); font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
+            Text { width: parent.width; text: root.noteBody(root.service ? root.service.selectedContent : ""); textFormat: Text.MarkdownText; color: root.foreground; linkColor: Color.accent; font.family: root.fontFamily; font.pixelSize: Style.font.body; wrapMode: Text.Wrap; onLinkActivated: function(link) { Qt.openUrlExternally(link) } }
           }
 
           Column {
