@@ -442,9 +442,11 @@ function runPriority({
 function runOpenAgent({
   path,
   agent,
+  mode,
 }: {
   readonly path: string;
   readonly agent: string;
+  readonly mode: "default" | "plan";
 }) {
   return handleNotesError(
     Effect.gen(function* () {
@@ -464,7 +466,8 @@ function runOpenAgent({
         });
       const note = yield* notes.resolveEntry(path);
       const result = yield* Effect.tryPromise({
-        try: () => openNoteAgent(runner, note.entry, note.content, target),
+        try: () =>
+          openNoteAgent(runner, note.entry, note.content, target, { mode }),
         catch: (error) =>
           new NotesError({
             message: `Failed to open note agent: ${error instanceof Error ? error.message : String(error)}`,
@@ -802,6 +805,10 @@ const openAgentCommand = Command.make(
   {
     path: pathFlag(),
     agent: describedFlag(Flag.string("agent"), "Command from notes agents"),
+    mode: describedFlag(
+      Flag.choice("mode", ["default", "plan"] as const),
+      "Agent opening mode",
+    ).pipe(Flag.withDefault("default" as const)),
     json: requiredBooleanFlag("json", "Emit the opened workspace and tab IDs"),
   },
   runOpenAgent,

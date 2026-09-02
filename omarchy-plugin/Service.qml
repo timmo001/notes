@@ -120,8 +120,8 @@ Item {
   function deleteNote(path) {
     enqueueMutation("delete", ["notes", "delete", "--path", path, "--json"], "", false, "Note deleted")
   }
-  function openAgent(path, command) {
-    enqueueMutation("agent", ["notes", "open-agent", "--path", path, "--agent", command, "--json"], "", false, "Opened in " + command)
+  function openAgent(path, command, mode) {
+    enqueueMutation("agent", ["notes", "open-agent", "--path", path, "--agent", command, "--mode", mode, "--json"], "", false, "Opened in " + command)
   }
   function openExternal(path) {
     Quickshell.execDetached(["uwsm", "app", "--", "xdg-terminal-exec", "nvim", path])

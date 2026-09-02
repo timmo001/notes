@@ -19,6 +19,7 @@ Panel {
   property string previousView: "overview"
   property var selectedNote: null
   property string selectedListView: "notes"
+  property string agentMode: "default"
   property string repositoryFilter: "all"
   property string tagFilter: "all"
   property string priorityFilter: "all"
@@ -202,6 +203,7 @@ Panel {
       rows.push(actionRow("edit", "Edit", "Edit in this panel", ""))
       rows.push(actionRow("external", "Open external editor", "Open with nvim", ""))
       rows.push(actionRow("agent", "Open in agent", "Choose an installed agent", "󱚣"))
+      rows.push(actionRow("agent-plan", "Plan in agent", "Choose an installed agent", "󱚣"))
       rows.push(actionRow("priority", "Priority", String(selectedNote && selectedNote.priority || "medium"), "!"))
       rows.push(actionRow("move", "Move", "Choose a repository", "󰁔"))
       rows.push(actionRow("delete", "Delete", "Confirmation required", "󰆴"))
@@ -251,8 +253,9 @@ Panel {
     else if (action === "group") groupMode = cycle(groupMode, ["repo", "priority", "none"])
     else if (action === "edit" && service && !service.reading && service.selectedHash) { editInput.text = service.selectedContent; showView("edit") }
     else if (action === "external" && selectedNote) { service.openExternal(selectedNote.filePath); close() }
-    else if (action === "agent" || action === "priority" || action === "move" || action === "delete") showView(action)
-    else if (action.indexOf("agent:") === 0) { service.openAgent(selectedNote.filePath, action.slice(6)); close() }
+    else if (action === "agent" || action === "agent-plan") { agentMode = action === "agent-plan" ? "plan" : "default"; showView("agent") }
+    else if (action === "priority" || action === "move" || action === "delete") showView(action)
+    else if (action.indexOf("agent:") === 0) { service.openAgent(selectedNote.filePath, action.slice(6), agentMode); close() }
     else if (action.indexOf("priority:") === 0 && !pendingMutation) {
       pendingMutation = "priority"; service.setPriority(selectedNote.filePath, action.slice(9))
     } else if (action.indexOf("move:") === 0 && !pendingMutation) {

@@ -297,6 +297,7 @@ USAGE
 FLAGS
   --path path       Absolute path to a note file inside the notes vault
   --agent string    Command from notes agents
+  --mode choice     Agent opening mode (choices: default, plan)
   --json            Emit the opened workspace and tab IDs
 
 GLOBAL FLAGS

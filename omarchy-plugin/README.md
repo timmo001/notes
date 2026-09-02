@@ -46,8 +46,8 @@ Select the Notes bar widget to open the overview. It provides:
 - modified or name sorting in either direction
 - repository, priority, or ungrouped display
 - note metadata and rendered Markdown
-- guarded native editing, external editing, agent opening, priority changes,
-  moves, and confirmed deletion
+- guarded native editing, external editing, normal or planning agent opening,
+  priority changes, moves, and confirmed deletion
 - native note and handoff creation
 - local capture with draft recovery and queued submission
 
