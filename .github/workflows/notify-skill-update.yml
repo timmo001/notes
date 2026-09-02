@@ -4,7 +4,8 @@ name: Notify skill update
 # yamllint disable-line rule:truthy
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - ".agents/skills/**"
 
