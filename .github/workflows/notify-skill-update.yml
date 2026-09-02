@@ -1,0 +1,23 @@
+---
+name: Notify skill update
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".agents/skills/**"
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify skills repository
+        env:
+          GH_TOKEN: ${{ secrets.SKILLS_REPO_DISPATCH_TOKEN }}
+        run: >-
+          gh api --method POST repos/timmo001/skills/dispatches
+          --raw-field event_type=first-party-skill-updated
