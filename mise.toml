@@ -39,7 +39,7 @@ depends = ["install"]
 run = "bun test"
 
 [tasks.lint]
-description = "Lint source with Oxlint and anti-slop rules"
+description = "Lint source with the shared Oxlint rules"
 depends = ["install"]
 run = "bun run lint"
 
