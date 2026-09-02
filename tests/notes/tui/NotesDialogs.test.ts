@@ -6,6 +6,7 @@ import { DeleteNoteDialog } from "../../../src/notes/tui/dialogs/DeleteNoteDialo
 import { HelpDialog } from "../../../src/notes/tui/dialogs/HelpDialog.js";
 import { PriorityDialog } from "../../../src/notes/tui/dialogs/PriorityDialog.js";
 import { MoveNoteDialog } from "../../../src/notes/tui/dialogs/MoveNoteDialog.js";
+import { AgentDialog } from "../../../src/notes/tui/dialogs/AgentDialog.js";
 import { TEST_THEME } from "../../support/tui.js";
 import { Dialog } from "../../../src/tui/components/Dialog.js";
 
@@ -75,6 +76,31 @@ describe("Notes dialogs", () => {
     setup.mockInput.pressEnter();
     await setup.flush();
     expect(moved).toBe("owner/two");
+    expect(dialog.visible).toBe(false);
+    dialog.destroy();
+  });
+
+  test("agent selection activates the highlighted installed target", async () => {
+    const setup = await createTestRenderer({ width: 80, height: 24 });
+    renderer = setup.renderer;
+    let selected = "";
+    const dialog = new AgentDialog(
+      renderer,
+      TEST_THEME,
+      (target) => (selected = target.command),
+      () => {},
+    );
+    dialog.show(
+      [
+        { command: "opencode", executable: "opencode", label: "OpenCode" },
+        { command: "claude", executable: "claude", label: "Claude Code" },
+      ],
+      "note.md",
+    );
+    dialog.handleKeyPress(keyEvent("down"));
+    dialog.handleKeyPress(keyEvent("return"));
+    await setup.flush();
+    expect(selected).toBe("claude");
     expect(dialog.visible).toBe(false);
     dialog.destroy();
   });

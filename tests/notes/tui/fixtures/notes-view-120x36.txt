@@ -17,4 +17,4 @@ document surface.
 Decision
 Keep the layout stable while resizing.
 2 notes    Selected: very-long-owner/very-long-repository/long-architecture-decision-document.md
-Tab pane  Esc back  ↕ navigate  Enter preview  / search  a create  e edit  ? help
+Tab pane  Esc back  ↕ navigate  Enter preview  / search  a create  e edit  o agent  ? help

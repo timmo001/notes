@@ -15,4 +15,4 @@ exercise the document surface.                           ┃
 Decision                                                 ┃
 │
 2 notes    Selected: very-l...tecture-decision-document.md
-Tab pane  Esc back  i details  a create  e edit  ? help
+Tab pane  Esc back  i details  a create  e edit  o agent

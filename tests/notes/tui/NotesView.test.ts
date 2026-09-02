@@ -142,6 +142,49 @@ describe("NotesView", () => {
     expect(after).toContain("│");
     view.destroy();
   });
+
+  test("opens the selected note with the chosen installed agent", async () => {
+    const setup = await createTestRenderer({ width: 80, height: 24 });
+    renderer = setup.renderer;
+    let opened = "";
+    let openedMode = "";
+    let back = 0;
+    const view = new NotesView(renderer, TEST_THEME, {
+      ...callbacks(() => back++),
+      listAgentTargets: async () => [
+        { command: "opencode", executable: "opencode", label: "OpenCode" },
+        { command: "claude", executable: "claude", label: "Claude Code" },
+      ],
+      onOpenAgent: async (_entry, _content, target, mode) => {
+        opened = target.command;
+        openedMode = mode;
+      },
+    });
+    view.setVisible(true);
+    await settle(setup);
+    setup.mockInput.pressKey("o");
+    await settle(setup);
+    expect(setup.captureCharFrame()).toContain("Open in agent");
+    emitGlobalKey(renderer, "escape");
+    await settle(setup);
+    expect(back).toBe(0);
+    expect(setup.captureCharFrame()).not.toContain("Open in agent");
+    setup.mockInput.pressKey("o");
+    await settle(setup);
+    setup.mockInput.pressArrow("down");
+    setup.mockInput.pressEnter();
+    await settle(setup);
+    expect(opened).toBe("claude");
+    expect(openedMode).toBe("default");
+    expect(setup.captureCharFrame()).not.toContain("Open in agent");
+    emitGlobalKey(renderer, "o", true);
+    await settle(setup);
+    setup.mockInput.pressEnter();
+    await settle(setup);
+    expect(opened).toBe("claude");
+    expect(openedMode).toBe("plan");
+    view.destroy();
+  });
 });
 
 function callbacks(onBack = () => {}): NotesViewOptions {
@@ -171,7 +214,8 @@ function callbacks(onBack = () => {}): NotesViewOptions {
     editNote: async () => {
       throw new Error("not used");
     },
-    onOpenOpencode: async () => {},
+    listAgentTargets: async () => [],
+    onOpenAgent: async () => {},
     onSetPriority: async () => ({ commit: { ok: true, committed: true } }),
     onBack,
   };
@@ -197,16 +241,20 @@ async function waitForDocument(
   throw new Error("Markdown document did not render");
 }
 
-function emitGlobalKey(renderer: CliRenderer, name: string): void {
-  renderer.keyInput.emit("keypress", keyEvent(name));
+function emitGlobalKey(
+  renderer: CliRenderer,
+  name: string,
+  shift = false,
+): void {
+  renderer.keyInput.emit("keypress", keyEvent(name, shift));
 }
 
-function keyEvent(name: string): KeyEvent {
+function keyEvent(name: string, shift = false): KeyEvent {
   return new KeyEvent({
     name,
     sequence: name,
     ctrl: false,
-    shift: false,
+    shift,
     meta: false,
     option: false,
     number: false,

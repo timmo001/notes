@@ -20,8 +20,8 @@ import { Dialog } from "../../tui/components/Dialog.js";
 import { ScrollSurface } from "../../tui/components/ScrollSurface.js";
 import { surfaceBackground } from "../../tui/components/styles.js";
 import { editorLabel } from "../../tui/externalEditor.js";
-import { openCodeSessionLabel } from "../../tui/openCodeSession.js";
 import { StatusList, type StatusListItem } from "../../tui/StatusList.js";
+import type { AgentOpenMode, AgentTarget } from "../agentTargets.js";
 import type {
   NoteCreateKind,
   NoteCreateResult,
@@ -49,11 +49,11 @@ import {
   CreateNoteDialog,
   type CreateNoteDialogResult,
 } from "./dialogs/CreateNoteDialog.js";
+import { AgentDialog } from "./dialogs/AgentDialog.js";
 import { DeleteNoteDialog } from "./dialogs/DeleteNoteDialog.js";
 import { HelpDialog } from "./dialogs/HelpDialog.js";
 import { MoveNoteDialog } from "./dialogs/MoveNoteDialog.js";
 import { PriorityDialog, priorityColor } from "./dialogs/PriorityDialog.js";
-import type { OpenCodeNoteMode } from "./OpenCodeNote.js";
 import { measureNotesLayout, type NotesLayout } from "./layout.js";
 
 const COMMANDS: readonly CommandHint[] = [
@@ -69,8 +69,9 @@ const COMMANDS: readonly CommandHint[] = [
   { key: "/", action: "search", contexts: ["list"], priority: 4 },
   { key: "a", action: "create", contexts: ["list", "content"], priority: 5 },
   { key: "e", action: "edit", contexts: ["list", "content"], priority: 6 },
+  { key: "o", action: "agent", contexts: ["list", "content"], priority: 7 },
   { key: "i", action: "details", contexts: ["content"], priority: 2 },
-  { key: "?", action: "help", contexts: ["list", "content"], priority: 7 },
+  { key: "?", action: "help", contexts: ["list", "content"], priority: 8 },
 ];
 
 type NotesPane = "list" | "content";
@@ -112,11 +113,14 @@ export interface NotesViewOptions {
     kind: NoteEditorKind,
     create: boolean,
   ) => Promise<NoteGitResult>;
-  /** Open the selected note in a full OpenCode session. */
-  readonly onOpenOpencode: (
+  /** List installed agent targets in picker order. */
+  readonly listAgentTargets: () => Promise<readonly AgentTarget[]>;
+  /** Open the selected note in an installed agent through Herdr. */
+  readonly onOpenAgent: (
     entry: NoteEntry,
     noteContent: string,
-    mode: OpenCodeNoteMode,
+    target: AgentTarget,
+    mode: AgentOpenMode,
   ) => Promise<void>;
   /** Set the priority for a note and commit it. */
   readonly onSetPriority: (
@@ -159,6 +163,7 @@ export class NotesView {
   private readonly commandBar: CommandBar;
   private readonly statusBar: TextRenderable;
   private readonly createPrompt: CreateNoteDialog;
+  private readonly agentPopup: AgentDialog;
   private readonly priorityPopup: PriorityDialog;
   private readonly movePopup: MoveNoteDialog;
   private readonly deletePrompt: DeleteNoteDialog;
@@ -183,7 +188,7 @@ export class NotesView {
   private isVisible = false;
   private activeOperation: string | null = null;
   private acknowledgement: string | null = null;
-  private openingOpenCode = false;
+  private agentMode: AgentOpenMode = "default";
   private editingFilePath: string | null = null;
   private creatingNote = false;
   private createEditorKind: NoteEditorKind = "editor";
@@ -212,8 +217,8 @@ export class NotesView {
       v: () => this.toggleAllRepos(),
       e: () => void this.openSelectedInEditor("editor"),
       "shift+e": () => void this.openSelectedInEditor("visual"),
-      o: () => void this.openSelectedInOpenCode("default"),
-      "shift+o": () => void this.openSelectedInOpenCode("plan"),
+      o: () => void this.requestOpenSelectedInAgent("default"),
+      "shift+o": () => void this.requestOpenSelectedInAgent("plan"),
       r: () => void this.refresh(),
       "/": () => this.enterSearch(),
       s: () => this.cycleSortMode(),
@@ -432,6 +437,12 @@ export class NotesView {
       (result) => void this.executeCreateFlow(result),
       () => this.cancelCreateFlow(),
     );
+    this.agentPopup = new AgentDialog(
+      renderer,
+      theme,
+      (target) => void this.openSelectedInAgent(target),
+      () => this.cancelOpenAgent(),
+    );
     this.priorityPopup = new PriorityDialog(renderer, theme, {
       onApply: (priority) => void this.executeSetPriority(priority),
       onDismiss: () => this.cancelChangePriority(),
@@ -513,6 +524,7 @@ export class NotesView {
   destroy(): void {
     this.syntaxStyle.destroy();
     this.createPrompt.destroy();
+    this.agentPopup.destroy();
     this.priorityPopup.destroy();
     this.movePopup.destroy();
     this.deletePrompt.destroy();
@@ -811,16 +823,46 @@ export class NotesView {
     this.metadata.setOpen(this.metadataPreference);
   }
 
-  private async openSelectedInOpenCode(mode: OpenCodeNoteMode): Promise<void> {
-    const entry = this.selectedEntry;
-    if (!entry) {
-      this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before opening OpenCode")}`;
+  private async requestOpenSelectedInAgent(mode: AgentOpenMode): Promise<void> {
+    if (this.activeOperation) {
+      this.showActiveOperation();
       return;
     }
-    if (!this.beginOperation(`opening ${openCodeSessionLabel(mode)}`)) return;
+    const entry = this.selectedEntry;
+    if (!entry) {
+      this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before opening an agent")}`;
+      return;
+    }
+    try {
+      const targets = await this.callbacks.listAgentTargets();
+      if (targets.length === 0) {
+        this.statusBar.content = t`${fg(this.theme.yellow)("No installed agent targets")}`;
+        return;
+      }
+      this.noteList.setActive(false);
+      this.bodyScroll.blur();
+      this.agentMode = mode;
+      this.agentPopup.show(targets, notePathLabel(entry));
+    } catch (error) {
+      this.statusBar.content = t`${fg(this.theme.red)(`Failed to list agents: ${errorMessage(error)}`)}`;
+    }
+  }
 
-    this.openingOpenCode = true;
-    const modeLabel = openCodeSessionLabel(mode);
+  private cancelOpenAgent(): void {
+    this.agentMode = "default";
+    this.statusBar.content = t`${fg(this.theme.fgMuted)("Agent selection cancelled")}`;
+    this.focusPane(this.activePane);
+  }
+
+  private async openSelectedInAgent(target: AgentTarget): Promise<void> {
+    const entry = this.selectedEntry;
+    const mode = this.agentMode;
+    this.agentMode = "default";
+    const modeLabel = mode === "plan" ? `${target.label} plan` : target.label;
+    if (!entry || !this.beginOperation(`opening ${modeLabel}`)) {
+      this.focusPane(this.activePane);
+      return;
+    }
     const label = notePathLabel(entry);
     this.statusBar.content = t`${fg(this.theme.yellow)(`Opening ${label} in ${modeLabel}...`)}`;
     try {
@@ -831,13 +873,13 @@ export class NotesView {
           : await this.callbacks.readNote(entry.filePath);
       this.loadedNoteContent = content;
       this.loadedNoteContentPath = entry.filePath;
-      await this.callbacks.onOpenOpencode(entry, content, mode);
-      this.updateStatusBar();
+      await this.callbacks.onOpenAgent(entry, content, target, mode);
+      this.statusBar.content = t`${fg(this.theme.green)(`Opened ${label} in ${modeLabel}`)}`;
     } catch (error) {
-      this.statusBar.content = t`${fg(this.theme.red)(`Failed to open OpenCode: ${errorMessage(error)}`)}`;
+      this.statusBar.content = t`${fg(this.theme.red)(`Failed to open ${target.label}: ${errorMessage(error)}`)}`;
     } finally {
-      this.openingOpenCode = false;
       this.endOperation();
+      this.focusPane(this.activePane);
     }
   }
 
@@ -1148,6 +1190,12 @@ export class NotesView {
 
   private handleKeyPress(key: KeyEvent): void {
     if (!this.isVisible) return;
+    if (this.agentPopup.visible) {
+      if (["up", "down", "pageup", "pagedown", "return"].includes(key.name))
+        this.agentPopup.handleKeyPress(key);
+      else Dialog.handleTopmostKey(key);
+      return;
+    }
     if (Dialog.handleTopmostKey(key)) return;
     if (this.layout.mode === "minimum") {
       if ((key.ctrl && key.name === "c") || key.name === "escape") {
@@ -1174,6 +1222,7 @@ export class NotesView {
     }
     if (
       this.createPrompt.visible ||
+      this.agentPopup.visible ||
       this.priorityPopup.visible ||
       this.movePopup.visible ||
       this.deletePrompt.visible ||

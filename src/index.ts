@@ -542,6 +542,7 @@ async function runTui(mode: TuiMode): Promise<void> {
 
   const tuiProgram = Effect.gen(function* () {
     const notes = yield* Notes;
+    const executor = yield* CommandExecutor;
     const renderer = yield* Renderer;
     const services = yield* Effect.context<never>();
     const runPromise = Effect.runPromiseWith(services);
@@ -577,6 +578,11 @@ async function runTui(mode: TuiMode): Promise<void> {
               create,
             ),
           ),
+        listAgentTargets: () => detectAgentTargets(commandRunner(executor)),
+        openAgent: (entry, noteContent, target, mode) =>
+          openNoteAgent(commandRunner(executor), entry, noteContent, target, {
+            mode,
+          }).then(() => undefined),
         updateNotePriority: (filePath, priority) =>
           runPromise(notes.setPriority(filePath, priority)),
       },

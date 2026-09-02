@@ -87,7 +87,7 @@ describe("agent targets", () => {
           executable: "/home/aidan/.local/bin/opencode2",
           label: "OpenCode 2",
         },
-        () => false,
+        { executableAvailable: () => false },
       ),
     ).rejects.toThrow("not a regular executable file");
     expect(calls).toEqual([]);
@@ -158,6 +158,48 @@ describe("agent targets", () => {
         .find((call) => call.args[0] === "agent" && call.args[1] === "prompt")
         ?.args.slice(4),
     ).toEqual(["--wait", "--timeout", "120000"]);
+
+    calls.length = 0;
+    await openNoteAgent(
+      runner,
+      entry,
+      "# Full body",
+      { command: "opencode", executable: "opencode", label: "OpenCode 1" },
+      { mode: "plan" },
+    );
+    expect(calls).toContainEqual({
+      command: "herdr",
+      args: ["pane", "run", "w1:p2", "opencode", "--agent", "plan"],
+    });
+    expect(
+      calls.find(
+        (call) => call.args[0] === "agent" && call.args[1] === "prompt",
+      )?.args[3],
+    ).toContain("dedicated plan agent");
+
+    calls.length = 0;
+    await openNoteAgent(
+      runner,
+      entry,
+      "# Full body",
+      {
+        command: "opencode2",
+        executable: "/home/aidan/.local/bin/opencode2",
+        label: "OpenCode 2",
+      },
+      { mode: "plan", executableAvailable: () => true },
+    );
+    expect(calls).toContainEqual({
+      command: "herdr",
+      args: [
+        "pane",
+        "run",
+        "w1:p2",
+        "/home/aidan/.local/bin/opencode2",
+        "--agent",
+        "plan",
+      ],
+    });
   });
 
   test("uses the home directory when no source checkout is known", async () => {
@@ -233,5 +275,22 @@ describe("agent targets", () => {
     expect(prompt).toContain("Description: Description");
     expect(prompt).toContain("Tags: one");
     expect(prompt).toContain("body");
+
+    const planPrompt = noteAgentPrompt(
+      {
+        filename: "note.md",
+        filePath: "/note.md",
+        name: "Note",
+        description: null,
+        tags: [],
+        priority: null,
+        mtime: 0,
+      },
+      "body",
+      "plan",
+    );
+    expect(planPrompt).toContain("implementation-ready plan");
+    expect(planPrompt).toContain("load each relevant skill");
+    expect(planPrompt).not.toContain("dedicated plan agent");
   });
 });

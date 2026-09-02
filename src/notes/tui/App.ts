@@ -1,5 +1,6 @@
 import type { CliRenderer } from "@opentui/core";
 import type { Theme } from "../../theme.js";
+import type { AgentOpenMode, AgentTarget } from "../agentTargets.js";
 import type {
   NoteCreateKind,
   NoteCreateResult,
@@ -14,7 +15,6 @@ import type {
 } from "../types.js";
 import { NotesView } from "./NotesView.js";
 import type { NoteEditorKind } from "./NoteEditor.js";
-import { openNoteInOpenCode, type OpenCodeNoteMode } from "./OpenCodeNote.js";
 
 const setTerminalTitle = (title: string): void => {
   process.stdout.write(`\x1b]0;${title}\x07`);
@@ -60,6 +60,15 @@ export interface AppDeps {
     kind: NoteEditorKind,
     create: boolean,
   ) => Promise<NoteGitResult>;
+  /** List installed agent targets in picker order. */
+  readonly listAgentTargets: () => Promise<readonly AgentTarget[]>;
+  /** Open a note in an installed agent through Herdr. */
+  readonly openAgent: (
+    entry: NoteEntry,
+    noteContent: string,
+    target: AgentTarget,
+    mode: AgentOpenMode,
+  ) => Promise<void>;
   /** Set the priority for a note and commit it. */
   readonly updateNotePriority: (
     filePath: string,
@@ -82,14 +91,9 @@ export class App {
       moveNote: deps.moveNote,
       createNote: deps.createNote,
       editNote: deps.editNote,
+      listAgentTargets: deps.listAgentTargets,
+      onOpenAgent: deps.openAgent,
       onSetPriority: deps.updateNotePriority,
-      onOpenOpencode: (entry, noteContent, mode: OpenCodeNoteMode) =>
-        openNoteInOpenCode(deps.renderer, entry, noteContent, {
-          mode,
-          afterResume: () => {
-            setTerminalTitle(`Notes TUI > ${this.notesTitle()}`);
-          },
-        }),
       onBack: () => deps.renderer.destroy(),
     });
     this.setNotesFilter(options.initialNotesFilter ?? null);

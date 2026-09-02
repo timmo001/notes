@@ -10,6 +10,13 @@ export interface AgentTarget {
   readonly label: string;
 }
 
+export type AgentOpenMode = "default" | "plan";
+
+export interface OpenAgentOptions {
+  readonly mode?: AgentOpenMode;
+  readonly executableAvailable?: (path: string) => boolean;
+}
+
 export interface OpenAgentResult {
   readonly note: string;
   readonly agent: AgentTarget;
@@ -103,8 +110,11 @@ export async function openNoteAgent(
   entry: NoteEntry,
   content: string,
   target: AgentTarget,
-  executableAvailable: (path: string) => boolean = isRegularExecutable,
+  options: OpenAgentOptions = {},
 ): Promise<OpenAgentResult> {
+  const mode = options.mode ?? "default";
+  const executableAvailable =
+    options.executableAvailable ?? isRegularExecutable;
   if (
     target.command === "opencode2" &&
     !executableAvailable(target.executable)
@@ -161,7 +171,12 @@ export async function openNoteAgent(
     target.command === "opencode2"
       ? (await runner.run("mise", ["which", "opencode2"])).trim()
       : null;
-  await runner.run("herdr", ["pane", "run", paneId, target.executable]);
+  const agentArgs =
+    mode === "plan" &&
+    (target.command === "opencode" || target.command === "opencode2")
+      ? [target.executable, "--agent", "plan"]
+      : [target.executable];
+  await runner.run("herdr", ["pane", "run", paneId, ...agentArgs]);
   await runner.run("herdr", ["workspace", "focus", workspaceId]);
   await runner.run("herdr", ["tab", "focus", tabId]);
   await waitForAgentDetection(runner, paneId);
@@ -181,7 +196,7 @@ export async function openNoteAgent(
     "agent",
     "prompt",
     paneId,
-    noteAgentPrompt(entry, content),
+    noteAgentPrompt(entry, content, mode, agentArgs.length > 1),
     "--wait",
     "--timeout",
     "120000",
@@ -216,8 +231,23 @@ export function isRegularExecutable(path: string): boolean {
   }
 }
 
-export function noteAgentPrompt(entry: NoteEntry, content: string): string {
+export function noteAgentPrompt(
+  entry: NoteEntry,
+  content: string,
+  mode: AgentOpenMode = "default",
+  dedicatedPlanAgent = false,
+): string {
   return [
+    ...(mode === "plan"
+      ? [
+          "Create an implementation-ready plan for the loaded note below. Inspect the relevant implementation and tests before planning, resolve repository facts with read-only tools, and include concrete locations, change mechanics, verification, and a Files tree.",
+          dedicatedPlanAgent
+            ? "This process was launched with the dedicated plan agent. Present the plan directly without suggesting a separate planning command."
+            : "Present the plan directly without making implementation changes.",
+          "Inspect the note for explicit skill names or clearly required workflows, and load each relevant skill before planning.",
+          "",
+        ]
+      : []),
     `Use the repository note ${entry.filename} included below as full context for this session.`,
     `The note file path is ${entry.filePath}.`,
     entry.repoSlug ? `Repository: ${entry.repoSlug}` : "",

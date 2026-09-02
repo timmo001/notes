@@ -7,7 +7,10 @@ const GROUPS = [
   ["Navigation", "up/down  navigate    Tab  switch pane    Enter  preview"],
   ["Browse", "/  search    s  sort    g  group    v  all repos    i  details"],
   ["Edit", "a/A  create    e/E  edit    p  priority    m  move    d  delete"],
-  ["Application", "o/O  OpenCode    r  refresh    ?  help    Esc  back"],
+  [
+    "Application",
+    "o  agent menu    O  plan agent menu    r  refresh    ?  help    Esc  back",
+  ],
 ] as const;
 
 export class HelpDialog {

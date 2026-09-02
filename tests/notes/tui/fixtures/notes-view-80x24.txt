@@ -19,4 +19,4 @@ enough text to exercise the document surface. ┃
 │
 Decision                                      │
 2 notes    Selected: very-long-owner/...long-architecture-decision-document.md
-Tab pane  Esc back  ↕ navigate  Enter...ew  / search  a create  e edit  ? help
+Tab pane  Esc back  ↕ navigate  Enter...rch  a create  e edit  o agent  ? help
