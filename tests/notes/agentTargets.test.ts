@@ -191,15 +191,13 @@ describe("agent targets", () => {
     );
     expect(calls).toContainEqual({
       command: "herdr",
-      args: [
-        "pane",
-        "run",
-        "w1:p2",
-        "/home/aidan/.local/bin/opencode2",
-        "--agent",
-        "plan",
-      ],
+      args: ["pane", "run", "w1:p2", "/home/aidan/.local/bin/opencode2"],
     });
+    expect(
+      calls.find(
+        (call) => call.args[0] === "agent" && call.args[1] === "prompt",
+      )?.args[3],
+    ).toContain("without making implementation changes");
   });
 
   test("uses the home directory when no source checkout is known", async () => {

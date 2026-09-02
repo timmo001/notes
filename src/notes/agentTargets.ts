@@ -172,8 +172,7 @@ export async function openNoteAgent(
       ? (await runner.run("mise", ["which", "opencode2"])).trim()
       : null;
   const agentArgs =
-    mode === "plan" &&
-    (target.command === "opencode" || target.command === "opencode2")
+    mode === "plan" && target.command === "opencode"
       ? [target.executable, "--agent", "plan"]
       : [target.executable];
   await runner.run("herdr", ["pane", "run", paneId, ...agentArgs]);
