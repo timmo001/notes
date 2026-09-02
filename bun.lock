@@ -16,7 +16,7 @@
       "devDependencies": {
         "@effect/tsgo": "^0.39.0",
         "@oxlint/plugins": "1.81.0",
-        "@timmo001/oxlint-rules": "0.1.4",
+        "@timmo001/oxlint-rules": "0.3.0",
         "@types/bun": "^1.3.14",
         "@types/proper-lockfile": "^4.1.4",
         "oxlint": "1.81.0",
@@ -123,7 +123,7 @@
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
-    "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.1.4", "", { "peerDependencies": { "@oxlint/plugins": "1.81.0", "oxlint": "1.81.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-S+ir9/x+PW3X/0XdXp+Owg/moMQT1A4TN+wILqoJxfyfFfvZiue2RNt7xP4XbE+Ep0jtyFpW3WTy4Pm/elY6ZQ=="],
+    "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.3.0", "", { "peerDependencies": { "@oxlint/plugins": "1.81.0", "oxlint": "1.81.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-TvpyUOFeQFfiLXYkFWFI7a4H6LXc/T0ILqP9w8VxBxldauATVsePddgN+rA4Ks2n63d8pkLBWedgfeVBx+8o/Q=="],
 
     "@tuiparts/core": ["@tuiparts/core@0.0.6", "", { "peerDependencies": { "@opentui/core": "^0.4.3" } }, "sha512-DNqtRprlpMJGUHVTm+L0R/P2Gbn392NZdzna8YSPQkgfNjyroSKpZieg1jTTnYAQn7cz5LpiwtDjw3RCUBrulw=="],
 
