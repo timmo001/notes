@@ -2,11 +2,13 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { Effect } from "effect";
 import {
   detectAgentTargets,
   isRegularExecutable,
   noteAgentPrompt,
   openNoteAgent,
+  workspaceLabelForDirectory,
   type AgentCommandRunner,
 } from "../../src/notes/agentTargets.js";
 import type { NoteEntry } from "../../src/notes/types.js";
@@ -91,6 +93,33 @@ describe("agent targets", () => {
       ),
     ).rejects.toThrow("not a regular executable file");
     expect(calls).toEqual([]);
+  });
+
+  test("uses an optional repository picker name for the workspace label", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "notes-agent-target-"));
+    temporaryDirectories.push(directory);
+    const pickerCache = join(directory, "repo-picker.json");
+    writeFileSync(
+      pickerCache,
+      JSON.stringify([{ name: "[HA] Frontend", path: "/repos/frontend" }]),
+    );
+
+    expect(
+      await Effect.runPromise(
+        workspaceLabelForDirectory("/repos/frontend", pickerCache),
+      ),
+    ).toBe("[HA] Frontend");
+    expect(
+      await Effect.runPromise(
+        workspaceLabelForDirectory("/repos/notes", pickerCache),
+      ),
+    ).toBe("notes");
+    writeFileSync(pickerCache, "invalid");
+    expect(
+      await Effect.runPromise(
+        workspaceLabelForDirectory("/repos/frontend", pickerCache),
+      ),
+    ).toBe("frontend");
   });
 
   test("opens a tab, waits for the agent, and sends full note context", async () => {

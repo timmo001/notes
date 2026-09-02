@@ -1,7 +1,7 @@
-import { accessSync, constants, statSync } from "node:fs";
+import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename } from "node:path";
-import { Schema } from "effect";
+import { basename, join } from "node:path";
+import { Effect, Schema } from "effect";
 import type { NoteEntry } from "./types.js";
 
 export interface AgentTarget {
@@ -59,6 +59,9 @@ const TabCreateResponse = Schema.fromJsonString(
       root_pane: Schema.Struct({ pane_id: Schema.String }),
     }),
   }),
+);
+const RepositoryPicker = Schema.Array(
+  Schema.Struct({ name: Schema.String, path: Schema.String }),
 );
 const TARGETS: readonly AgentTarget[] = [
   { command: "opencode2", executable: OPENCODE2, label: "OpenCode 2" },
@@ -122,7 +125,9 @@ export async function openNoteAgent(
     throw new Error(`${target.executable} is not a regular executable file`);
   }
   const cwd = entry.projectDir ?? homedir();
-  const workspaceLabel = basename(cwd);
+  const workspaceLabel = await Effect.runPromise(
+    workspaceLabelForDirectory(cwd),
+  );
   const listed = Schema.decodeSync(WorkspaceListResponse)(
     await runner.run("herdr", ["workspace", "list"]),
   );
@@ -201,6 +206,28 @@ export async function openNoteAgent(
     "120000",
   ]);
   return { note: entry.filePath, agent: target, workspaceId, tabId, paneId };
+}
+
+export function workspaceLabelForDirectory(
+  directory: string,
+  pickerCache = join(
+    process.env.XDG_CACHE_HOME || join(homedir(), ".cache"),
+    "dot",
+    "repo-picker.json",
+  ),
+) {
+  const fallback = basename(directory);
+  return Effect.gen(function* () {
+    const value = yield* Effect.try(() =>
+      JSON.parse(readFileSync(pickerCache, "utf8")),
+    );
+    const repositories =
+      yield* Schema.decodeUnknownEffect(RepositoryPicker)(value);
+    return (
+      repositories.find((repository) => repository.path === directory)?.name ??
+      fallback
+    );
+  }).pipe(Effect.orElseSucceed(() => fallback));
 }
 
 async function waitForAgentDetection(
