@@ -25,23 +25,36 @@ describe("local capture", () => {
       port: 0,
       fetch: async (request) => {
         const url = new URL(request.url);
-        if (request.method === "GET" && url.pathname === "/session")
-          return Response.json([]);
-        if (request.method === "POST" && url.pathname === "/session")
-          return Response.json({ id: "capture-session" });
-        if (url.pathname === "/permission" || url.pathname === "/question")
-          return Response.json([]);
-        if (url.pathname === "/session/capture-session/message") {
+        if (request.method === "GET" && url.pathname === "/api/health")
+          return Response.json({ healthy: true });
+        if (request.method === "POST" && url.pathname === "/api/session")
+          return Response.json({ data: { id: "ses_capture" } });
+        if (
+          url.pathname === "/api/session/ses_capture/permission" ||
+          url.pathname === "/api/session/ses_capture/form"
+        )
+          return Response.json({ data: [] });
+        if (url.pathname === "/api/session/ses_capture/prompt") {
           const body = Schema.decodeUnknownSync(
-            Schema.Struct({
-              parts: Schema.Array(Schema.Struct({ text: Schema.String })),
-            }),
+            Schema.Struct({ text: Schema.String }),
           )(await request.json());
-          prompts.push(body.parts[0]?.text ?? "");
+          prompts.push(body.text);
+          return Response.json({ data: { type: "user" } });
+        }
+        if (url.pathname === "/api/session/ses_capture/message") {
           return Response.json({
-            parts: [
-              { type: "text", text: "STATUS: success\nSaved note abc123" },
+            data: [
+              {
+                type: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "STATUS: success\nSaved note abc123",
+                  },
+                ],
+              },
             ],
+            cursor: { previous: null, next: null },
           });
         }
         return Response.json(true);

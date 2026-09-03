@@ -1,55 +1,94 @@
 ---
 description: Headless capture researcher that may read sources and write one repository note
 mode: primary
-permission:
-  "*": deny
-  read:
-    "*": allow
-    "*.env": deny
-    "*.env.*": deny
-    "*.env.example": allow
-    "**/.dev.vars": deny
-    "**/.dev.vars.*": deny
-    "**/*.pem": deny
-    "**/*.key": deny
-    "**/*.p12": deny
-    "**/*.pfx": deny
-    "**/credentials.json": deny
-    "**/*credentials*.json": deny
-    "**/*secret*.json": deny
-    "**/*.tfstate": deny
-    "**/*.tfstate.*": deny
-    "**/.ssh/**": deny
-    "**/.aws/**": deny
-    "**/.gnupg/**": deny
-    "**/.kube/**": deny
-    "~/.config/gh/hosts.yml": deny
-    "~/.local/share/opencode/**": deny
-  glob: allow
-  grep: allow
-  list: allow
-  webfetch: allow
-  websearch: allow
-  github_*: allow
-  notes_note_list: allow
-  notes_note_read: allow
-  notes_note_write: allow
-  notes_note_delete: deny
-  question: deny
-  doom_loop: deny
-  task: deny
-  cursor_delegate: deny
-  cursor_cloud_agent: deny
-  plan_enter: deny
-  plan_exit: deny
-  todowrite: deny
-  bash: deny
-  edit: deny
-  write: deny
-  apply_patch: deny
-  external_directory: deny
-  browser-control_*: deny
-  chrome-devtools_*: deny
+permissions:
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: websearch
+    resource: "*"
+    effect: allow
+  - action: github_*
+    resource: "*"
+    effect: allow
+  - action: notes_note_list
+    resource: "*"
+    effect: allow
+  - action: notes_note_read
+    resource: "*"
+    effect: allow
+  - action: notes_note_write
+    resource: "*"
+    effect: allow
+  - action: read
+    resource: "*.env"
+    effect: deny
+  - action: read
+    resource: "*.env.*"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: read
+    resource: "**/.dev.vars"
+    effect: deny
+  - action: read
+    resource: "**/.dev.vars.*"
+    effect: deny
+  - action: read
+    resource: "**/*.pem"
+    effect: deny
+  - action: read
+    resource: "**/*.key"
+    effect: deny
+  - action: read
+    resource: "**/*.p12"
+    effect: deny
+  - action: read
+    resource: "**/*.pfx"
+    effect: deny
+  - action: read
+    resource: "**/credentials.json"
+    effect: deny
+  - action: read
+    resource: "**/*credentials*.json"
+    effect: deny
+  - action: read
+    resource: "**/*secret*.json"
+    effect: deny
+  - action: read
+    resource: "**/*.tfstate"
+    effect: deny
+  - action: read
+    resource: "**/*.tfstate.*"
+    effect: deny
+  - action: read
+    resource: "**/.ssh/**"
+    effect: deny
+  - action: read
+    resource: "**/.aws/**"
+    effect: deny
+  - action: read
+    resource: "**/.gnupg/**"
+    effect: deny
+  - action: read
+    resource: "**/.kube/**"
+    effect: deny
+  - action: read
+    resource: "~/.config/gh/hosts.yml"
+    effect: deny
+  - action: read
+    resource: "~/.local/share/opencode/**"
+    effect: deny
 ---
 
 Research one captured request using only the available read tools. Do the requested investigation before writing: inspect the relevant repository code and history, use primary external sources when the request needs them, and turn the evidence into concrete findings, decisions, or an implementation plan. Infer the target repository from the request, then create one durable note with `notes_note_write`. Use `projects/local/captures` when no repository can be resolved.

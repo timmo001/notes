@@ -13,7 +13,6 @@ interface RecordedRequest {
   readonly method: string;
   readonly path: string;
   readonly auth: string | null;
-  readonly directory: string | null;
   readonly body: Schema.Json | undefined;
 }
 
@@ -33,41 +32,31 @@ describe("OpenCodeClient", () => {
     const requestPaths = requests.map(
       ({ method, path }) => `${method} ${path}`,
     );
-    expect(requestPaths[0]).toBe("POST /session");
-    expect(requestPaths).toContain("POST /session/session-1/message");
-    expect(requestPaths).toContain("GET /permission");
-    const abortIndex = requestPaths.indexOf("POST /session/session-1/abort");
-    const deleteIndex = requestPaths.indexOf("DELETE /session/session-1");
-    expect(abortIndex).toBeGreaterThanOrEqual(0);
-    expect(deleteIndex).toBeGreaterThan(abortIndex);
+    expect(requestPaths[0]).toBe("POST /api/session");
+    expect(requestPaths).toContain("POST /api/session/ses_1/prompt");
+    expect(requestPaths).toContain("POST /api/session/ses_1/wait");
+    expect(requestPaths).toContain("GET /api/session/ses_1/permission");
+    const interruptIndex = requestPaths.indexOf(
+      "POST /api/session/ses_1/interrupt",
+    );
+    const deleteIndex = requestPaths.indexOf("DELETE /api/session/ses_1");
+    expect(interruptIndex).toBeGreaterThanOrEqual(0);
+    expect(deleteIndex).toBeGreaterThan(interruptIndex);
     expect(requests[0]?.auth).toBe(
       `Basic ${Buffer.from("opencode:secret").toString("base64")}`,
     );
-    expect(
-      requests.every((request) => request.directory === "/tmp/dotfiles"),
-    ).toBe(true);
     expect(requests[0]?.body).toMatchObject({
       agent: "notes-daemon",
       model: { providerID: "opencode", id: "big-pickle" },
-      permission: expect.arrayContaining([
-        { permission: "question", pattern: "*", action: "deny" },
-        { permission: "bash", pattern: "*", action: "deny" },
-        { permission: "notes_note_delete", pattern: "*", action: "deny" },
-        {
-          permission: "external_directory",
-          pattern: "~/repos/**",
-          action: "allow",
-        },
-      ]),
+      location: { directory: "/tmp/dotfiles" },
     });
     const messageRequest = requests.find(
       (request) =>
         request.method === "POST" &&
-        request.path === "/session/session-1/message",
+        request.path === "/api/session/ses_1/prompt",
     );
     expect(messageRequest?.body).toEqual({
-      agent: "notes-daemon",
-      parts: [{ type: "text", text: "prompt" }],
+      text: "prompt",
     });
   });
 
@@ -84,10 +73,30 @@ describe("OpenCodeClient", () => {
 
     expect(result._tag).toBe("Failure");
     expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
-      "POST /session/session-1/abort",
+      "POST /api/session/ses_1/interrupt",
     );
     expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
-      "DELETE /session/session-1",
+      "DELETE /api/session/ses_1",
+    );
+  });
+
+  test("fails and cleans up when the session requests input", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests, { pendingForm: true });
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(result._tag).toBe("Failure");
+    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
+      "POST /api/session/ses_1/interrupt",
+    );
+    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
+      "DELETE /api/session/ses_1",
     );
   });
 
@@ -107,8 +116,8 @@ describe("OpenCodeClient", () => {
 
     expect(result._tag).toBe("Failure");
     const paths = requests.map(({ method, path }) => `${method} ${path}`);
-    expect(paths).toContain("POST /session/session-1/abort");
-    expect(paths).toContain("DELETE /session/session-1");
+    expect(paths).toContain("POST /api/session/ses_1/interrupt");
+    expect(paths).toContain("DELETE /api/session/ses_1");
   });
 
   test("uses a fresh fallback session after the primary request fails", async () => {
@@ -124,7 +133,7 @@ describe("OpenCodeClient", () => {
 
     expect(result).toBe("First\nSecond");
     const sessions = requests.filter(
-      ({ method, path }) => method === "POST" && path === "/session",
+      ({ method, path }) => method === "POST" && path === "/api/session",
     );
     expect(sessions.map(({ body }) => body)).toEqual([
       expect.objectContaining({
@@ -139,8 +148,8 @@ describe("OpenCodeClient", () => {
       }),
     ]);
     const paths = requests.map(({ method, path }) => `${method} ${path}`);
-    expect(paths).toContain("DELETE /session/session-1");
-    expect(paths).toContain("DELETE /session/session-2");
+    expect(paths).toContain("DELETE /api/session/ses_1");
+    expect(paths).toContain("DELETE /api/session/ses_2");
   });
 
   test("includes the OpenCode error response when every model fails", async () => {
@@ -175,7 +184,7 @@ describe("OpenCodeClient", () => {
     expect(result).toBe("First\nSecond");
     expect(
       requests.filter(
-        ({ method, path }) => method === "POST" && path === "/session",
+        ({ method, path }) => method === "POST" && path === "/api/session",
       ),
     ).toHaveLength(2);
   });
@@ -194,7 +203,7 @@ describe("OpenCodeClient", () => {
     expect(result._tag).toBe("Failure");
     expect(
       requests.filter(
-        ({ method, path }) => method === "POST" && path === "/session",
+        ({ method, path }) => method === "POST" && path === "/api/session",
       ),
     ).toHaveLength(2);
   });
@@ -212,7 +221,7 @@ describe("OpenCodeClient", () => {
 
     expect(
       requests.filter(
-        ({ method, path }) => method === "POST" && path === "/session",
+        ({ method, path }) => method === "POST" && path === "/api/session",
       ),
     ).toHaveLength(1);
   });
@@ -230,8 +239,8 @@ describe("OpenCodeClient", () => {
 
     expect(result._tag).toBe("Failure");
     const paths = requests.map(({ method, path }) => `${method} ${path}`);
-    expect(paths).toContain("DELETE /session/session-1");
-    expect(paths).toContain("DELETE /session/session-2");
+    expect(paths).toContain("DELETE /api/session/ses_1");
+    expect(paths).toContain("DELETE /api/session/ses_2");
   });
 });
 
@@ -239,6 +248,7 @@ function makeServer(
   requests: RecordedRequest[],
   options: {
     readonly pendingPermission?: boolean;
+    readonly pendingForm?: boolean;
     readonly hangMessage?: boolean;
     readonly failFirstMessage?: boolean;
     readonly failEveryMessage?: boolean;
@@ -256,35 +266,43 @@ function makeServer(
         method: request.method,
         path: url.pathname,
         auth: request.headers.get("Authorization"),
-        directory: url.searchParams.get("directory"),
         body: text
           ? Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(text)
           : undefined,
       });
-      if (request.method === "POST" && url.pathname === "/session") {
+      if (request.method === "POST" && url.pathname === "/api/session") {
         const sessionNumber = requests.filter(
-          ({ method, path }) => method === "POST" && path === "/session",
+          ({ method, path }) => method === "POST" && path === "/api/session",
         ).length;
-        return Response.json({ id: `session-${sessionNumber}` });
+        return Response.json({ data: { id: `ses_${sessionNumber}` } });
       }
-      if (url.pathname === "/permission")
-        return Response.json(
-          options.pendingPermission
-            ? [{ sessionID: "session-1" }, { sessionID: "session-2" }]
+      if (/^\/api\/session\/ses_\d+\/permission$/.test(url.pathname))
+        return Response.json({
+          data: options.pendingPermission
+            ? [{ sessionID: url.pathname.split("/")[3] }]
             : [],
-        );
-      if (url.pathname === "/question") return Response.json([]);
+        });
+      if (/^\/api\/session\/ses_\d+\/form$/.test(url.pathname))
+        return Response.json({
+          data: options.pendingForm
+            ? [{ sessionID: url.pathname.split("/")[3] }]
+            : [],
+        });
       if (
         request.method === "POST" &&
-        /^\/session\/session-\d+\/message$/.test(url.pathname)
+        /^\/api\/session\/ses_\d+\/prompt$/.test(url.pathname)
       ) {
-        if (options.pendingPermission || options.hangMessage) {
+        if (
+          options.pendingPermission ||
+          options.pendingForm ||
+          options.hangMessage
+        ) {
           await new Promise((resolve) => setTimeout(resolve, 2_000));
         }
         if (
           options.failEveryMessage ||
           (options.failFirstMessage &&
-            url.pathname === "/session/session-1/message")
+            url.pathname === "/api/session/ses_1/prompt")
         ) {
           return new Response("provider unavailable", { status: 500 });
         }
@@ -293,23 +311,28 @@ function makeServer(
         }
         if (
           options.reportFirstFailure &&
-          url.pathname === "/session/session-1/message"
+          url.pathname === "/api/session/ses_1/prompt"
         ) {
-          return Response.json({
-            parts: [{ type: "text", text: "STATUS: failure\nNo note written" }],
-          });
+          return Response.json({ data: { type: "user" } });
         }
-        if (options.omitEveryStatus) {
-          return Response.json({
-            parts: [{ type: "text", text: "No note written" }],
-          });
-        }
+        return Response.json({ data: { type: "user" } });
+      }
+      if (/^\/api\/session\/ses_\d+\/message$/.test(url.pathname)) {
+        const session = url.pathname.split("/")[3];
+        const content = options.emptyEveryMessage
+          ? [{ type: "tool", text: "ignored" }]
+          : options.reportFirstFailure && session === "ses_1"
+            ? [{ type: "text", text: "STATUS: failure\nNo note written" }]
+            : options.omitEveryStatus
+              ? [{ type: "text", text: "No note written" }]
+              : [
+                  { type: "text", text: "STATUS: success\nFirst" },
+                  { type: "tool", text: "ignored" },
+                  { type: "text", text: "Second" },
+                ];
         return Response.json({
-          parts: [
-            { type: "text", text: "STATUS: success\nFirst" },
-            { type: "tool", text: "ignored" },
-            { type: "text", text: "Second" },
-          ],
+          data: [{ type: "assistant", content }],
+          cursor: { previous: null, next: null },
         });
       }
       return Response.json(true);

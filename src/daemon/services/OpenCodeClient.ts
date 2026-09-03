@@ -20,51 +20,6 @@ export interface OpenCodeClientService {
   ) => Effect.Effect<string, OpenCodeClientError>;
 }
 
-const SESSION_DENIALS = [
-  "question",
-  "doom_loop",
-  "task",
-  "cursor_delegate",
-  "cursor_cloud_agent",
-  "plan_enter",
-  "plan_exit",
-  "todowrite",
-  "bash",
-  "edit",
-  "write",
-  "apply_patch",
-  "external_directory",
-  "notes_note_delete",
-  "browser-control_*",
-  "chrome-devtools_*",
-].map((permission) => ({ permission, pattern: "*", action: "deny" }));
-SESSION_DENIALS.push(
-  { permission: "read", pattern: "*.env", action: "deny" },
-  { permission: "read", pattern: "*.env.*", action: "deny" },
-  { permission: "read", pattern: "*.env.example", action: "allow" },
-  { permission: "read", pattern: "**/.dev.vars", action: "deny" },
-  { permission: "read", pattern: "**/.dev.vars.*", action: "deny" },
-  { permission: "read", pattern: "**/*.pem", action: "deny" },
-  { permission: "read", pattern: "**/*.key", action: "deny" },
-  { permission: "read", pattern: "**/*.p12", action: "deny" },
-  { permission: "read", pattern: "**/*.pfx", action: "deny" },
-  { permission: "read", pattern: "**/*credentials*.json", action: "deny" },
-  { permission: "read", pattern: "**/*secret*.json", action: "deny" },
-  { permission: "read", pattern: "**/*.tfstate", action: "deny" },
-  { permission: "read", pattern: "**/*.tfstate.*", action: "deny" },
-);
-
-function sessionPermissions(config: DaemonConfig) {
-  return [
-    ...SESSION_DENIALS,
-    ...config.allowedReadPaths.map((pattern) => ({
-      permission: "external_directory",
-      pattern,
-      action: "allow",
-    })),
-  ];
-}
-
 /** Effect service for {@link OpenCodeClientService}. */
 export class OpenCodeClient extends Context.Service<
   OpenCodeClient,
@@ -75,7 +30,7 @@ export class OpenCodeClient extends Context.Service<
     const request = makeRequest(config, username, password);
 
     return Layer.succeed(OpenCodeClient, {
-      status: request("GET", "/session").pipe(Effect.asVoid),
+      status: request("GET", "/api/health").pipe(Effect.asVoid),
       process: (prompt) => processWithFallback(config, request, prompt),
     });
   }
@@ -162,11 +117,11 @@ function processWithModel(
           variant: model.variant,
         };
 
-  return request("POST", "/session", {
+  return request("POST", "/api/session", {
     title: `Notes daemon ${config.workerId}`,
     agent: config.opencodeAgent,
     model: selectedModel,
-    permission: sessionPermissions(config),
+    location: { directory: config.opencodeDirectory },
   }).pipe(
     Effect.flatMap((session) => decodeId(session, "session.create")),
     Effect.flatMap((sessionId) =>
@@ -174,14 +129,18 @@ function processWithModel(
         Effect.succeed(sessionId),
         () =>
           Effect.raceFirst(
-            request(
-              "POST",
-              `/session/${encodeURIComponent(sessionId)}/message`,
-              {
-                agent: config.opencodeAgent,
-                parts: [{ type: "text", text: prompt }],
-              },
-            ).pipe(Effect.flatMap(decodeAssistantText)),
+            request("POST", sessionPath(sessionId, "prompt"), {
+              text: prompt,
+            }).pipe(
+              Effect.andThen(request("POST", sessionPath(sessionId, "wait"))),
+              Effect.andThen(
+                request(
+                  "GET",
+                  `${sessionPath(sessionId, "message")}?order=desc&limit=20`,
+                ),
+              ),
+              Effect.flatMap(decodeAssistantText),
+            ),
             monitorHeadlessState(request, sessionId),
           ).pipe(
             Effect.timeout(`${config.sessionTimeoutSeconds} seconds`),
@@ -213,7 +172,6 @@ function makeRequest(
     Effect.tryPromise({
       try: async (signal) => {
         const url = new URL(path, config.opencodeUrl);
-        url.searchParams.set("directory", config.opencodeDirectory);
         const headers = new Headers({
           Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
         });
@@ -253,9 +211,9 @@ function makeRequest(
 function monitorHeadlessState(request: Request, sessionId: string) {
   return Effect.gen(function* () {
     while (true) {
-      const [permissions, questions] = yield* Effect.all([
-        request("GET", "/permission"),
-        request("GET", "/question"),
+      const [permissions, forms] = yield* Effect.all([
+        request("GET", sessionPath(sessionId, "permission")),
+        request("GET", sessionPath(sessionId, "form")),
       ]);
       if (containsSessionRequest(permissions, sessionId)) {
         return yield* new OpenCodeClientError({
@@ -263,10 +221,10 @@ function monitorHeadlessState(request: Request, sessionId: string) {
           message: "Headless session requested permission",
         });
       }
-      if (containsSessionRequest(questions, sessionId)) {
+      if (containsSessionRequest(forms, sessionId)) {
         return yield* new OpenCodeClientError({
-          operation: "question",
-          message: "Headless session asked a question",
+          operation: "form",
+          message: "Headless session requested input",
         });
       }
       yield* Effect.sleep("1 second");
@@ -274,9 +232,9 @@ function monitorHeadlessState(request: Request, sessionId: string) {
   });
 }
 
-const SessionRequests = Schema.Array(
-  Schema.Struct({ sessionID: Schema.String }),
-);
+const SessionRequests = Schema.Struct({
+  data: Schema.Array(Schema.Struct({ sessionID: Schema.String })),
+});
 
 function containsSessionRequest(
   value: Schema.Json,
@@ -284,13 +242,13 @@ function containsSessionRequest(
 ): boolean {
   return (
     Schema.is(SessionRequests)(value) &&
-    value.some((entry) => entry.sessionID === sessionId)
+    value.data.some((entry) => entry.sessionID === sessionId)
   );
 }
 
 function cleanupSession(request: Request, sessionId: string) {
-  const path = `/session/${encodeURIComponent(sessionId)}`;
-  return request("POST", `${path}/abort`).pipe(
+  const path = sessionPath(sessionId);
+  return request("POST", `${path}/interrupt`).pipe(
     Effect.timeout("5 seconds"),
     Effect.ignore,
     Effect.andThen(
@@ -300,10 +258,10 @@ function cleanupSession(request: Request, sessionId: string) {
 }
 
 function decodeId(value: Schema.Json, operation: string) {
-  return Schema.decodeUnknownEffect(Schema.Struct({ id: Schema.String }))(
-    value,
-  ).pipe(
-    Effect.map((session) => session.id),
+  return Schema.decodeUnknownEffect(
+    Schema.Struct({ data: Schema.Struct({ id: Schema.String }) }),
+  )(value).pipe(
+    Effect.map((response) => response.data.id),
     Effect.mapError(
       (error) => new OpenCodeClientError({ operation, message: String(error) }),
     ),
@@ -313,16 +271,24 @@ function decodeId(value: Schema.Json, operation: string) {
 function decodeAssistantText(value: Schema.Json) {
   return Schema.decodeUnknownEffect(
     Schema.Struct({
-      parts: Schema.Array(
+      data: Schema.Array(
         Schema.Struct({
           type: Schema.String,
-          text: Schema.optional(Schema.String),
+          content: Schema.optional(
+            Schema.Array(
+              Schema.Struct({
+                type: Schema.String,
+                text: Schema.optional(Schema.String),
+              }),
+            ),
+          ),
         }),
       ),
     }),
   )(value).pipe(
-    Effect.flatMap((message) => {
-      const text = message.parts
+    Effect.flatMap((response) => {
+      const message = response.data.find((entry) => entry.type === "assistant");
+      const text = (message?.content ?? [])
         .filter((part) => part.type === "text")
         .map((part) => part.text ?? "")
         .join("\n")
@@ -345,4 +311,9 @@ function decodeAssistantText(value: Schema.Json) {
           }),
     ),
   );
+}
+
+function sessionPath(sessionId: string, suffix?: string) {
+  const path = `/api/session/${encodeURIComponent(sessionId)}`;
+  return suffix ? `${path}/${suffix}` : path;
 }
