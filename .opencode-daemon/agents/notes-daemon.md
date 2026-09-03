@@ -20,6 +20,9 @@ permissions:
   - action: github_*
     resource: "*"
     effect: allow
+  - action: exa_*
+    resource: "*"
+    effect: allow
   - action: notes_note_list
     resource: "*"
     effect: allow

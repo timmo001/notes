@@ -13,13 +13,21 @@
         "type": "remote",
         "url": "https://api.githubcopilot.com/mcp/x/all/readonly",
         "oauth": false,
+        "codemode": false,
         "headers": {
           "Authorization": "Bearer {env:DOT_GH_MCP_BEARER}"
         }
       },
+      "exa": {
+        "type": "remote",
+        "url": "https://mcp.exa.ai/mcp",
+        "oauth": false,
+        "codemode": false
+      },
       "notes": {
         "type": "local",
-        "command": ["notes", "mcp"]
+        "command": ["notes", "mcp"],
+        "codemode": false
       }
     },
     "timeout": {
