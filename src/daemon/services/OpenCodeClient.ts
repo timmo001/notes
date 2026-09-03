@@ -1,8 +1,7 @@
 import { Cause, Context, Effect, Layer, Schema } from "effect";
 import type { DaemonConfig, OpenCodeModel } from "../schema.js";
 
-const SUCCESS_PREFIX = "STATUS: success\n";
-const FAILURE_PREFIX = "STATUS: failure\n";
+const STATUS_PREFIX = /^STATUS: (success|failure)(?=\s|$)/;
 
 /** Failure returned by the local OpenCode server boundary. */
 export class OpenCodeClientError extends Schema.TaggedErrorClass<OpenCodeClientError>()(
@@ -59,15 +58,21 @@ const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
       );
       if (result._tag === "Success") {
         const response = result.value.trim();
-        if (response.startsWith(SUCCESS_PREFIX)) {
-          const summary = response.slice(SUCCESS_PREFIX.length).trim();
+        const status = STATUS_PREFIX.exec(response);
+        const summary = status
+          ? response
+              .slice(status[0].length)
+              .trim()
+              .replace(/^(?:-|:|\u2014)\s*/, "")
+          : "";
+        if (status?.[1] === "success") {
           if (summary) return summary;
         }
 
-        const message = response.startsWith(FAILURE_PREFIX)
-          ? response.slice(FAILURE_PREFIX.length).trim() ||
-            "Agent reported failure"
-          : "Agent returned a result without a valid status line";
+        const message =
+          status?.[1] === "failure"
+            ? summary || "Agent reported failure"
+            : "Agent returned a result without a valid status line";
         lastError = new OpenCodeClientError({
           operation: "message.status",
           message,
@@ -174,6 +179,7 @@ function makeRequest(
         const url = new URL(path, config.opencodeUrl);
         const headers = new Headers({
           Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+          "x-opencode-directory": encodeURIComponent(config.opencodeDirectory),
         });
         const init: RequestInit = {
           method,

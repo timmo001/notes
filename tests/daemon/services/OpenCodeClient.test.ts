@@ -13,6 +13,7 @@ interface RecordedRequest {
   readonly method: string;
   readonly path: string;
   readonly auth: string | null;
+  readonly directory: string | null;
   readonly body: Schema.Json | undefined;
 }
 
@@ -45,6 +46,9 @@ describe("OpenCodeClient", () => {
     expect(requests[0]?.auth).toBe(
       `Basic ${Buffer.from("opencode:secret").toString("base64")}`,
     );
+    expect(
+      requests.every((request) => request.directory === "/tmp/dotfiles"),
+    ).toBe(true);
     expect(requests[0]?.body).toMatchObject({
       agent: "notes-daemon",
       model: { providerID: "opencode", id: "big-pickle" },
@@ -58,6 +62,20 @@ describe("OpenCodeClient", () => {
     expect(messageRequest?.body).toEqual({
       text: "prompt",
     });
+  });
+
+  test("accepts an inline status summary", async () => {
+    const requests: RecordedRequest[] = [];
+    const server = makeServer(requests, { inlineStatus: true });
+    const config = testConfig(`http://127.0.0.1:${server.port}`);
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* OpenCodeClient).process("prompt");
+      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+    );
+
+    expect(result).toBe("Saved note abc123");
   });
 
   test("fails and cleans up when the session requests permission", async () => {
@@ -255,6 +273,7 @@ function makeServer(
     readonly emptyEveryMessage?: boolean;
     readonly reportFirstFailure?: boolean;
     readonly omitEveryStatus?: boolean;
+    readonly inlineStatus?: boolean;
   } = {},
 ) {
   const server = Bun.serve({
@@ -266,6 +285,9 @@ function makeServer(
         method: request.method,
         path: url.pathname,
         auth: request.headers.get("Authorization"),
+        directory: decodeURIComponent(
+          request.headers.get("x-opencode-directory") ?? "",
+        ),
         body: text
           ? Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(text)
           : undefined,
@@ -328,13 +350,20 @@ function makeServer(
           ? [{ type: "tool", text: "ignored" }]
           : options.reportFirstFailure && session === "ses_1"
             ? [{ type: "text", text: "STATUS: failure\nNo note written" }]
-            : options.omitEveryStatus
-              ? [{ type: "text", text: "No note written" }]
-              : [
-                  { type: "text", text: "STATUS: success\nFirst" },
-                  { type: "tool", text: "ignored" },
-                  { type: "text", text: "Second" },
-                ];
+            : options.inlineStatus
+              ? [
+                  {
+                    type: "text",
+                    text: "STATUS: success \u2014 Saved note abc123",
+                  },
+                ]
+              : options.omitEveryStatus
+                ? [{ type: "text", text: "No note written" }]
+                : [
+                    { type: "text", text: "STATUS: success\nFirst" },
+                    { type: "tool", text: "ignored" },
+                    { type: "text", text: "Second" },
+                  ];
         return Response.json({
           data: [{ type: "assistant", content }],
           cursor: { previous: null, next: null },
