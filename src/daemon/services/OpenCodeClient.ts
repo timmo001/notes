@@ -132,7 +132,7 @@ function processWithModel(
             request("POST", sessionPath(sessionId, "prompt"), {
               text: prompt,
             }).pipe(
-              Effect.andThen(request("POST", sessionPath(sessionId, "wait"))),
+              Effect.andThen(waitForOutcome(request, sessionId)),
               Effect.andThen(
                 request(
                   "GET",
@@ -228,6 +228,25 @@ function monitorHeadlessState(request: Request, sessionId: string) {
         });
       }
       yield* Effect.sleep("1 second");
+    }
+  });
+}
+
+function waitForOutcome(request: Request, sessionId: string) {
+  return Effect.gen(function* () {
+    while (true) {
+      const session = yield* request("GET", sessionPath(sessionId));
+      if (
+        Schema.is(
+          Schema.Struct({
+            data: Schema.Struct({ outcome: Schema.optional(Schema.String) }),
+          }),
+        )(session) &&
+        session.data.outcome !== undefined
+      ) {
+        return;
+      }
+      yield* Effect.sleep("250 millis");
     }
   });
 }

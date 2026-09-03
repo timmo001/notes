@@ -34,7 +34,7 @@ describe("OpenCodeClient", () => {
     );
     expect(requestPaths[0]).toBe("POST /api/session");
     expect(requestPaths).toContain("POST /api/session/ses_1/prompt");
-    expect(requestPaths).toContain("POST /api/session/ses_1/wait");
+    expect(requestPaths).toContain("GET /api/session/ses_1");
     expect(requestPaths).toContain("GET /api/session/ses_1/permission");
     const interruptIndex = requestPaths.indexOf(
       "POST /api/session/ses_1/interrupt",
@@ -288,6 +288,11 @@ function makeServer(
             ? [{ sessionID: url.pathname.split("/")[3] }]
             : [],
         });
+      if (
+        request.method === "GET" &&
+        /^\/api\/session\/ses_\d+$/.test(url.pathname)
+      )
+        return Response.json({ data: { outcome: "succeeded" } });
       if (
         request.method === "POST" &&
         /^\/api\/session\/ses_\d+\/prompt$/.test(url.pathname)

@@ -41,6 +41,11 @@ describe("local capture", () => {
           prompts.push(body.text);
           return Response.json({ data: { type: "user" } });
         }
+        if (
+          request.method === "GET" &&
+          url.pathname === "/api/session/ses_capture"
+        )
+          return Response.json({ data: { outcome: "succeeded" } });
         if (url.pathname === "/api/session/ses_capture/message") {
           return Response.json({
             data: [
