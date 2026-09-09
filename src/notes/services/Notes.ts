@@ -81,13 +81,10 @@ const COMMANDS_NEEDING_LIST = new Set<string>([
 ]);
 
 /** Domain error for project-note operations. */
-export class NotesError extends Schema.TaggedErrorClass<NotesError>()(
-  "NotesError",
-  {
-    message: Schema.String,
-    detail: Schema.optional(Schema.String),
-  },
-) {}
+export class NotesError extends Schema.TaggedError<NotesError>()("NotesError", {
+  message: Schema.String,
+  detail: Schema.optional(Schema.String),
+}) {}
 
 /** Service interface for project-scoped note context and file I/O. */
 interface NotesService {

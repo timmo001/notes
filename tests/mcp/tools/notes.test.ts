@@ -28,6 +28,9 @@ const identity = {
 };
 const client = McpSchema.McpServerClient.of({
   clientId: 1,
+  protocolVersion: "2025-03-26",
+  clientCapabilities: {},
+  clientInfo: { name: "test", version: "1" },
   initializePayload: {
     protocolVersion: "2025-03-26",
     capabilities: {},

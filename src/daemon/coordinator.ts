@@ -17,7 +17,7 @@ const MAX_RESULT_LENGTH = 20_000;
 const MAX_PUBLIC_ERROR_LENGTH = 1_000;
 
 /** Failure raised when daemon processing loses ownership or returns invalid output. */
-export class DaemonProcessingError extends Schema.TaggedErrorClass<DaemonProcessingError>()(
+export class DaemonProcessingError extends Schema.TaggedError<DaemonProcessingError>()(
   "DaemonProcessingError",
   { issueNumber: Schema.Int, message: Schema.String },
 ) {}

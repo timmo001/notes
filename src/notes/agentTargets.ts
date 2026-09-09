@@ -1,7 +1,9 @@
 import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import { Effect, Schema } from "effect";
+import { Clock, Duration, Effect, Option, Schedule, Schema } from "effect";
+import { HerdrSdk, type PaneId, type TabId } from "@herdr/sdk";
+import { CommandExecutor } from "../services/CommandExecutor.js";
 import type { NoteEntry } from "./types.js";
 
 export interface AgentTarget {
@@ -25,41 +27,12 @@ export interface OpenAgentResult {
   readonly paneId: string;
 }
 
-export interface AgentCommandRunner {
-  readonly run: (
-    command: string,
-    args: readonly string[],
-    options?: { readonly cwd?: string },
-  ) => Promise<string>;
-}
+class AgentOpenError extends Schema.TaggedError<AgentOpenError>()(
+  "AgentOpenError",
+  { message: Schema.String },
+) {}
 
 const OPENCODE2 = "/home/aidan/.local/bin/opencode2";
-const WorkspaceListResponse = Schema.fromJsonString(
-  Schema.Struct({
-    result: Schema.Struct({
-      workspaces: Schema.Array(
-        Schema.Struct({ workspace_id: Schema.String, label: Schema.String }),
-      ),
-    }),
-  }),
-);
-const WorkspaceCreateResponse = Schema.fromJsonString(
-  Schema.Struct({
-    result: Schema.Struct({
-      workspace: Schema.Struct({ workspace_id: Schema.String }),
-      tab: Schema.Struct({ tab_id: Schema.String }),
-      root_pane: Schema.Struct({ pane_id: Schema.String }),
-    }),
-  }),
-);
-const TabCreateResponse = Schema.fromJsonString(
-  Schema.Struct({
-    result: Schema.Struct({
-      tab: Schema.Struct({ tab_id: Schema.String }),
-      root_pane: Schema.Struct({ pane_id: Schema.String }),
-    }),
-  }),
-);
 const RepositoryPicker = Schema.Array(
   Schema.Struct({ name: Schema.String, path: Schema.String }),
 );
@@ -89,32 +62,30 @@ const TARGETS: readonly AgentTarget[] = [
 ];
 
 /** Resolve installed Herdr integrations in the timmo.git picker order. */
-export async function detectAgentTargets(
-  runner: AgentCommandRunner,
+export const detectAgentTargets = Effect.fn("detectAgentTargets")(function* (
   executableAvailable: (path: string) => boolean = isRegularExecutable,
-): Promise<readonly AgentTarget[]> {
-  const status = await runner.run("herdr", ["integration", "status"]);
-  const installed = new Set(
-    status.split(/\r?\n/).flatMap((line) => {
-      const match = line.match(/^([^:]+): (?:current|outdated)(?:\s|$)/);
-      return match?.[1] ? [match[1]] : [];
-    }),
+) {
+  const sdk = yield* HerdrSdk;
+  const integrations = yield* sdk.integrations.list();
+  const installed = new Set<string>(
+    integrations
+      .filter(({ state }) => state === "current" || state === "outdated")
+      .map(({ target }) => target),
   );
   return TARGETS.filter((target) =>
     target.command === "opencode2"
       ? installed.has("opencode") && executableAvailable(OPENCODE2)
       : installed.has(target.command),
   );
-}
+});
 
 /** Open a note in a ready agent running in a focused Herdr tab. */
-export async function openNoteAgent(
-  runner: AgentCommandRunner,
+export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
   entry: NoteEntry,
   content: string,
   target: AgentTarget,
   options: OpenAgentOptions = {},
-): Promise<OpenAgentResult> {
+) {
   const mode = options.mode ?? "default";
   const executableAvailable =
     options.executableAvailable ?? isRegularExecutable;
@@ -122,91 +93,99 @@ export async function openNoteAgent(
     target.command === "opencode2" &&
     !executableAvailable(target.executable)
   ) {
-    throw new Error(`${target.executable} is not a regular executable file`);
+    return yield* new AgentOpenError({
+      message: `${target.executable} is not a regular executable file`,
+    });
   }
   const cwd = entry.projectDir ?? homedir();
-  const workspaceLabel = await Effect.runPromise(
-    workspaceLabelForDirectory(cwd),
-  );
-  const listed = Schema.decodeSync(WorkspaceListResponse)(
-    await runner.run("herdr", ["workspace", "list"]),
-  );
-  let workspaceId = listed.result.workspaces.find(
+  const workspaceLabel = yield* workspaceLabelForDirectory(cwd);
+  const sdk = yield* HerdrSdk;
+  const listed = yield* sdk.workspaces.list();
+  let workspaceId = listed.find(
     (workspace) =>
       workspace.label.toLowerCase() === workspaceLabel.toLowerCase(),
-  )?.workspace_id;
-  let tabId: string;
-  let paneId: string;
+  )?.id;
+  let tabId: TabId;
+  let paneId: PaneId;
 
   if (!workspaceId) {
-    const created = Schema.decodeSync(WorkspaceCreateResponse)(
-      await runner.run("herdr", [
-        "workspace",
-        "create",
-        "--cwd",
-        cwd,
-        "--label",
-        workspaceLabel,
-        "--no-focus",
-      ]),
-    );
-    workspaceId = created.result.workspace.workspace_id;
-    tabId = created.result.tab.tab_id;
-    paneId = created.result.root_pane.pane_id;
-    await runner.run("herdr", ["tab", "rename", tabId, target.label]);
+    const created = yield* sdk.workspaces.createInDirectory(cwd, {
+      label: workspaceLabel,
+      focus: false,
+    });
+    workspaceId = created.workspace.id;
+    tabId = created.tab.id;
+    paneId = created.rootPane.id;
+    yield* sdk.tabs.rename(tabId, target.label);
   } else {
-    const created = Schema.decodeSync(TabCreateResponse)(
-      await runner.run("herdr", [
-        "tab",
-        "create",
-        "--workspace",
-        workspaceId,
-        "--cwd",
-        cwd,
-        "--label",
-        target.label,
-        "--no-focus",
-      ]),
-    );
-    tabId = created.result.tab.tab_id;
-    paneId = created.result.root_pane.pane_id;
+    const created = yield* sdk.tabs.create({
+      workspaceId,
+      cwd,
+      label: target.label,
+      focus: false,
+    });
+    tabId = created.tab.id;
+    paneId = created.rootPane.id;
   }
 
   const expectedOpenCode2 =
     target.command === "opencode2"
-      ? (await runner.run("mise", ["which", "opencode2"])).trim()
+      ? (yield* (yield* CommandExecutor).run("mise", [
+          "which",
+          "opencode2",
+        ])).trim()
       : null;
   const agentArgs =
     mode === "plan" && target.command === "opencode"
       ? [target.executable, "--agent", "plan"]
       : [target.executable];
-  await runner.run("herdr", ["pane", "run", paneId, ...agentArgs]);
-  await runner.run("herdr", ["workspace", "focus", workspaceId]);
-  await runner.run("herdr", ["tab", "focus", tabId]);
-  await waitForAgentDetection(runner, paneId);
-  await runner.run("herdr", ["agent", "wait", paneId, "--timeout", "30000"]);
+  yield* sdk.panes.sendInput(paneId, {
+    text: agentArgs.join(" "),
+    keys: ["enter"],
+  });
+  yield* sdk.workspaces.focus(workspaceId);
+  yield* sdk.tabs.focus(tabId);
+  const deadline = (yield* Clock.currentTimeMillis) + 30_000;
+  yield* sdk.agents.get({ paneId }).pipe(
+    Effect.retry({
+      schedule: Schedule.spaced("100 millis"),
+      while: () =>
+        Clock.currentTimeMillis.pipe(Effect.map((now) => now < deadline)),
+    }),
+  );
+  yield* sdk.agents.wait(
+    { paneId },
+    { timeoutMs: 30_000 },
+    { requestTimeout: Duration.seconds(35) },
+  );
   if (expectedOpenCode2) {
-    const processInfo = await runner.run("herdr", [
-      "pane",
-      "process-info",
-      "--pane",
-      paneId,
-    ]);
-    if (!processInfo.includes(expectedOpenCode2)) {
-      throw new Error("OpenCode 2 did not start through the expected runtime");
+    const processInfo = yield* sdk.panes.processInfo(paneId);
+    if (
+      !processInfo.foregroundProcesses?.some((process) =>
+        Option.exists(process.argv, (argv) => argv.includes(expectedOpenCode2)),
+      )
+    ) {
+      return yield* new AgentOpenError({
+        message: "OpenCode 2 did not start through the expected runtime",
+      });
     }
   }
-  await runner.run("herdr", [
-    "agent",
-    "prompt",
+  yield* sdk.agents.prompt(
+    { paneId },
+    {
+      text: noteAgentPrompt(entry, content, mode, agentArgs.length > 1),
+      wait: { timeoutMs: 120_000 },
+    },
+    { requestTimeout: Duration.seconds(125) },
+  );
+  return {
+    note: entry.filePath,
+    agent: target,
+    workspaceId,
+    tabId,
     paneId,
-    noteAgentPrompt(entry, content, mode, agentArgs.length > 1),
-    "--wait",
-    "--timeout",
-    "120000",
-  ]);
-  return { note: entry.filePath, agent: target, workspaceId, tabId, paneId };
-}
+  } satisfies OpenAgentResult;
+});
 
 export function workspaceLabelForDirectory(
   directory: string,
@@ -228,22 +207,6 @@ export function workspaceLabelForDirectory(
       fallback
     );
   }).pipe(Effect.orElseSucceed(() => fallback));
-}
-
-async function waitForAgentDetection(
-  runner: AgentCommandRunner,
-  paneId: string,
-): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (true) {
-    try {
-      await runner.run("herdr", ["agent", "get", paneId]);
-      return;
-    } catch (error) {
-      if (Date.now() >= deadline) throw error;
-      await Bun.sleep(100);
-    }
-  }
 }
 
 /** Check that a path resolves to a regular file the current user can execute. */

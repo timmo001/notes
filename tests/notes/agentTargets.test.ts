@@ -9,36 +9,70 @@ import {
   noteAgentPrompt,
   openNoteAgent,
   workspaceLabelForDirectory,
-  type AgentCommandRunner,
 } from "../../src/notes/agentTargets.js";
 import type { NoteEntry } from "../../src/notes/types.js";
+import { CommandExecutor } from "../../src/services/CommandExecutor.js";
+import { herdrFixture } from "../support/herdr.js";
 
 const temporaryDirectories: string[] = [];
+const fixtures: Awaited<ReturnType<typeof herdrFixture>>[] = [];
+const entry: NoteEntry = {
+  filename: "work.md",
+  filePath: "/vault/projects/example/notes/work.md",
+  repoSlug: "example/notes",
+  projectDir: "/repos/notes",
+  name: "Work",
+  description: "Continue work",
+  tags: ["handoff"],
+  priority: "high",
+  mtime: 0,
+};
+const cursor = {
+  command: "cursor",
+  executable: "cursor-agent",
+  label: "Cursor Agent",
+};
+const opencode2 = {
+  command: "opencode2",
+  executable: "/home/aidan/.local/bin/opencode2",
+  label: "OpenCode 2",
+};
+const executor = CommandExecutor.of({
+  run: (command, args) => {
+    expect([command, ...args]).toEqual(["mise", "which", "opencode2"]);
+    return Effect.succeed("/opt/opencode2\n");
+  },
+  exitCode: () => Effect.die("Unexpected subprocess"),
+});
 
-afterEach(() => {
+async function fixture(options?: Parameters<typeof herdrFixture>[0]) {
+  const server = await herdrFixture(options);
+  fixtures.push(server);
+  return server;
+}
+
+afterEach(async () => {
+  for (const server of fixtures.splice(0)) await server.close();
   for (const directory of temporaryDirectories.splice(0))
     rmSync(directory, { recursive: true, force: true });
 });
 
 describe("agent targets", () => {
-  test("preserves timmo.git labels, order, and executable overrides", async () => {
-    const runner: AgentCommandRunner = {
-      run: async () =>
-        "cursor: current\nopencode: current\nclaude: outdated\npi: current\n",
-    };
-
-    const targets = await detectAgentTargets(runner, () => true);
-
+  test("preserves installed target order, labels and executable overrides", async () => {
+    const server = await fixture();
+    const targets = await Effect.runPromise(
+      detectAgentTargets(() => true).pipe(Effect.provide(server.layer)),
+    );
     expect(targets).toEqual([
-      {
-        command: "opencode2",
-        executable: "/home/aidan/.local/bin/opencode2",
-        label: "OpenCode 2",
-      },
+      opencode2,
       { command: "opencode", executable: "opencode", label: "OpenCode 1" },
       { command: "pi", executable: "pi", label: "Pi" },
-      { command: "cursor", executable: "cursor-agent", label: "Cursor Agent" },
+      cursor,
       { command: "claude", executable: "claude", label: "Claude Code" },
+    ]);
+    expect(server.requests.map(({ method }) => method)).toEqual([
+      "ping",
+      "integration.list",
     ]);
   });
 
@@ -48,51 +82,28 @@ describe("agent targets", () => {
     const executable = join(directory, "opencode2");
     writeFileSync(executable, "#!/bin/sh\n");
     chmodSync(executable, 0o644);
-    const runner: AgentCommandRunner = {
-      run: async () => "opencode: current (v10) (/plugin)\n",
-    };
-
-    const targets = await detectAgentTargets(runner, () =>
-      isRegularExecutable(executable),
+    const server = await fixture();
+    const targets = await Effect.runPromise(
+      detectAgentTargets(() => isRegularExecutable(executable)).pipe(
+        Effect.provide(server.layer),
+      ),
     );
-
-    expect(targets.map((target) => target.command)).toEqual(["opencode"]);
+    expect(targets.map(({ command }) => command)).not.toContain("opencode2");
   });
 
-  test("rejects an unavailable OpenCode 2 wrapper before Herdr topology", async () => {
-    const calls: string[][] = [];
-    const runner: AgentCommandRunner = {
-      run: async (_command, args) => {
-        calls.push([...args]);
-        return "{}";
-      },
-    };
-    const entry: NoteEntry = {
-      filename: "work.md",
-      filePath: "/vault/projects/timmo001/notes/work.md",
-      repoSlug: "timmo001/notes",
-      projectDir: "/repos/notes",
-      name: "Work",
-      description: "Continue work",
-      tags: [],
-      priority: null,
-      mtime: 0,
-    };
-
+  test("rejects an unavailable wrapper before contacting Herdr", async () => {
+    const server = await fixture();
     await expect(
-      openNoteAgent(
-        runner,
-        entry,
-        "body",
-        {
-          command: "opencode2",
-          executable: "/home/aidan/.local/bin/opencode2",
-          label: "OpenCode 2",
-        },
-        { executableAvailable: () => false },
+      Effect.runPromise(
+        openNoteAgent(entry, "body", opencode2, {
+          executableAvailable: () => false,
+        }).pipe(
+          Effect.provide(server.layer),
+          Effect.provideService(CommandExecutor, executor),
+        ),
       ),
     ).rejects.toThrow("not a regular executable file");
-    expect(calls).toEqual([]);
+    expect(server.requests).toEqual([]);
   });
 
   test("uses an optional repository picker name for the workspace label", async () => {
@@ -103,7 +114,6 @@ describe("agent targets", () => {
       pickerCache,
       JSON.stringify([{ name: "[HA] Frontend", path: "/repos/frontend" }]),
     );
-
     expect(
       await Effect.runPromise(
         workspaceLabelForDirectory("/repos/frontend", pickerCache),
@@ -122,202 +132,186 @@ describe("agent targets", () => {
     ).toBe("frontend");
   });
 
-  test("opens a tab, waits for the agent, and sends full note context", async () => {
-    const calls: { command: string; args: readonly string[] }[] = [];
-    let agentGetAttempts = 0;
-    const runner: AgentCommandRunner = {
-      run: async (command, args) => {
-        calls.push({ command, args });
-        if (args[0] === "workspace" && args[1] === "list") {
-          return JSON.stringify({
-            result: { workspaces: [{ workspace_id: "w1", label: "notes" }] },
-          });
-        }
-        if (args[0] === "tab" && args[1] === "create") {
-          return JSON.stringify({
-            result: {
-              tab: { tab_id: "w1:t2" },
-              root_pane: { pane_id: "w1:p2" },
-            },
-          });
-        }
-        if (args[0] === "agent" && args[1] === "get") {
-          agentGetAttempts++;
-          if (agentGetAttempts === 1) throw new Error("agent not detected");
-        }
-        return "{}";
-      },
-    };
-    const entry: NoteEntry = {
-      filename: "work.md",
-      filePath: "/vault/projects/timmo001/notes/work.md",
-      repoSlug: "timmo001/notes",
-      projectDir: "/repos/notes",
-      name: "Work",
-      description: "Continue work",
-      tags: ["handoff"],
-      priority: "high",
-      mtime: 0,
-    };
-    const target = {
-      command: "cursor",
-      executable: "cursor-agent",
-      label: "Cursor Agent",
-    } as const;
-
-    const result = await openNoteAgent(runner, entry, "# Full body", target);
-
+  test("opens an unfocused tab, submits atomically, focuses, waits and prompts", async () => {
+    const server = await fixture({
+      workspaceLabel: "NOTES",
+      detectionFailures: 1,
+    });
+    const result = await Effect.runPromise(
+      openNoteAgent(entry, "# Full body", cursor).pipe(
+        Effect.provide(server.layer),
+        Effect.provideService(CommandExecutor, executor),
+      ),
+    );
     expect(result).toMatchObject({
       workspaceId: "w1",
       tabId: "w1:t2",
       paneId: "w1:p2",
     });
-    expect(agentGetAttempts).toBe(2);
-    expect(calls).toContainEqual({
-      command: "herdr",
-      args: ["pane", "run", "w1:p2", "cursor-agent"],
-    });
-    const prompt = calls.find(
-      (call) => call.args[0] === "agent" && call.args[1] === "prompt",
-    )?.args[3];
-    expect(prompt).toContain("# Full body");
-    expect(prompt).toContain(entry.filePath);
+    expect(server.requests.map(({ method }) => method)).toEqual([
+      "ping",
+      "workspace.list",
+      "tab.create",
+      "pane.send_input",
+      "workspace.focus",
+      "tab.focus",
+      "agent.get",
+      "agent.get",
+      "agent.wait",
+      "agent.prompt",
+    ]);
     expect(
-      calls
-        .find((call) => call.args[0] === "agent" && call.args[1] === "prompt")
-        ?.args.slice(4),
-    ).toEqual(["--wait", "--timeout", "120000"]);
+      server.requests.find(({ method }) => method === "tab.create")?.params,
+    ).toMatchObject({
+      workspace_id: "w1",
+      cwd: "/repos/notes",
+      label: cursor.label,
+      focus: false,
+    });
+    expect(
+      server.requests.find(({ method }) => method === "pane.send_input")
+        ?.params,
+    ).toMatchObject({
+      pane_id: "w1:p2",
+      text: "cursor-agent",
+      keys: ["enter"],
+    });
+    expect(
+      server.requests.find(({ method }) => method === "agent.wait")?.params,
+    ).toEqual({ target: "w1:p2", timeout_ms: 30_000 });
+    const prompt = server.requests.find(
+      ({ method }) => method === "agent.prompt",
+    )?.params;
+    expect(prompt).toMatchObject({
+      target: "w1:p2",
+      wait: { timeout_ms: 120_000 },
+    });
+    expect(prompt?.text).toContain("# Full body");
+    expect(prompt?.text).toContain(entry.filePath);
+  });
 
-    calls.length = 0;
-    await openNoteAgent(
-      runner,
-      entry,
-      "# Full body",
-      { command: "opencode", executable: "opencode", label: "OpenCode 1" },
-      { mode: "plan" },
+  test("creates and renames a workspace's initial tab for a plan agent", async () => {
+    const server = await fixture({ newWorkspace: true });
+    await Effect.runPromise(
+      openNoteAgent(
+        entry,
+        "body",
+        { command: "opencode", executable: "opencode", label: "OpenCode 1" },
+        { mode: "plan" },
+      ).pipe(
+        Effect.provide(server.layer),
+        Effect.provideService(CommandExecutor, executor),
+      ),
     );
-    expect(calls).toContainEqual({
-      command: "herdr",
-      args: ["pane", "run", "w1:p2", "opencode", "--agent", "plan"],
-    });
     expect(
-      calls.find(
-        (call) => call.args[0] === "agent" && call.args[1] === "prompt",
-      )?.args[3],
+      server.requests.find(({ method }) => method === "workspace.create")
+        ?.params,
+    ).toMatchObject({ cwd: "/repos/notes", label: "notes", focus: false });
+    expect(
+      server.requests.find(({ method }) => method === "tab.rename")?.params,
+    ).toEqual({ tab_id: "w1:t2", label: "OpenCode 1" });
+    expect(
+      server.requests.find(({ method }) => method === "pane.send_input")
+        ?.params,
+    ).toMatchObject({ text: "opencode --agent plan", keys: ["enter"] });
+    expect(
+      server.requests.find(({ method }) => method === "agent.prompt")?.params
+        .text,
     ).toContain("dedicated plan agent");
+  });
 
-    calls.length = 0;
-    await openNoteAgent(
-      runner,
-      entry,
-      "# Full body",
-      {
-        command: "opencode2",
-        executable: "/home/aidan/.local/bin/opencode2",
-        label: "OpenCode 2",
-      },
-      { mode: "plan", executableAvailable: () => true },
+  test("launches the exact OpenCode 2 wrapper and verifies foreground argv before prompting", async () => {
+    const server = await fixture();
+    await Effect.runPromise(
+      openNoteAgent(entry, "body", opencode2, {
+        mode: "plan",
+        executableAvailable: () => true,
+      }).pipe(
+        Effect.provide(server.layer),
+        Effect.provideService(CommandExecutor, executor),
+      ),
     );
-    expect(calls).toContainEqual({
-      command: "herdr",
-      args: ["pane", "run", "w1:p2", "/home/aidan/.local/bin/opencode2"],
-    });
     expect(
-      calls.find(
-        (call) => call.args[0] === "agent" && call.args[1] === "prompt",
-      )?.args[3],
+      server.requests.find(({ method }) => method === "pane.send_input")
+        ?.params,
+    ).toMatchObject({ text: opencode2.executable, keys: ["enter"] });
+    expect(server.requests.map(({ method }) => method).slice(-2)).toEqual([
+      "pane.process_info",
+      "agent.prompt",
+    ]);
+    expect(
+      server.requests.find(({ method }) => method === "agent.prompt")?.params
+        .text,
     ).toContain("without making implementation changes");
   });
 
-  test("uses the home directory when no source checkout is known", async () => {
-    const calls: { command: string; args: readonly string[] }[] = [];
-    const runner: AgentCommandRunner = {
-      run: async (command, args) => {
-        calls.push({ command, args });
-        if (args[0] === "workspace" && args[1] === "list") {
-          return JSON.stringify({
-            result: {
-              workspaces: [{ workspace_id: "w1", label: basename(homedir()) }],
-            },
-          });
-        }
-        if (args[0] === "tab" && args[1] === "create") {
-          return JSON.stringify({
-            result: {
-              tab: { tab_id: "w1:t2" },
-              root_pane: { pane_id: "w1:p2" },
-            },
-          });
-        }
-        return "{}";
-      },
-    };
-
-    await openNoteAgent(
-      runner,
-      {
-        filename: "work.md",
-        filePath: "/vault/projects/example/work.md",
-        repoSlug: "example/repo",
-        name: "Work",
-        description: null,
-        tags: [],
-        priority: null,
-        mtime: 0,
-      },
-      "body",
-      { command: "cursor", executable: "cursor-agent", label: "Cursor Agent" },
-    );
-
-    expect(calls).toContainEqual({
-      command: "herdr",
-      args: [
-        "tab",
-        "create",
-        "--workspace",
-        "w1",
-        "--cwd",
-        homedir(),
-        "--label",
-        "Cursor Agent",
-        "--no-focus",
-      ],
-    });
+  test("does not prompt when foreground argv is the wrong runtime", async () => {
+    const server = await fixture({ runtime: "/opt/opencode2-other" });
+    await expect(
+      Effect.runPromise(
+        openNoteAgent(entry, "body", opencode2, {
+          executableAvailable: () => true,
+        }).pipe(
+          Effect.provide(server.layer),
+          Effect.provideService(CommandExecutor, executor),
+        ),
+      ),
+    ).rejects.toThrow("expected runtime");
+    expect(
+      server.requests.some(({ method }) => method === "agent.prompt"),
+    ).toBe(false);
   });
 
-  test("includes metadata and content in prompts", () => {
-    const prompt = noteAgentPrompt(
-      {
-        filename: "note.md",
-        filePath: "/note.md",
-        name: "Note",
-        description: "Description",
-        tags: ["one"],
-        priority: null,
-        mtime: 0,
-      },
-      "body",
+  test("uses home when no source checkout is known", async () => {
+    const server = await fixture({ workspaceLabel: basename(homedir()) });
+    await Effect.runPromise(
+      openNoteAgent({ ...entry, projectDir: undefined }, "body", cursor).pipe(
+        Effect.provide(server.layer),
+        Effect.provideService(CommandExecutor, executor),
+      ),
     );
-    expect(prompt).toContain("Name: Note");
-    expect(prompt).toContain("Description: Description");
-    expect(prompt).toContain("Tags: one");
-    expect(prompt).toContain("body");
+    expect(
+      server.requests.find(({ method }) => method === "tab.create")?.params.cwd,
+    ).toBe(homedir());
+  });
 
-    const planPrompt = noteAgentPrompt(
-      {
-        filename: "note.md",
-        filePath: "/note.md",
-        name: "Note",
-        description: null,
-        tags: [],
-        priority: null,
-        mtime: 0,
-      },
-      "body",
-      "plan",
-    );
-    expect(planPrompt).toContain("implementation-ready plan");
-    expect(planPrompt).toContain("load each relevant skill");
-    expect(planPrompt).not.toContain("dedicated plan agent");
+  test("surfaces readiness errors without submitting a prompt", async () => {
+    const server = await fixture({ failMethod: "agent.wait" });
+    await expect(
+      Effect.runPromise(
+        openNoteAgent(entry, "body", cursor).pipe(
+          Effect.provide(server.layer),
+          Effect.provideService(CommandExecutor, executor),
+        ),
+      ),
+    ).rejects.toThrow("Fixture failure");
+    expect(
+      server.requests.some(({ method }) => method === "agent.prompt"),
+    ).toBe(false);
+  });
+
+  test("rejects an unsupported protocol before mutations", async () => {
+    const server = await fixture({ protocol: 21 });
+    await expect(
+      Effect.runPromise(
+        openNoteAgent(entry, "body", cursor).pipe(
+          Effect.provide(server.layer),
+          Effect.provideService(CommandExecutor, executor),
+        ),
+      ),
+    ).rejects.toThrow();
+    expect(server.requests.map(({ method }) => method)).toEqual(["ping"]);
+  });
+
+  test("includes metadata, content and plan instructions in prompts", () => {
+    const prompt = noteAgentPrompt(entry, "body");
+    expect(prompt).toContain("Name: Work");
+    expect(prompt).toContain("Description: Continue work");
+    expect(prompt).toContain("Tags: handoff");
+    expect(prompt).toContain("body");
+    const plan = noteAgentPrompt(entry, "body", "plan");
+    expect(plan).toContain("implementation-ready plan");
+    expect(plan).toContain("load each relevant skill");
+    expect(plan).not.toContain("dedicated plan agent");
   });
 });

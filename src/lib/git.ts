@@ -11,7 +11,7 @@ export interface GitCommandOptions {
 }
 
 /** Domain error for shared git command failures. */
-export class GitCommandError extends Schema.TaggedErrorClass<GitCommandError>()(
+export class GitCommandError extends Schema.TaggedError<GitCommandError>()(
   "GitCommandError",
   {
     message: Schema.String,

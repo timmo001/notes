@@ -4,7 +4,7 @@ import type { DaemonConfig, OpenCodeModel } from "../schema.js";
 const STATUS_PREFIX = /^STATUS: (success|failure)(?=\s|$)/;
 
 /** Failure returned by the local OpenCode server boundary. */
-export class OpenCodeClientError extends Schema.TaggedErrorClass<OpenCodeClientError>()(
+export class OpenCodeClientError extends Schema.TaggedError<OpenCodeClientError>()(
   "OpenCodeClientError",
   { operation: Schema.String, message: Schema.String },
 ) {}

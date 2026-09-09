@@ -144,7 +144,7 @@ function deriveTheme(c: Record<string, string>): Theme {
   };
 }
 
-class ThemeLoadError extends Schema.TaggedErrorClass<ThemeLoadError>()(
+class ThemeLoadError extends Schema.TaggedError<ThemeLoadError>()(
   "ThemeLoadError",
   { message: Schema.String },
 ) {}

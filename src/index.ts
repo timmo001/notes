@@ -1,18 +1,12 @@
 import { Cause, Console, Effect, Layer, Schema } from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { herdrSdkLayer } from "@herdr/sdk";
 import { CliError, Command, Flag } from "effect/unstable/cli";
 import { basename } from "node:path";
-import {
-  detectAgentTargets,
-  openNoteAgent,
-  type AgentCommandRunner,
-} from "./notes/agentTargets.js";
+import { detectAgentTargets, openNoteAgent } from "./notes/agentTargets.js";
 import { searchNoteEntries } from "./notes/search.js";
 import { setHelpRenderer } from "./cli/help.js";
-import {
-  CommandExecutor,
-  type CommandExecutorService,
-} from "./services/CommandExecutor.js";
+import { CommandExecutor } from "./services/CommandExecutor.js";
 import { Config } from "./services/Config.js";
 import { runDaemon } from "./daemon/run.js";
 import { captureStatus, processLocalCapture } from "./capture/run.js";
@@ -39,7 +33,7 @@ type TuiMode = {
   readonly initialNotesFilter?: NotesViewFilter;
 };
 
-class UsageError extends Schema.TaggedErrorClass<UsageError>()("UsageError", {
+class UsageError extends Schema.TaggedError<UsageError>()("UsageError", {
   message: Schema.String,
 }) {}
 
@@ -398,14 +392,15 @@ function runTargets({ format }: { readonly format: NotesListFormat }) {
 
 function runAgents({ format }: { readonly format: NotesListFormat }) {
   return Effect.gen(function* () {
-    const executor = yield* CommandExecutor;
-    const agents = yield* Effect.tryPromise({
-      try: () => detectAgentTargets(commandRunner(executor)),
-      catch: (error) =>
-        new NotesError({
-          message: `Failed to detect agents: ${error instanceof Error ? error.message : String(error)}`,
-        }),
-    });
+    const agents = yield* detectAgentTargets().pipe(
+      Effect.provide(herdrSdkLayer),
+      Effect.mapError(
+        (error) =>
+          new NotesError({
+            message: `Failed to detect agents: ${error instanceof Error ? error.message : String(error)}`,
+          }),
+      ),
+    );
     yield* writeLine(
       format === "json"
         ? JSON.stringify(agents, null, 2)
@@ -451,38 +446,39 @@ function runOpenAgent({
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
-      const executor = yield* CommandExecutor;
-      const runner = commandRunner(executor);
-      const target = (yield* Effect.tryPromise({
-        try: () => detectAgentTargets(runner),
-        catch: (error) =>
-          new NotesError({
-            message: `Failed to detect agent targets: ${error instanceof Error ? error.message : String(error)}`,
-          }),
-      })).find((candidate) => candidate.command === agent);
+      const target = (yield* detectAgentTargets().pipe(
+        Effect.mapError(
+          (error) =>
+            new NotesError({
+              message: `Failed to detect agent targets: ${error instanceof Error ? error.message : String(error)}`,
+            }),
+        ),
+      )).find((candidate) => candidate.command === agent);
       if (!target)
         return yield* new NotesError({
           message: `Agent target is not installed: ${agent}`,
         });
       const note = yield* notes.resolveEntry(path);
-      const result = yield* Effect.tryPromise({
-        try: () =>
-          openNoteAgent(runner, note.entry, note.content, target, { mode }),
-        catch: (error) =>
-          new NotesError({
-            message: `Failed to open note agent: ${error instanceof Error ? error.message : String(error)}`,
-          }),
-      });
+      const result = yield* openNoteAgent(note.entry, note.content, target, {
+        mode,
+      }).pipe(
+        Effect.mapError(
+          (error) =>
+            new NotesError({
+              message: `Failed to open note agent: ${error instanceof Error ? error.message : String(error)}`,
+            }),
+        ),
+      );
       yield* writeLine(JSON.stringify(result));
-    }),
+    }).pipe(
+      Effect.provide(herdrSdkLayer),
+      Effect.mapError((error) =>
+        error instanceof NotesError
+          ? error
+          : new NotesError({ message: error.message }),
+      ),
+    ),
   );
-}
-
-function commandRunner(executor: CommandExecutorService): AgentCommandRunner {
-  return {
-    run: (command, args, options) =>
-      Effect.runPromise(executor.run(command, args, options)),
-  };
 }
 
 function runHandoffs({
@@ -545,9 +541,8 @@ async function runTui(mode: TuiMode): Promise<void> {
 
   const tuiProgram = Effect.gen(function* () {
     const notes = yield* Notes;
-    const executor = yield* CommandExecutor;
     const renderer = yield* Renderer;
-    const services = yield* Effect.context<never>();
+    const services = yield* Effect.context<CommandExecutor>();
     const runPromise = Effect.runPromiseWith(services);
 
     new App(
@@ -581,11 +576,14 @@ async function runTui(mode: TuiMode): Promise<void> {
               create,
             ),
           ),
-        listAgentTargets: () => detectAgentTargets(commandRunner(executor)),
+        listAgentTargets: () =>
+          runPromise(detectAgentTargets().pipe(Effect.provide(herdrSdkLayer))),
         openAgent: (entry, noteContent, target, mode) =>
-          openNoteAgent(commandRunner(executor), entry, noteContent, target, {
-            mode,
-          }).then(() => undefined),
+          runPromise(
+            openNoteAgent(entry, noteContent, target, {
+              mode,
+            }).pipe(Effect.provide(herdrSdkLayer)),
+          ).then(() => undefined),
         updateNotePriority: (filePath, priority) =>
           runPromise(notes.setPriority(filePath, priority)),
       },

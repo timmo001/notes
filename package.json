@@ -19,10 +19,11 @@
     "prepare": "effect-tsgo patch"
   },
   "dependencies": {
-    "@effect/platform-node": "^4.0.0-beta.99",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@herdr/sdk": "github:dmmulroy/herdr-ts-sdk#77abbf81ac35407bc5138a8f4fe19f0833af4402",
     "@opentui/core": "^0.5.0",
     "@tuiparts/core": "^0.0.6",
-    "effect": "^4.0.0-beta.99",
+    "effect": "4.0.0-rc.112",
     "fuse.js": "^7.5.0",
     "proper-lockfile": "^4.1.2",
     "yaml": "^2.9.0"
@@ -36,6 +37,13 @@
     "oxlint": "1.82.0",
     "prettier": "^3.9.5",
     "typescript": "^7.0.0"
+  },
+  "overrides": {
+    "effect": "$effect",
+    "@effect/platform-node-shared": "$@effect/platform-node"
+  },
+  "patchedDependencies": {
+    "@herdr/sdk@github:dmmulroy/herdr-ts-sdk#77abbf8": "patches/@herdr%2Fsdk@github%3Admmulroy%2Fherdr-ts-sdk#77abbf8.patch"
   },
   "trustedDependencies": [
     "@effect/tsgo"

@@ -3,7 +3,7 @@ import { CommandExecutor } from "../../services/CommandExecutor.js";
 import { QueueIssue, type DaemonConfig } from "../schema.js";
 
 /** Failure returned by the GitHub issue queue boundary. */
-export class IssueQueueError extends Schema.TaggedErrorClass<IssueQueueError>()(
+export class IssueQueueError extends Schema.TaggedError<IssueQueueError>()(
   "IssueQueueError",
   { operation: Schema.String, message: Schema.String },
 ) {}
