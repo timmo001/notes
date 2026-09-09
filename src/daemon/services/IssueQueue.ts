@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Schema } from "effect";
-import { CommandExecutor } from "../../services/CommandExecutor.js";
+import { Gh } from "@timmo001/effect-gh";
 import { QueueIssue, type DaemonConfig } from "../schema.js";
 
 /** Failure returned by the GitHub issue queue boundary. */
@@ -46,32 +46,27 @@ export class IssueQueue extends Context.Service<
     return Layer.effect(
       IssueQueue,
       Effect.gen(function* () {
-        const executor = yield* CommandExecutor;
-        const run = (args: readonly string[]) =>
-          executor
-            .run("gh", args)
-            .pipe(Effect.timeout(`${config.commandTimeoutSeconds} seconds`));
+        const gh = yield* Gh;
+        const options = {
+          timeout: `${config.commandTimeoutSeconds} seconds` as const,
+        };
+        const run = (args: readonly string[]) => gh.execute(args, options);
         const json = Effect.fn("IssueQueue.ghJson")(function* (
           operation: string,
           args: readonly string[],
         ) {
-          const output = yield* run(args).pipe(
+          return yield* gh.json(args, Schema.Json, options).pipe(
             Effect.mapError(
               (error) =>
-                new IssueQueueError({ operation, message: String(error) }),
+                new IssueQueueError({
+                  operation,
+                  message:
+                    error._tag === "GhDecodeError"
+                      ? String(error.cause)
+                      : String(error),
+                }),
             ),
           );
-          return yield* Effect.try({
-            try: () =>
-              Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(
-                output,
-              ),
-            catch: (error) =>
-              new IssueQueueError({
-                operation,
-                message: error instanceof Error ? error.message : String(error),
-              }),
-          });
         });
         const get = Effect.fn("IssueQueue.get")(function* (number: number) {
           return yield* json("get", [

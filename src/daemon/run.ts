@@ -1,9 +1,9 @@
 import { Effect, Layer, Ref, Schedule } from "effect";
+import { layer as ghLayer } from "@timmo001/effect-gh";
 import { runProcessingPass } from "./coordinator.js";
 import { loadDaemonConfig } from "./config.js";
 import { IssueQueue } from "./services/IssueQueue.js";
 import { OpenCodeClient } from "./services/OpenCodeClient.js";
-import { CommandExecutor } from "../services/CommandExecutor.js";
 
 /** Load daemon configuration and run one pass or the supervised polling loop. */
 export const runDaemon = Effect.fn("NotesDaemon.run")(function* (
@@ -18,7 +18,7 @@ export const runDaemon = Effect.fn("NotesDaemon.run")(function* (
   const layers = Layer.mergeAll(
     IssueQueue.layer(config),
     OpenCodeClient.layer(config, password, username),
-  ).pipe(Layer.provide(CommandExecutor.layer));
+  ).pipe(Layer.provide(ghLayer()));
   const pass = runProcessingPass(config.queueLabel, config.workerActor).pipe(
     Effect.timeout(`${config.passTimeoutSeconds} seconds`),
     Effect.tap((result) =>
