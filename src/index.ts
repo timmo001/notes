@@ -608,7 +608,7 @@ const optionalString = (name: string, description: string) =>
     Flag.withDefault(undefined),
   );
 const booleanFlag = (name: string, description: string) =>
-  describedFlag(Flag.boolean(name), description);
+  describedFlag(Flag.boolean(name), description).pipe(Flag.withDefault(false));
 const requiredBooleanFlag = (name: string, description: string) =>
   booleanFlag(name, description).pipe(
     Flag.mapEffect((enabled) =>
