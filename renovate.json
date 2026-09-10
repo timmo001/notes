@@ -10,6 +10,12 @@
   "labels": ["dependencies"],
   "packageRules": [
     {
+      "description": "Keep Effect at rc.112 for the pinned @herdr/sdk Config.string and Config.mapOrFail APIs.",
+      "matchFileNames": ["package.json"],
+      "matchPackageNames": ["effect", "@effect/platform-node"],
+      "allowedVersions": "4.0.0-rc.112"
+    },
+    {
       "description": "Group GitHub Actions.",
       "groupName": "github actions",
       "matchManagers": ["github-actions"]
