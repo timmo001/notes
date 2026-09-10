@@ -4,6 +4,7 @@ import { herdrSdkLayer } from "@herdr/sdk";
 import { CliError, Command, Flag } from "effect/unstable/cli";
 import { basename } from "node:path";
 import { detectAgentTargets, openNoteAgent } from "./notes/agentTargets.js";
+import { activeNoteCount } from "./notes/activeCount.js";
 import { searchNoteEntries } from "./notes/search.js";
 import { setHelpRenderer } from "./cli/help.js";
 import { CommandExecutor } from "./services/CommandExecutor.js";
@@ -785,6 +786,17 @@ const agentsCommand = Command.make(
   runAgents,
 ).pipe(Command.withDescription("List installed agent targets"));
 
+const activeCountCommand = Command.make("active-count", {}, () =>
+  Effect.gen(function* () {
+    const result = yield* activeNoteCount().pipe(Effect.provide(herdrSdkLayer));
+    yield* writeLine(JSON.stringify(result));
+  }),
+).pipe(
+  Command.withDescription(
+    "Emit the focused Herdr pane's project note count as JSON, including handoffs",
+  ),
+);
+
 const priorityCommand = Command.make(
   "priority",
   {
@@ -923,6 +935,7 @@ export const notesCommand = Command.make(
     createCommand,
     targetsCommand,
     agentsCommand,
+    activeCountCommand,
     priorityCommand,
     openAgentCommand,
     handoffsCommand,

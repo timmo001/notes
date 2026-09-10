@@ -53,6 +53,9 @@ export async function herdrFixture(
     readonly runtime?: string;
     readonly failMethod?: string;
     readonly protocol?: number;
+    readonly focusedPaneId?: string | null;
+    readonly paneCwd?: string;
+    readonly foregroundCwd?: string;
   } = {},
 ) {
   const directory = mkdtempSync(join(tmpdir(), "notes-herdr-"));
@@ -139,6 +142,31 @@ export async function herdrFixture(
               state: "not_installed",
             },
           ],
+        };
+      case "session.snapshot":
+        return {
+          type: "session_snapshot",
+          snapshot: {
+            version: "0.9.0",
+            protocol: 22,
+            focused_workspace_id: workspace.workspace_id,
+            focused_tab_id: tab.tab_id,
+            focused_pane_id:
+              options.focusedPaneId === undefined
+                ? pane.pane_id
+                : options.focusedPaneId,
+            workspaces: [workspace],
+            tabs: [tab],
+            panes: [
+              {
+                ...pane,
+                cwd: options.paneCwd,
+                foreground_cwd: options.foregroundCwd,
+              },
+            ],
+            layouts: [],
+            agents: [],
+          },
         };
       case "workspace.list":
         return {

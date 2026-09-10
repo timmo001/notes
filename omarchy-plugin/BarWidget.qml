@@ -107,8 +107,10 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     fontSize: 11
-    text: "󰠮"
-    tooltipText: "Notes"
+    text: "󰠮" + (root.notesService?.activeNotes ? " " + root.notesService.activeNotes.count : "")
+    tooltipText: root.notesService?.activeNotes
+      ? "Notes: " + root.notesService.activeNotes.count + " (including handoffs)\n" + root.notesService.activeNotes.cwd
+      : "Notes"
     horizontalMargin: 6
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton) root.togglePanel()

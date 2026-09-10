@@ -27,6 +27,7 @@ Item {
   property string pendingSearchTag: ""
   property var mutationQueue: []
   property var activeMutation: null
+  property var activeNotes: null
 
   signal mutationCompleted(string kind, bool success, var result, string error)
   signal readCompleted(bool success)
@@ -47,10 +48,16 @@ Item {
   }
 
   function refresh() {
+    refreshActiveCount()
     listGeneration++
     if (!listProcess.running) startList(listGeneration)
     if (!agentsProcess.running) agentsProcess.running = true
     if (!targetsProcess.running) targetsProcess.running = true
+  }
+  function refreshActiveCount() {
+    if (activeCountProcess.running) return
+    activeCountProcess.startedSuccessfully = false
+    activeCountProcess.running = true
   }
   function startList(generation) {
     listProcess.generation = generation
@@ -127,6 +134,31 @@ Item {
     Quickshell.execDetached(["uwsm", "app", "--", "xdg-terminal-exec", "nvim", path])
   }
 
+  Timer {
+    interval: 3000
+    running: true
+    repeat: true
+    onTriggered: root.refreshActiveCount()
+  }
+  Process {
+    id: activeCountProcess
+    property bool startedSuccessfully: false
+    command: ["notes", "active-count"]
+    stdout: StdioCollector { id: activeCountOutput; waitForEnd: true }
+    onStarted: startedSuccessfully = true
+    onExited: function(exitCode) {
+      root.activeNotes = null
+      if (exitCode !== 0) return
+      try {
+        var value = JSON.parse(String(activeCountOutput.text || "null"))
+        if (value && typeof value.cwd === "string" && value.cwd !== ""
+            && typeof value.count === "number" && isFinite(value.count)
+            && value.count >= 0 && Math.floor(value.count) === value.count)
+          root.activeNotes = value
+      } catch (error) { root.activeNotes = null }
+    }
+    onRunningChanged: if (!running && !startedSuccessfully) root.activeNotes = null
+  }
   Process {
     id: listProcess
     property int generation: 0

@@ -51,6 +51,18 @@ Select the Notes bar widget to open the overview. It provides:
 - native note and handoff creation
 - local capture with draft recovery and queued submission
 
+The bar shows the note count for the focused Herdr pane's project, including
+handoffs. It refreshes every three seconds using `notes active-count` and the
+Notes CLI's bundled `@herdr/sdk`. The foreground working directory takes
+precedence over the pane's shell directory. Project identity follows the normal
+Notes remote and local-scope rules.
+
+This requires Herdr protocol 22 and a Notes version with `active-count`. The CLI
+uses the SDK's normal socket selection (`HERDR_SOCKET_PATH`, `HERDR_SESSION`,
+then the default socket), inherited from `omarchy-shell`. The count follows that
+Herdr server's focused pane. When Herdr or its working directory is unavailable,
+the widget shows only the Notes icon. A project with no notes shows `0`.
+
 Type in a list or action view to filter or search. Use Up and Down to move,
 Enter to select, Escape to clear the current filter and then go back, and Tab
 to switch bar panels where supported. Native edit, create, and capture forms use
