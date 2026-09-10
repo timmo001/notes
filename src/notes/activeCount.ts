@@ -24,6 +24,7 @@ export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {
       Notes.layer.pipe(
         Layer.provide(Layer.succeed(Config, { ...config, projectDir: cwd })),
       ),
+      { local: true },
     ),
   );
   return { workspaceId: pane.workspaceId, paneId: pane.id, cwd, count };

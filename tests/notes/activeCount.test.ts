@@ -6,6 +6,7 @@ import { Effect } from "effect";
 import { herdrIds } from "@herdr/sdk";
 import { activeNoteCount } from "../../src/notes/activeCount.js";
 import { renderDraft } from "../../src/notes/frontmatter.js";
+import { Notes } from "../../src/notes/services/Notes.js";
 import { CommandExecutor } from "../../src/services/CommandExecutor.js";
 import { Config } from "../../src/services/Config.js";
 import { herdrFixture } from "../support/herdr.js";
@@ -26,7 +27,7 @@ test.each([
     cwd: "/repos/active/src",
   },
   { paneCwd: "/repos/shell", foregroundCwd: undefined, cwd: "/repos/shell" },
-])("counts only the project resolved from $cwd", async (options) => {
+])("counts $cwd even with the caller's Notes layer loaded", async (options) => {
   const server = await herdrFixture(options);
   servers.push(server);
   const notesDir = mkdtempSync(join(tmpdir(), "notes-active-count-"));
@@ -48,6 +49,7 @@ test.each([
   }
   const result = await Effect.runPromise(
     activeNoteCount().pipe(
+      Effect.provide(Notes.layer),
       Effect.provide(server.layer),
       Effect.provideService(Config, {
         notesDir,
