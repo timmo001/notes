@@ -3,7 +3,7 @@ import { Effect, Layer, Option } from "effect";
 import { Config } from "../services/Config.js";
 import { Notes } from "./services/Notes.js";
 
-/** Count notes in the focused Herdr pane's project, including handoffs. */
+/** Count and identify notes in the focused Herdr pane's project, including handoffs. */
 export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {
   const sdk = yield* HerdrSdk;
   const snapshot = yield* sdk.session.snapshot();
@@ -17,8 +17,8 @@ export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {
   if (!cwd) return null;
 
   const config = yield* Config;
-  const count = yield* Effect.gen(function* () {
-    return (yield* (yield* Notes).list()).length;
+  const entries = yield* Effect.gen(function* () {
+    return yield* (yield* Notes).list();
   }).pipe(
     Effect.provide(
       Notes.layer.pipe(
@@ -27,5 +27,11 @@ export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {
       { local: true },
     ),
   );
-  return { workspaceId: pane.workspaceId, paneId: pane.id, cwd, count };
+  return {
+    workspaceId: pane.workspaceId,
+    paneId: pane.id,
+    cwd,
+    count: entries.length,
+    notePaths: entries.map((entry) => entry.filePath),
+  };
 });

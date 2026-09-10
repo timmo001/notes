@@ -51,12 +51,21 @@ Select the Notes bar widget to open the overview. It provides:
 - native note and handoff creation
 - local capture with draft recovery and queued submission
 
+The overview lists the current Herdr workspace's notes above the actions,
+including handoffs. Capture note appears immediately above All notes. Search,
+workspace, action, repository, and priority headings use the Git panel's framed
+section-heading style with icons.
+Repository and priority groups in All notes and Handoffs can be collapsed with
+a click or Enter on the heading. Each view remembers its collapsed groups while
+the panel is loaded. Search shows matching notes regardless of collapsed groups.
+
 The bar shows the note count for the focused Herdr pane's project, including
 handoffs. It refreshes every three seconds using `notes active-count` and the
 Notes CLI's bundled `@herdr/sdk`. The foreground working directory takes
 precedence over the pane's shell directory. Project identity follows the normal
 Notes remote and local-scope rules.
 
+The workspace section requires `notes active-count` to return `notePaths`.
 This requires Herdr protocol 22 and a Notes version with `active-count`. The CLI
 uses the SDK's normal socket selection (`HERDR_SOCKET_PATH`, `HERDR_SESSION`,
 then the default socket), inherited from `omarchy-shell`. The count follows that

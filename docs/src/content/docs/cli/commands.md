@@ -267,7 +267,7 @@ GLOBAL FLAGS
 
 ```text
 DESCRIPTION
-  Emit the focused Herdr pane's project note count as JSON, including handoffs
+  Emit the focused Herdr pane's project note count and paths as JSON, including handoffs
 
 USAGE
   notes active-count [flags]

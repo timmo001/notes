@@ -71,12 +71,16 @@ test.each([
       ),
     ),
   );
-  expect(result).toEqual({
+  expect(result).toMatchObject({
     workspaceId: herdrIds.workspace("w1"),
     paneId: herdrIds.pane("w1:p2"),
     cwd: herdrIds.absolutePath(options.cwd),
     count: 2,
   });
+  expect(result?.notePaths.toSorted()).toEqual([
+    join(notesDir, "projects/example/active/handoff.md"),
+    join(notesDir, "projects/example/active/note.md"),
+  ]);
 });
 
 test.each([

@@ -26,6 +26,7 @@ Panel {
   property string sortField: "modified"
   property bool sortAscending: false
   property string groupMode: "repo"
+  property var collapsedGroups: ({})
   property string pendingMutation: ""
   property string pendingCreateView: "notes"
   property string createKind: "note"
@@ -61,9 +62,15 @@ Panel {
   }
   readonly property bool canCapture: captureAvailable && captureInput.text.trim().length > 0
     && captureInput.text.trim().length <= 12000
+  readonly property var workspaceNotes: {
+    var paths = service?.activeNotes?.notePaths
+    if (!Array.isArray(paths)) return []
+    return service.entries.filter(function(note) { return paths.indexOf(note.filePath) >= 0 })
+      .sort(function(a, b) { return Number(b.mtime || 0) - Number(a.mtime || 0) })
+  }
   readonly property var panelRows: buildRows()
   readonly property var visibleRows: filterController.filteredModel
-  readonly property var navigationRows: visibleRows.filter(function(row) { return row.kind !== "heading" })
+  readonly property var navigationRows: visibleRows.filter(function(row) { return row.kind !== "heading" || row.collapsible })
   readonly property bool rankedSearchActive: (view === "overview" || view === "notes" || view === "handoffs")
     && filterController.filterText.trim() !== ""
 
@@ -109,9 +116,12 @@ Panel {
     return { key: "action:" + action, kind: "action", action: action, primaryText: label,
       secondaryText: detail || "", icon: icon || "" }
   }
-  function headingRow(value, count) {
-    return { key: "heading:" + groupMode + ":" + value, kind: "heading",
-      primaryText: String(value).toUpperCase() + " · " + count + (count === 1 ? " NOTE" : " NOTES") }
+  function headingRow(value, count, icon, collapsible) {
+    var key = "heading:" + view + ":" + groupMode + ":" + value
+    return { key: key, kind: "heading", collapsible: collapsible === true,
+      collapsed: collapsedGroups[key] === true,
+      primaryText: String(value) + (count === undefined ? "" : " · " + count + (count === 1 ? " note" : " notes")),
+      secondaryText: "", icon: icon || "" }
   }
   function noteRow(note, index) {
     return { key: "note:" + String(note.filePath || index), kind: "note", value: note,
@@ -175,11 +185,16 @@ Panel {
         var overviewNotes = filteredNotes()
         for (var o = 0; o < overviewNotes.length; o++) rows.push(noteRow(overviewNotes[o], o))
       } else {
-        rows.push(actionRow("notes", "Notes", "Browse all notes", "󰠮"))
+        if (Array.isArray(service?.activeNotes?.notePaths)) {
+          rows.push(headingRow("Current workspace", workspaceNotes.length, ""))
+          for (var w = 0; w < workspaceNotes.length; w++) rows.push(noteRow(workspaceNotes[w], w))
+        }
+        rows.push(headingRow("Actions", undefined, "󰒓"))
+        rows.push(actionRow("capture", "Capture note", "Send to the local capture processor", "󰠮"))
+        rows.push(actionRow("notes", "All notes", "Browse all notes", "󰠮"))
         rows.push(actionRow("handoffs", "Handoffs", "Browse handoff notes", "󰊢"))
         rows.push(actionRow("new-note", "New note", "Create a repository note", "+"))
         rows.push(actionRow("new-handoff", "New handoff", "Create a handoff note", "+"))
-        rows.push(actionRow("capture", "Capture note", "Send to the local capture processor", "󰠮"))
       }
     } else if (view === "notes" || view === "handoffs") {
       rows.push(actionRow("back", "Back to Notes overview", "", ""))
@@ -194,7 +209,9 @@ Panel {
         if (!rankedSearchActive && group && (i === 0 || group !== noteGroup(notes[i - 1]))) {
           var count = 0
           for (var g = i; g < notes.length && noteGroup(notes[g]) === group; g++) count++
-          rows.push(headingRow(group, count))
+          var heading = headingRow(group, count, groupMode === "repo" ? "" : "!", true)
+          rows.push(heading)
+          if (heading.collapsed) { i += count - 1; continue }
         }
         rows.push(noteRow(notes[i], i))
       }
@@ -226,6 +243,17 @@ Panel {
     return rows
   }
   function activate(entry) {
+    if (entry.kind === "heading") {
+      if (!entry.collapsible) return
+      var next = Object.assign({}, collapsedGroups)
+      next[entry.key] = !entry.collapsed
+      collapsedGroups = next
+      Qt.callLater(function() {
+        filterController.cursorIndex = filterController.indexForKey(entry.key)
+        revealTimer.restart()
+      })
+      return
+    }
     if (entry.kind === "note") {
       selectedNote = entry.value
       selectedListView = view
@@ -474,17 +502,15 @@ Panel {
             iconComponent: Component { Text { text: "󰠮"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.display } }
           }
 
-          Text {
+          SectionHeading {
             visible: root.view === "overview" || root.view === "notes" || root.view === "handoffs"
             width: parent.width
-            text: filterController.filterText
+            title: filterController.filterText
               ? (root.service && root.service.searching ? "SEARCHING · " : "SEARCH · ") + filterController.filterText
               : "TYPE TO SEARCH"
-            color: Qt.darker(root.foreground, 1.4)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            font.bold: true
-            font.letterSpacing: 1.2
+            iconText: ""
+            foreground: root.foreground
+            fontFamily: root.fontFamily
           }
 
           Column {
@@ -497,16 +523,19 @@ Panel {
                 required property var modelData
                 width: contentColumn.width
                 implicitHeight: modelData.kind === "heading" ? heading.implicitHeight + Style.space(8) : rowSurface.implicitHeight
-                Text {
+                SectionHeading {
                   id: heading
                   visible: modelData.kind === "heading"
                   width: parent.width
-                  text: modelData.primaryText
-                  color: Qt.darker(root.foreground, 1.4)
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                  font.bold: true
-                  font.letterSpacing: 1.2
+                  title: modelData.primaryText
+                  iconText: modelData.icon || ""
+                  collapsible: modelData.collapsible === true
+                  collapsed: modelData.collapsed === true
+                  hasCursor: collapsible && filterController.cursorIndex === filterController.indexForKey(modelData.key)
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  onToggleHovered: filterController.cursorIndex = filterController.indexForKey(modelData.key)
+                  onToggleRequested: root.activate(modelData)
                 }
                 CursorSurface {
                   id: rowSurface

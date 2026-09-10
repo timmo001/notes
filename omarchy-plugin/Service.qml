@@ -147,14 +147,14 @@ Item {
     stdout: StdioCollector { id: activeCountOutput; waitForEnd: true }
     onStarted: startedSuccessfully = true
     onExited: function(exitCode) {
-      root.activeNotes = null
-      if (exitCode !== 0) return
+      if (exitCode !== 0) { root.activeNotes = null; return }
       try {
         var value = JSON.parse(String(activeCountOutput.text || "null"))
         if (value && typeof value.cwd === "string" && value.cwd !== ""
             && typeof value.count === "number" && isFinite(value.count)
             && value.count >= 0 && Math.floor(value.count) === value.count)
           root.activeNotes = value
+        else root.activeNotes = null
       } catch (error) { root.activeNotes = null }
     }
     onRunningChanged: if (!running && !startedSuccessfully) root.activeNotes = null
