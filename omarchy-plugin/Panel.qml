@@ -502,15 +502,17 @@ Panel {
             iconComponent: Component { Text { text: "󰠮"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.display } }
           }
 
-          SectionHeading {
+          Text {
             visible: root.view === "overview" || root.view === "notes" || root.view === "handoffs"
             width: parent.width
-            title: filterController.filterText
+            text: filterController.filterText
               ? (root.service && root.service.searching ? "SEARCHING · " : "SEARCH · ") + filterController.filterText
               : "TYPE TO SEARCH"
-            iconText: ""
-            foreground: root.foreground
-            fontFamily: root.fontFamily
+            color: Qt.darker(root.foreground, 1.4)
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            font.letterSpacing: 1.2
           }
 
           Column {
@@ -522,10 +524,11 @@ Panel {
                 required property int index
                 required property var modelData
                 width: contentColumn.width
-                implicitHeight: modelData.kind === "heading" ? heading.implicitHeight + Style.space(8) : rowSurface.implicitHeight
+                implicitHeight: modelData.kind === "heading" ? heading.y + heading.implicitHeight + Style.space(12) : rowSurface.implicitHeight
                 SectionHeading {
                   id: heading
                   visible: modelData.kind === "heading"
+                  y: index > 0 ? Style.space(12) : 0
                   width: parent.width
                   title: modelData.primaryText
                   iconText: modelData.icon || ""

@@ -52,8 +52,8 @@ Select the Notes bar widget to open the overview. It provides:
 - local capture with draft recovery and queued submission
 
 The overview lists the current Herdr workspace's notes above the actions,
-including handoffs. Capture note appears immediately above All notes. Search,
-workspace, action, repository, and priority headings use the Git panel's framed
+including handoffs. Capture note appears immediately above All notes.
+Workspace, action, repository, and priority headings use the Git panel's framed
 section-heading style with icons.
 Repository and priority groups in All notes and Handoffs can be collapsed with
 a click or Enter on the heading. Each view remembers its collapsed groups while
