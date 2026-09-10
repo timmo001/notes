@@ -40,9 +40,9 @@ gh release download "$release_version" --repo timmo001/notes \
   --dir "$output_dir"
 tar -xzf "$output_dir/repo-notes-${release_version}-linux-x86_64.tar.gz" \
   -C "$output_dir"
-"$output_dir/notes" completions bash > "$output_dir/notes.bash"
-"$output_dir/notes" completions fish > "$output_dir/notes.fish"
-"$output_dir/notes" completions zsh > "$output_dir/_notes"
+"$output_dir/notes" --completions bash > "$output_dir/notes.bash"
+"$output_dir/notes" --completions fish > "$output_dir/notes.fish"
+"$output_dir/notes" --completions zsh > "$output_dir/_notes"
 install -m 0644 "$repo_root/LICENSE" "$output_dir/LICENSE"
 rm -f "$output_dir/notes" \
   "$output_dir/repo-notes-${release_version}-linux-x86_64.tar.gz" \
