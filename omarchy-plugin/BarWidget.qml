@@ -24,6 +24,7 @@ BarWidget {
   readonly property bool activeInstance: !primaryOnly
     || (currentOutput !== "" && currentOutput === activeOutput)
   readonly property var notesService: bar?.shell?.serviceFor("timmo.notes")
+  readonly property bool hasNotes: (notesService?.activeNotes?.count ?? 0) > 0
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property bool popoutSwitchClosing: panelLoader.item
     ? panelLoader.item.popoutSwitchClosing === true : false
@@ -106,8 +107,9 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    fontSize: 11
-    text: "󰠮" + (root.notesService?.activeNotes ? " " + root.notesService.activeNotes.count : "")
+    fontSize: 10
+    text: "󰠮" + (root.hasNotes ? " " + root.notesService.activeNotes.count : "")
+    foreground: root.hasNotes ? (root.bar ? root.bar.barForeground : Color.foreground) : "#9b9b9b"
     tooltipText: root.notesService?.activeNotes
       ? "Notes: " + root.notesService.activeNotes.count + " (including handoffs)\n" + root.notesService.activeNotes.cwd
       : "Notes"

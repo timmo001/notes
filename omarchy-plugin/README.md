@@ -61,7 +61,9 @@ This requires Herdr protocol 22 and a Notes version with `active-count`. The CLI
 uses the SDK's normal socket selection (`HERDR_SOCKET_PATH`, `HERDR_SESSION`,
 then the default socket), inherited from `omarchy-shell`. The count follows that
 Herdr server's focused pane. When Herdr or its working directory is unavailable,
-the widget shows only the Notes icon. A project with no notes shows `0`.
+the widget shows only the muted Notes icon. A project with no notes also shows
+the muted icon without a number. The icon and count use the same 10px font size
+as the Git widget.
 
 Type in a list or action view to filter or search. Use Up and Down to move,
 Enter to select, Escape to clear the current filter and then go back, and Tab
