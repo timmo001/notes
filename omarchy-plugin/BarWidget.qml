@@ -109,7 +109,7 @@ BarWidget {
     bar: root.bar
     fontSize: 10
     text: "󰠮" + (root.hasNotes ? " " + root.notesService.activeNotes.count : "")
-    foreground: root.hasNotes ? "#c0c0c0" : "#9b9b9b"
+    foreground: root.hasNotes ? "#b0bec5" : "#9b9b9b"
     tooltipText: root.notesService?.activeNotes
       ? "Notes: " + root.notesService.activeNotes.count + " (including handoffs)\n" + root.notesService.activeNotes.cwd
       : "Notes"
