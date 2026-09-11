@@ -60,10 +60,11 @@ Repository and priority groups in All notes and Handoffs can be collapsed with
 a click or Enter on the heading. Each view remembers its collapsed groups while
 the panel is loaded. Search shows matching notes regardless of collapsed groups.
 
-The Current workspace heading has a refresh button that rechecks the attached
-directory and reloads its notes and handoffs. All notes and All handoffs each
-have one heading-level refresh button for the complete listing and any active
-search. Refresh keeps the current view, filters, collapsed groups, and selected
+The workspace heading shows the provider's `workspace.label`, falling back to
+Current workspace when no name is supplied. Its refresh button rechecks the
+attached directory and reloads its notes and handoffs. All notes and All handoffs
+each have one heading-level refresh button for the complete listing and any
+active search. Refresh keeps the current view, filters, collapsed groups, and selected
 row where it still exists. The buttons are disabled while their refresh is running.
 Ctrl+R refreshes the full listing, workspace context, and any active search.
 

@@ -117,7 +117,7 @@ Panel {
       secondaryText: detail || "", icon: icon || "" }
   }
   function headingRow(value, count, icon, collapsible, refreshScope) {
-    var key = "heading:" + view + ":" + groupMode + ":" + value
+    var key = "heading:" + view + ":" + groupMode + ":" + (refreshScope === "workspace" ? "workspace" : value)
     return { key: key, kind: "heading", collapsible: collapsible === true,
       collapsed: collapsedGroups[key] === true,
       primaryText: String(value) + (count === undefined ? "" : " · " + count + (count === 1 ? " note" : " notes")),
@@ -186,7 +186,7 @@ Panel {
         for (var o = 0; o < overviewNotes.length; o++) rows.push(noteRow(overviewNotes[o], o))
       } else {
         if (service?.activeNotes?.attached === true && Array.isArray(service.activeNotes.notePaths)) {
-          rows.push(headingRow("Current workspace", workspaceNotes.length, "", false, "workspace"))
+          rows.push(headingRow(service.workspaceContext?.label || "Current workspace", workspaceNotes.length, "", false, "workspace"))
           for (var w = 0; w < workspaceNotes.length; w++) rows.push(noteRow(workspaceNotes[w], w))
         }
         rows.push(headingRow("Actions", undefined, "󰒓"))

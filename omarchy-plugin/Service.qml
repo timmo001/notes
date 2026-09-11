@@ -85,7 +85,8 @@ Item {
       contextGeneration++
       activeNotes = null
     }
-    workspaceContext = value ? { key: key, cwd: value.cwd } : null
+    workspaceContext = value ? { key: key, cwd: value.cwd,
+      label: typeof value.workspace?.label === "string" ? value.workspace.label.trim() : "" } : null
     activeListPending = workspaceContext !== null
     if (!workspaceContext) activeNotes = null
     startActiveList()
