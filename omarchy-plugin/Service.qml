@@ -14,6 +14,8 @@ Item {
   property string selectedContent: ""
   property string selectedHash: ""
   property bool loaded: false
+  readonly property bool refreshing: listProcess.running
+  readonly property bool refreshingWorkspace: contextProcess.running || activeCountProcess.running || activeListPending
   property bool searching: false
   property bool reading: false
   property bool mutating: mutationProcess.running || mutationQueue.length > 0
@@ -203,15 +205,16 @@ Item {
     onStarted: startedSuccessfully = true
     onExited: function(exitCode) {
       if (generation === root.contextGeneration && root.workspaceContext) {
-        root.activeNotes = null
+        var activeNotes = null
         if (exitCode === 0) {
           try {
             var entries = JSON.parse(String(activeCountOutput.text || "null"))
             if (Array.isArray(entries) && entries.every(function(entry) { return entry && typeof entry.filePath === "string" }))
-              root.activeNotes = { attached: true, cwd: root.workspaceContext.cwd, count: entries.length,
+              activeNotes = { attached: true, cwd: root.workspaceContext.cwd, count: entries.length, entries: entries,
                 notePaths: entries.map(function(entry) { return entry.filePath }) }
           } catch (error) {}
         }
+        root.activeNotes = activeNotes
       }
       root.startActiveList()
     }

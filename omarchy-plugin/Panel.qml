@@ -63,14 +63,14 @@ Panel {
   readonly property bool canCapture: captureAvailable && captureInput.text.trim().length > 0
     && captureInput.text.trim().length <= 12000
   readonly property var workspaceNotes: {
-    var paths = service?.activeNotes?.notePaths
-    if (!Array.isArray(paths)) return []
-    return service.entries.filter(function(note) { return paths.indexOf(note.filePath) >= 0 })
+    var entries = service?.activeNotes?.entries
+    if (!Array.isArray(entries)) return []
+    return entries.slice()
       .sort(function(a, b) { return Number(b.mtime || 0) - Number(a.mtime || 0) })
   }
   readonly property var panelRows: buildRows()
   readonly property var visibleRows: filterController.filteredModel
-  readonly property var navigationRows: visibleRows.filter(function(row) { return row.kind !== "heading" || row.collapsible })
+  readonly property var navigationRows: visibleRows.filter(function(row) { return row.kind !== "heading" || row.collapsible || row.refreshScope })
   readonly property bool rankedSearchActive: (view === "overview" || view === "notes" || view === "handoffs")
     && filterController.filterText.trim() !== ""
 
@@ -116,12 +116,12 @@ Panel {
     return { key: "action:" + action, kind: "action", action: action, primaryText: label,
       secondaryText: detail || "", icon: icon || "" }
   }
-  function headingRow(value, count, icon, collapsible) {
+  function headingRow(value, count, icon, collapsible, refreshScope) {
     var key = "heading:" + view + ":" + groupMode + ":" + value
     return { key: key, kind: "heading", collapsible: collapsible === true,
       collapsed: collapsedGroups[key] === true,
       primaryText: String(value) + (count === undefined ? "" : " · " + count + (count === 1 ? " note" : " notes")),
-      secondaryText: "", icon: icon || "" }
+      secondaryText: "", icon: icon || "", refreshScope: refreshScope || "" }
   }
   function noteRow(note, index) {
     return { key: "note:" + String(note.filePath || index), kind: "note", value: note,
@@ -186,7 +186,7 @@ Panel {
         for (var o = 0; o < overviewNotes.length; o++) rows.push(noteRow(overviewNotes[o], o))
       } else {
         if (service?.activeNotes?.attached === true && Array.isArray(service.activeNotes.notePaths)) {
-          rows.push(headingRow("Current workspace", workspaceNotes.length, ""))
+          rows.push(headingRow("Current workspace", workspaceNotes.length, "", false, "workspace"))
           for (var w = 0; w < workspaceNotes.length; w++) rows.push(noteRow(workspaceNotes[w], w))
         }
         rows.push(headingRow("Actions", undefined, "󰒓"))
@@ -204,6 +204,7 @@ Panel {
       rows.push(actionRow("sort", "Sort: " + sortField + " " + (sortAscending ? "ascending" : "descending"), "Enter to change", "󰒺"))
       rows.push(actionRow("group", "Group: " + groupMode, "repo, priority, or none", "󰙅"))
       var notes = filteredNotes()
+      rows.push(headingRow(view === "handoffs" ? "All handoffs" : "All notes", notes.length, view === "handoffs" ? "󰊢" : "󰠮", false, "all"))
       for (var i = 0; i < notes.length; i++) {
         var group = noteGroup(notes[i])
         if (!rankedSearchActive && group && (i === 0 || group !== noteGroup(notes[i - 1]))) {
@@ -244,6 +245,7 @@ Panel {
   }
   function activate(entry) {
     if (entry.kind === "heading") {
+      if (entry.refreshScope) { refreshHeading(entry.refreshScope); return }
       if (!entry.collapsible) return
       var next = Object.assign({}, collapsedGroups)
       next[entry.key] = !entry.collapsed
@@ -290,6 +292,19 @@ Panel {
       pendingMutation = "move"; service.moveNote(selectedNote.filePath, action.slice(5))
     } else if (action === "confirm-delete" && !pendingMutation) {
       pendingMutation = "delete"; service.deleteNote(selectedNote.filePath)
+    }
+  }
+  function refreshHeading(scope) {
+    if (!service) return
+    if (scope === "workspace") {
+      if (!service.refreshingWorkspace) service.refreshActiveCount()
+    } else {
+      if (service.refreshing || service.searching) return
+      service.refresh()
+      if (rankedSearchActive) {
+        searchTimer.stop()
+        service.search(filterController.filterText, view === "handoffs" ? "handoff" : "")
+      }
     }
   }
   function cursorItem() {
@@ -482,7 +497,7 @@ Panel {
       onActivateRequested: function(entry) { root.activate(entry) }
       onBackRequested: root.back()
       onCloseRequested: root.close()
-      onRefreshRequested: if (root.service) root.service.refresh()
+      onRefreshRequested: root.refreshHeading("all")
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Flickable {
@@ -534,11 +549,15 @@ Panel {
                   iconText: modelData.icon || ""
                   collapsible: modelData.collapsible === true
                   collapsed: modelData.collapsed === true
-                  hasCursor: collapsible && filterController.cursorIndex === filterController.indexForKey(modelData.key)
+                  refreshable: !!modelData.refreshScope
+                  refreshing: root.service ? (modelData.refreshScope === "workspace" ? root.service.refreshingWorkspace : root.service.refreshing || root.service.searching) : false
+                  hasCursor: (collapsible || refreshable) && filterController.cursorIndex === filterController.indexForKey(modelData.key)
                   foreground: root.foreground
                   fontFamily: root.fontFamily
                   onToggleHovered: filterController.cursorIndex = filterController.indexForKey(modelData.key)
                   onToggleRequested: root.activate(modelData)
+                  onRefreshHovered: filterController.cursorIndex = filterController.indexForKey(modelData.key)
+                  onRefreshRequested: root.refreshHeading(modelData.refreshScope)
                 }
                 CursorSurface {
                   id: rowSurface
@@ -558,7 +577,7 @@ Panel {
                 }
               }
             }
-            Text { visible: root.visibleRows.length === 0; width: parent.width; text: root.service && root.service.error ? root.service.error : "No matching notes"; color: Qt.darker(root.foreground, 1.4); font.family: root.fontFamily; horizontalAlignment: Text.AlignHCenter }
+            Text { visible: root.visibleRows.length === 0 || !!root.service?.error || ((root.view === "notes" || root.view === "handoffs") && root.filteredNotes().length === 0); width: parent.width; text: root.service && root.service.error ? root.service.error : "No matching notes"; color: Qt.darker(root.foreground, 1.4); font.family: root.fontFamily; horizontalAlignment: Text.AlignHCenter }
           }
 
           Column {

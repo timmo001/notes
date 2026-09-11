@@ -8,6 +8,7 @@ Item {
   property var navigationModel: null
   property string filterText: ""
   property int cursorIndex: 0
+  property string cursorKey: ""
   property bool cursorActive: true
   property bool keyboardEnabled: true
   property bool bypassFilter: false
@@ -26,8 +27,14 @@ Item {
   focus: true
   Keys.priority: Keys.BeforeItem
   Keys.enabled: keyboardEnabled
-  onFilteredModelChanged: { clampCursor(); revealRequested() }
-  onNavigationEntriesChanged: { clampCursor(); revealRequested() }
+  onCursorIndexChanged: cursorKey = navigationEntries[cursorIndex]?.key || ""
+  onNavigationEntriesChanged: {
+    var index = indexForKey(cursorKey)
+    if (index >= 0) cursorIndex = index
+    else clampCursor()
+    cursorKey = navigationEntries[cursorIndex]?.key || ""
+    revealRequested()
+  }
 
   function filterModel(entries, query) {
     var term = String(query || "").trim().toLowerCase()
