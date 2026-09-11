@@ -15,7 +15,7 @@ Item {
   property string selectedHash: ""
   property bool loaded: false
   readonly property bool refreshing: listProcess.running
-  readonly property bool refreshingWorkspace: contextProcess.running || activeCountProcess.running || activeListPending
+  property bool refreshingWorkspace: false
   property bool searching: false
   property bool reading: false
   property bool mutating: mutationProcess.running || mutationQueue.length > 0
@@ -31,18 +31,35 @@ Item {
   property var activeMutation: null
   property var activeNotes: null
   property string workspaceContextCommand: ""
+  property string workspaceContextFile: ""
+  property string workspaceContextRefreshCommand: ""
+  readonly property string workspaceContextPath: !workspaceContextFile.trim() ? ""
+    : (workspaceContextFile.charAt(0) === "/" ? workspaceContextFile : Quickshell.env("XDG_RUNTIME_DIR") + "/" + workspaceContextFile)
+  property bool awaitingWorkspaceContext: false
   property var workspaceContext: null
   property int contextGeneration: 0
   property int providerGeneration: 0
   property bool activeListPending: false
 
   onWorkspaceContextCommandChanged: {
+    if (workspaceContextPath) return
     providerGeneration++
     contextGeneration++
     workspaceContext = null
     activeNotes = null
     activeListPending = false
     refreshActiveCount()
+  }
+  onWorkspaceContextFileChanged: {
+    providerGeneration++
+    contextGeneration++
+    workspaceContext = null
+    activeNotes = null
+    activeListPending = false
+    awaitingWorkspaceContext = false
+    refreshingWorkspace = false
+    workspaceRefreshTimeout.stop()
+    if (!workspaceContextFile.trim()) refreshActiveCount()
   }
 
   signal mutationCompleted(string kind, bool success, var result, string error)
@@ -63,33 +80,61 @@ Item {
     return flattened
   }
 
-  function refresh() {
-    refreshActiveCount()
+  function refresh(manual) {
+    refreshActiveCount(manual)
     listGeneration++
     if (!listProcess.running) startList(listGeneration)
     if (!agentsProcess.running) agentsProcess.running = true
     if (!targetsProcess.running) targetsProcess.running = true
   }
-  function refreshActiveCount() {
-    if (!workspaceContextCommand.trim() || contextProcess.running) return
+  function refreshActiveCount(manual) {
+    if (manual === true) {
+      refreshingWorkspace = true
+      workspaceRefreshTimeout.restart()
+    }
+    if (workspaceContextPath) {
+      if (workspaceContextRefreshCommand.trim()) {
+        awaitingWorkspaceContext = true
+        workspaceRefreshTimeout.restart()
+        if (!contextRefreshProcess.running) {
+          contextRefreshProcess.generation = providerGeneration
+          contextRefreshProcess.startedSuccessfully = false
+          contextRefreshProcess.command = ["bash", "-lc", workspaceContextRefreshCommand]
+          contextRefreshProcess.running = true
+        }
+      } else {
+        awaitingWorkspaceContext = true
+        workspaceFile.reload()
+      }
+      return
+    }
+    if (!workspaceContextCommand.trim()) { finishWorkspaceRefresh(); return }
+    if (contextProcess.running) return
     contextProcess.generation = providerGeneration
     contextProcess.command = ["bash", "-lc", workspaceContextCommand]
     contextProcess.startedSuccessfully = false
     contextProcess.running = true
   }
-  function applyWorkspaceContext(value) {
+  function finishWorkspaceRefresh() {
+    if (awaitingWorkspaceContext || contextProcess.running || contextRefreshProcess.running || activeCountProcess.running || activeListPending) return
+    refreshingWorkspace = false
+    workspaceRefreshTimeout.stop()
+  }
+  function applyWorkspaceContext(value, reloadNotes) {
     if (!value || value.attached !== true || typeof value.cwd !== "string"
         || value.cwd.charAt(0) !== "/" || value.cwd.indexOf("\u0000") >= 0) value = null
-    var key = value ? JSON.stringify([value.session ? value.session.socketPath : null, value.pane ? value.pane.id : null, value.cwd]) : ""
-    if (key !== (workspaceContext ? workspaceContext.key : "")) {
+    var key = value ? JSON.stringify([value.session ? value.session.socketPath : null, value.cwd]) : ""
+    var changed = key !== (workspaceContext ? workspaceContext.key : "")
+    if (changed) {
       contextGeneration++
       activeNotes = null
     }
     workspaceContext = value ? { key: key, cwd: value.cwd,
       label: typeof value.workspace?.label === "string" ? value.workspace.label.trim() : "" } : null
-    activeListPending = workspaceContext !== null
+    activeListPending = workspaceContext !== null && (changed || reloadNotes === true || !activeNotes)
     if (!workspaceContext) activeNotes = null
     startActiveList()
+    finishWorkspaceRefresh()
   }
   function startActiveList() {
     if (!activeListPending || !workspaceContext || activeCountProcess.running) return
@@ -175,10 +220,59 @@ Item {
   }
 
   Timer {
-    interval: 3000
+    interval: 30000
     running: true
     repeat: true
-    onTriggered: root.refreshActiveCount()
+    onTriggered: {
+      if (!root.workspaceContextPath) root.refreshActiveCount()
+      else if (root.workspaceContext) {
+        root.activeListPending = true
+        root.startActiveList()
+      }
+    }
+  }
+  Timer {
+    id: workspaceRefreshTimeout
+    interval: 8000
+    onTriggered: {
+      root.awaitingWorkspaceContext = false
+      root.refreshingWorkspace = false
+    }
+  }
+  FileView {
+    id: workspaceFile
+    path: root.workspaceContextPath
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      if (!root.workspaceContextPath) return
+      var reloadNotes = root.awaitingWorkspaceContext
+      root.awaitingWorkspaceContext = false
+      var value = null
+      try { value = JSON.parse(text()) } catch (error) {}
+      root.applyWorkspaceContext(value, reloadNotes)
+    }
+    onLoadFailed: {
+      if (!root.workspaceContextPath) return
+      root.awaitingWorkspaceContext = false
+      root.applyWorkspaceContext(null)
+    }
+  }
+  Process {
+    id: contextRefreshProcess
+    property int generation: 0
+    property bool startedSuccessfully: false
+    onStarted: startedSuccessfully = true
+    onExited: function(exitCode) {
+      if (generation !== root.providerGeneration) return
+      if (exitCode !== 0) root.awaitingWorkspaceContext = false
+      root.finishWorkspaceRefresh()
+    }
+    onRunningChanged: if (!running && !startedSuccessfully) {
+      root.awaitingWorkspaceContext = false
+      root.finishWorkspaceRefresh()
+    }
   }
   Process {
     id: contextProcess
@@ -193,9 +287,13 @@ Item {
         try { value = JSON.parse(String(contextOutput.text || "null")) }
         catch (error) {}
       }
-      root.applyWorkspaceContext(value)
+      root.applyWorkspaceContext(value, true)
+      root.finishWorkspaceRefresh()
     }
-    onRunningChanged: if (!running && !startedSuccessfully) root.applyWorkspaceContext(null)
+    onRunningChanged: if (!running && !startedSuccessfully) {
+      root.applyWorkspaceContext(null)
+      root.finishWorkspaceRefresh()
+    }
   }
   Process {
     id: activeCountProcess
@@ -218,8 +316,12 @@ Item {
         root.activeNotes = activeNotes
       }
       root.startActiveList()
+      root.finishWorkspaceRefresh()
     }
-    onRunningChanged: if (!running && !startedSuccessfully) root.activeNotes = null
+    onRunningChanged: if (!running && !startedSuccessfully) {
+      root.activeNotes = null
+      root.finishWorkspaceRefresh()
+    }
   }
   Process {
     id: listProcess

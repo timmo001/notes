@@ -21,9 +21,25 @@
     "defaults": {
       "primaryOnly": true,
       "primaryOutput": "",
-      "workspaceContextCommand": ""
+      "workspaceContextCommand": "",
+      "workspaceContextFile": "",
+      "workspaceContextRefreshCommand": ""
     },
     "schema": [
+      {
+        "key": "workspaceContextFile",
+        "type": "string",
+        "label": "Workspace context file",
+        "defaultValue": "",
+        "description": "Optional watched JSON file. Relative paths use XDG_RUNTIME_DIR. Takes precedence over command polling."
+      },
+      {
+        "key": "workspaceContextRefreshCommand",
+        "type": "string",
+        "label": "Workspace context refresh command",
+        "defaultValue": "",
+        "description": "Optional command requesting a fresh context file when opening or refreshing the panel."
+      },
       {
         "key": "workspaceContextCommand",
         "type": "string",

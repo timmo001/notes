@@ -297,10 +297,10 @@ Panel {
   function refreshHeading(scope) {
     if (!service) return
     if (scope === "workspace") {
-      if (!service.refreshingWorkspace) service.refreshActiveCount()
+      if (!service.refreshingWorkspace) service.refreshActiveCount(true)
     } else {
       if (service.refreshing || service.searching) return
-      service.refresh()
+      service.refresh(true)
       if (rankedSearchActive) {
         searchTimer.stop()
         service.search(filterController.filterText, view === "handoffs" ? "handoff" : "")
