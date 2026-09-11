@@ -28,6 +28,20 @@ Item {
   property var mutationQueue: []
   property var activeMutation: null
   property var activeNotes: null
+  property string workspaceContextCommand: ""
+  property var workspaceContext: null
+  property int contextGeneration: 0
+  property int providerGeneration: 0
+  property bool activeListPending: false
+
+  onWorkspaceContextCommandChanged: {
+    providerGeneration++
+    contextGeneration++
+    workspaceContext = null
+    activeNotes = null
+    activeListPending = false
+    refreshActiveCount()
+  }
 
   signal mutationCompleted(string kind, bool success, var result, string error)
   signal readCompleted(bool success)
@@ -55,7 +69,30 @@ Item {
     if (!targetsProcess.running) targetsProcess.running = true
   }
   function refreshActiveCount() {
-    if (activeCountProcess.running) return
+    if (!workspaceContextCommand.trim() || contextProcess.running) return
+    contextProcess.generation = providerGeneration
+    contextProcess.command = ["bash", "-lc", workspaceContextCommand]
+    contextProcess.startedSuccessfully = false
+    contextProcess.running = true
+  }
+  function applyWorkspaceContext(value) {
+    if (!value || value.attached !== true || typeof value.cwd !== "string"
+        || value.cwd.charAt(0) !== "/" || value.cwd.indexOf("\u0000") >= 0) value = null
+    var key = value ? JSON.stringify([value.session ? value.session.socketPath : null, value.pane ? value.pane.id : null, value.cwd]) : ""
+    if (key !== (workspaceContext ? workspaceContext.key : "")) {
+      contextGeneration++
+      activeNotes = null
+    }
+    workspaceContext = value ? { key: key, cwd: value.cwd } : null
+    activeListPending = workspaceContext !== null
+    if (!workspaceContext) activeNotes = null
+    startActiveList()
+  }
+  function startActiveList() {
+    if (!activeListPending || !workspaceContext || activeCountProcess.running) return
+    activeListPending = false
+    activeCountProcess.generation = contextGeneration
+    activeCountProcess.workingDirectory = workspaceContext.cwd
     activeCountProcess.startedSuccessfully = false
     activeCountProcess.running = true
   }
@@ -141,21 +178,42 @@ Item {
     onTriggered: root.refreshActiveCount()
   }
   Process {
+    id: contextProcess
+    property bool startedSuccessfully: false
+    property int generation: 0
+    stdout: StdioCollector { id: contextOutput; waitForEnd: true }
+    onStarted: startedSuccessfully = true
+    onExited: function(exitCode) {
+      if (generation !== root.providerGeneration) { root.refreshActiveCount(); return }
+      var value = null
+      if (exitCode === 0) {
+        try { value = JSON.parse(String(contextOutput.text || "null")) }
+        catch (error) {}
+      }
+      root.applyWorkspaceContext(value)
+    }
+    onRunningChanged: if (!running && !startedSuccessfully) root.applyWorkspaceContext(null)
+  }
+  Process {
     id: activeCountProcess
     property bool startedSuccessfully: false
-    command: ["notes", "active-count"]
+    property int generation: 0
+    command: ["notes", "list", "--format", "json"]
     stdout: StdioCollector { id: activeCountOutput; waitForEnd: true }
     onStarted: startedSuccessfully = true
     onExited: function(exitCode) {
-      if (exitCode !== 0) { root.activeNotes = null; return }
-      try {
-        var value = JSON.parse(String(activeCountOutput.text || "null"))
-        if (value && typeof value.cwd === "string" && value.cwd !== ""
-            && typeof value.count === "number" && isFinite(value.count)
-            && value.count >= 0 && Math.floor(value.count) === value.count)
-          root.activeNotes = value
-        else root.activeNotes = null
-      } catch (error) { root.activeNotes = null }
+      if (generation === root.contextGeneration && root.workspaceContext) {
+        root.activeNotes = null
+        if (exitCode === 0) {
+          try {
+            var entries = JSON.parse(String(activeCountOutput.text || "null"))
+            if (Array.isArray(entries) && entries.every(function(entry) { return entry && typeof entry.filePath === "string" }))
+              root.activeNotes = { attached: true, cwd: root.workspaceContext.cwd, count: entries.length,
+                notePaths: entries.map(function(entry) { return entry.filePath }) }
+          } catch (error) {}
+        }
+      }
+      root.startActiveList()
     }
     onRunningChanged: if (!running && !startedSuccessfully) root.activeNotes = null
   }

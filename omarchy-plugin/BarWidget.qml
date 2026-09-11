@@ -24,6 +24,7 @@ BarWidget {
   readonly property bool activeInstance: !primaryOnly
     || (currentOutput !== "" && currentOutput === activeOutput)
   readonly property var notesService: bar?.shell?.serviceFor("timmo.notes")
+  readonly property string workspaceContextCommand: setting("workspaceContextCommand", "")
   readonly property bool hasNotes: (notesService?.activeNotes?.count ?? 0) > 0
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property bool popoutSwitchClosing: panelLoader.item
@@ -60,6 +61,8 @@ BarWidget {
     if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
   }
   function injectPanel() {
+    if (root.activeInstance && root.notesService)
+      root.notesService.workspaceContextCommand = root.workspaceContextCommand
     var target = panelLoader.item
     if (!target) return
     target.bar = bar
@@ -76,6 +79,8 @@ BarWidget {
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
   onNotesServiceChanged: injectPanel()
+  onWorkspaceContextCommandChanged: injectPanel()
+  onActiveInstanceChanged: injectPanel()
 
   Loader {
     id: panelLoader

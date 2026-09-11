@@ -51,28 +51,31 @@ Select the Notes bar widget to open the overview. It provides:
 - native note and handoff creation
 - local capture with draft recovery and queued submission
 
-The overview lists the current Herdr workspace's notes above the actions,
-including handoffs. Capture note appears immediately above All notes.
+With a workspace context provider configured, the overview lists the attached
+workspace's notes above the actions, including handoffs. Capture note appears
+immediately above All notes.
 Workspace, action, repository, and priority headings use the Git panel's framed
 section-heading style with icons.
 Repository and priority groups in All notes and Handoffs can be collapsed with
 a click or Enter on the heading. Each view remembers its collapsed groups while
 the panel is loaded. Search shows matching notes regardless of collapsed groups.
 
-The bar shows the note count for the focused Herdr pane's project, including
-handoffs. It refreshes every three seconds using `notes active-count` and the
-Notes CLI's bundled `@herdr/sdk`. The foreground working directory takes
-precedence over the pane's shell directory. Project identity follows the normal
-Notes remote and local-scope rules.
+The bar and workspace section share one context result. Set
+`workspaceContextCommand` to a command that returns a JSON object with
+`attached: boolean` and `cwd: string | null`, such as
+`dot herdr context --json`. The command runs through `bash -lc` every three
+seconds. Exit non-zero when detection fails; return `attached: false` when no
+terminal client is attached. Additional JSON fields are allowed.
 
-The workspace section requires `notes active-count` to return `notePaths`.
-This requires Herdr protocol 22 and a Notes version with `active-count`. The CLI
-uses the SDK's normal socket selection (`HERDR_SOCKET_PATH`, `HERDR_SESSION`,
-then the default socket), inherited from `omarchy-shell`. The count follows that
-Herdr server's focused pane. When Herdr or its working directory is unavailable,
-the widget shows only the muted Notes icon. A project with no notes also shows
-the muted icon without a number. The icon and count use the same 10px font size
-as the Git widget.
+For attached context with an absolute directory, the plugin runs
+`notes list --format json` in that directory. Project identity follows the normal
+Notes remote and local-scope rules. Changing directory or detaching clears the
+old count immediately when observed; late list responses cannot restore it.
+Context remains visible while the terminal is attached even if another desktop
+window has focus. An empty provider or a failed context/list command hides the
+workspace section and leaves the muted Notes icon without a number. An attached
+project with zero notes keeps its workspace heading and muted icon. The icon
+and count use the same 10px font size as the Git widget.
 
 Type in a list or action view to filter or search. Use Up and Down to move,
 Enter to select, Escape to clear the current filter and then go back, and Tab
@@ -122,6 +125,7 @@ restarts. A failed submission saves the text and sends a local notification.
 
 ## Settings
 
+- `workspaceContextCommand`: optional workspace JSON provider; empty by default
 - `primaryOnly`: show the widget only on the selected output, enabled by default
 - `primaryOutput`: output name used by `primaryOnly`; the first available
   output is used when this is empty or unavailable

@@ -185,7 +185,7 @@ Panel {
         var overviewNotes = filteredNotes()
         for (var o = 0; o < overviewNotes.length; o++) rows.push(noteRow(overviewNotes[o], o))
       } else {
-        if (Array.isArray(service?.activeNotes?.notePaths)) {
+        if (service?.activeNotes?.attached === true && Array.isArray(service.activeNotes.notePaths)) {
           rows.push(headingRow("Current workspace", workspaceNotes.length, ""))
           for (var w = 0; w < workspaceNotes.length; w++) rows.push(noteRow(workspaceNotes[w], w))
         }

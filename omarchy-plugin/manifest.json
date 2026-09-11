@@ -20,9 +20,17 @@
     "defaultSection": "right",
     "defaults": {
       "primaryOnly": true,
-      "primaryOutput": ""
+      "primaryOutput": "",
+      "workspaceContextCommand": ""
     },
     "schema": [
+      {
+        "key": "workspaceContextCommand",
+        "type": "string",
+        "label": "Workspace context command",
+        "defaultValue": "",
+        "description": "Optional command returning JSON with attached and cwd. Empty disables workspace context."
+      },
       {
         "key": "primaryOnly",
         "type": "boolean",
