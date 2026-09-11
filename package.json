@@ -24,7 +24,7 @@
     "@opentui/core": "^0.5.0",
     "@timmo001/effect-gh": "github:timmo001/effect-gh#b1bce7c9a1054af1acca5f2c719a82c3d2847b80",
     "@tuiparts/core": "^0.0.6",
-    "effect": "4.0.0-rc.112",
+    "effect": "4.0.0-rc.115",
     "fuse.js": "^7.5.0",
     "proper-lockfile": "^4.1.2",
     "yaml": "^2.9.0"
