@@ -16,8 +16,16 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Keep CLI definitions and metadata in the Effect `Command` tree in `src/index.ts`; help, completions, and generated docs consume it.
 - Regenerate generated docs with `mise run docs:gen` after changing CLI or MCP metadata.
 - Do not hand-edit generated docs pages.
-- Keep portable Notes skills under `.agents/skills/`. Keep OpenCode plugins, commands, guards, and integration-specific skills in dotfiles/opencode-config.
+- Keep portable Notes skills under `.agents/skills/`, with separate `notes-cli` and `notes-mcp` workflows. Keep OpenCode plugins, commands, guards, and integration-specific skills in dotfiles/opencode-config.
 - Repository notes live under `projects/{owner}/{repo}`. When no repository can be resolved, use the local scope under `projects/local/{project}`; automated captures use `projects/local/captures`.
+
+## Skill Ownership And Updates
+
+- This repository owns `.agents/skills/notes-cli/SKILL.md` and `.agents/skills/notes-mcp/SKILL.md`.
+- `timmo001/skills` imports only `notes-cli` as an unchanged snapshot. Edit the source here, not the imported or installed copy. `notes-mcp` remains available from this repository for explicit MCP use.
+- Update order: `notes` source -> `skills` import -> dotfiles skills submodule -> `dot stow`.
+- After an authorised source commit and push, run `./dist/skill-maintenance import notes-cli --apply` in the skills checkout. Review and validate the imported snapshot and its `imports.json` revision before committing and pushing skills.
+- Then advance `agents/.agents/skills` in dotfiles to that skills commit, commit the pointer with any companion command changes, and run `dot stow`. Each commit or push still requires user authorisation.
 
 ## Docs Dev Server
 

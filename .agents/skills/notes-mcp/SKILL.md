@@ -1,6 +1,8 @@
 ---
 name: notes-mcp
-description: Use the Notes MCP server to list, read, create, update, or delete repository notes safely. Use when working directly with note_list, note_read, note_write, or note_delete, including client-prefixed forms such as notes_note_write.
+description: Use the Notes MCP server to list, read, create, update, or delete repository notes. Use for note_list, note_read, note_write, and note_delete tool calls, including client-prefixed names. For shell-based Notes commands, use notes-cli instead.
+license: Apache-2.0
+compatibility: Requires an enabled Notes MCP server and access to its note tools and repository context resource.
 ---
 
 # Notes MCP
