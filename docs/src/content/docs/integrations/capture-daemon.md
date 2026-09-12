@@ -1,9 +1,9 @@
 ---
 title: Capture processor
-description: Process queued or direct captures through a local OpenCode server.
+description: Process queued or direct captures through the OpenCode CLI.
 ---
 
-The notes daemon polls a private GitHub issue queue, claims each issue with a temporary processing label, submits its captured text to a local password-protected OpenCode server, and posts the result before closing the issue.
+The notes daemon polls a private GitHub issue queue, claims each issue with a temporary processing label, runs its captured text through a standalone OpenCode command, and posts the result before closing the issue.
 
 The same processor also accepts a capture directly, without the web app or GitHub queue:
 
@@ -15,7 +15,7 @@ printf 'Investigate this note' | notes capture \
   --json
 ```
 
-Omit `--repository` to use Automatic repository resolution. Check whether the configured OpenCode server is ready with `notes capture --config ~/.config/notes/daemon.yml --status --json`. Both forms require `OPENCODE_SERVER_PASSWORD`; the capture form validates the same version 1 text, timestamp, request ID, source, and optional repository fields as the web capture.
+Omit `--repository` to use Automatic repository resolution. Check whether the configured executable is available with `notes capture --config ~/.config/notes/daemon.yml --status --json`. This check does not start OpenCode or a model. The capture form validates the same version 1 text, timestamp, request ID, source, and optional repository fields as the web capture.
 
 The [Notes Capture Omarchy plugin](/integrations/omarchy-capture/) uses this
 direct mode through a host-owned wrapper. Direct captures do not need GitHub
@@ -27,14 +27,15 @@ Run one pass while testing configuration:
 notes daemon --config ~/.config/notes/daemon.yml --once
 ```
 
-Omit `--once` for the supervised polling loop. Set `OPENCODE_SERVER_PASSWORD` in the service environment. `OPENCODE_SERVER_USERNAME` is optional and defaults to `opencode`.
+Omit `--once` for the supervised polling loop. Both modes use the same command configuration and model fallback chain.
 
 ```yaml
 repository: owner/private-notes
 queueLabel: agent:ready
 workerId: desktop
 workerActor: github-user
-opencodeUrl: http://127.0.0.1:4097
+opencodeCommand: opencode2
+opencodeArgs: []
 opencodeDirectory: ~/.config/dotfiles
 opencodeAgent: notes-daemon
 opencodeModels:
@@ -59,9 +60,11 @@ pollIntervalSeconds: 30
 
 The GitHub CLI must be authenticated with issue and repository write access. Each daemon process claims an issue with a visible `agent:processing:<workerId>:<id>` label and deletes that temporary label when processing finishes. A process proceeds only while its label is the sole processing label on the issue.
 
-The daemon uses a separate loopback-only OpenCode 2 server on port 4097. Its base configuration and `notes-daemon` agent live under `.opencode-daemon/` in this repository rather than the interactive global OpenCode configuration. The service generates an isolated runtime configuration with the private `allowedReadPaths` and separate XDG config, data, state, and cache directories. External skills and project config are disabled. Only the read-only GitHub, Exa search, and Notes MCP servers are configured.
+`opencodeCommand` is an optional executable name or path, defaulting to `opencode2`. `opencodeArgs` is an optional argv prefix, defaulting to `[]`. Notes appends `run --standalone --format json --agent notes-daemon --model provider/model#variant --title ... -- prompt` and uses `opencodeDirectory` as the working directory. Arguments are passed literally without a shell; only a leading `~` in the executable path is expanded. A configured wrapper can supply isolated OpenCode configuration or additional process limits. Readiness checks only that executable, not its prefix arguments or model access.
 
-`opencodeModels` is an ordered fallback chain. Each model gets a fresh OpenCode 2 session and the daemon interrupts and deletes a failed session before trying the next entry. A model result must explicitly report success after writing the note; a reported failure or malformed result also advances to the next model. `sessionTimeoutSeconds` applies to each model attempt, so `passTimeoutSeconds` must leave enough time for every configured attempt and cleanup.
+The host owns the dedicated `notes-daemon` agent and its OpenCode configuration. Configure its read paths, tools, model credentials, and isolation before processing captures.
+
+`opencodeModels` is an ordered fallback chain. Each model gets a fresh standalone OpenCode process. Notes reads final assistant text from stdout JSON events and keeps stderr separate. A model result must explicitly report success after writing the note; a reported failure, malformed result, command failure, or timeout advances to the next model. `sessionTimeoutSeconds` applies to each model attempt, so `passTimeoutSeconds` must leave enough time for every configured attempt and cleanup.
 
 The dedicated agent fails closed for unknown tools. It allows built-in read/search operations, Exa search, authenticated read-only GitHub tools, and Notes MCP list/read/write. External filesystem reads are denied except for `allowedReadPaths`; write/edit/patch tools remain denied for every path. It also denies questions, delegation, planning mode, shell execution, browser control, Chrome DevTools, and note deletion. Any unexpected permission or question request aborts the job instead of waiting for input.
 
@@ -73,4 +76,4 @@ OpenCode infers the target repository from the capture and writes under `project
 
 Claim labels are ownership checked before GitHub mutations. The daemon does not automatically take over stale claims; remove an `agent:processing:*` label manually only after confirming its worker is no longer processing the issue.
 
-Session, queue-pass, and external command timeouts are configured in daemon YAML. OpenCode sessions are interrupted and deleted on success, failure, timeout, or interruption. Persistent pass failures exit after the configured threshold so systemd can restart the daemon.
+Session, queue-pass, and external command timeouts are configured in daemon YAML. On timeout or cancellation, Notes terminates the child process group and allows ten seconds before forcing termination, leaving time for a configured wrapper to finish its own cleanup. Cancellation does not start a fallback. Persistent pass failures exit after the configured threshold so systemd can restart the daemon.

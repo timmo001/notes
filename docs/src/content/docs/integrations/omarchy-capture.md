@@ -78,8 +78,7 @@ notes-capture-local --stdin --json [--repository owner/repository]
 
 The status command exits with zero when available. The submission command reads
 the capture from standard input and returns JSON with `"status": "success"`.
-It normally forwards to a configured [capture processor](/integrations/capture-daemon/)
-and may require `OPENCODE_SERVER_PASSWORD`.
+It normally forwards to a configured [capture processor](/integrations/capture-daemon/).
 
 Ctrl+Enter sends a capture. Submissions run one at a time, further submissions
 wait in memory, and closing the panel does not cancel them. A shell restart loses
@@ -134,5 +133,5 @@ independent of stable CLI releases.
 The plugin runs unsandboxed inside `omarchy-shell`. It starts local Notes,
 capture, editor, agent, and notification commands. The QML does not make direct
 network requests, but Notes mutations may commit and push, and capture may use
-the configured OpenCode server. Review the plugin and host configuration before
+the configured OpenCode command. Review the plugin and host configuration before
 installation.

@@ -24,7 +24,6 @@ describe("loadDaemonConfig", () => {
         "queueLabel: agent:ready",
         "workerId: desktop",
         "workerActor: worker",
-        "opencodeUrl: http://127.0.0.1:4096",
         `opencodeDirectory: ${root}`,
         "opencodeAgent: notes-daemon",
         "opencodeModels:",
@@ -42,6 +41,18 @@ describe("loadDaemonConfig", () => {
     );
 
     const config = await Effect.runPromise(loadDaemonConfig(path));
+    expect(config.opencodeCommand).toBe("opencode2");
+    expect(config.opencodeArgs).toEqual([]);
+    writeFileSync(
+      path,
+      "opencodeCommand: ~/.local/bin/processor\nopencodeArgs:\n  - ~/literal argument\n" +
+        (await Bun.file(path).text()),
+    );
+    const custom = await Effect.runPromise(loadDaemonConfig(path));
+    expect(custom.opencodeCommand).toBe(
+      `${process.env.HOME}/.local/bin/processor`,
+    );
+    expect(custom.opencodeArgs).toEqual(["~/literal argument"]);
     expect(config.allowedReadPaths).toEqual([
       `${process.env.HOME}/repos/**`,
       `${process.env.HOME}/.config/dotfiles/**`,

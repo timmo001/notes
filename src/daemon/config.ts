@@ -18,6 +18,8 @@ export const loadDaemonConfig = Effect.fn("NotesDaemon.loadConfig")(function* (
   const decoded = yield* Schema.decodeUnknownEffect(DaemonConfig)(value);
   return {
     ...decoded,
+    opencodeCommand: expandHomePath(decoded.opencodeCommand ?? "opencode2"),
+    opencodeArgs: decoded.opencodeArgs ?? [],
     opencodeDirectory: expandHomePath(decoded.opencodeDirectory),
     allowedReadPaths: decoded.allowedReadPaths.map(expandHomePath),
   } satisfies DaemonConfigValue;

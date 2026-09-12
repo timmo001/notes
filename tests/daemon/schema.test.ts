@@ -16,7 +16,8 @@ describe("daemon schema", () => {
       queueLabel: "agent:ready",
       workerId: "desktop",
       workerActor: "automation-user",
-      opencodeUrl: "http://127.0.0.1:4096",
+      opencodeCommand: "processor",
+      opencodeArgs: ["--limit", "5m", "--"],
       opencodeDirectory: "~/.config/dotfiles",
       opencodeAgent: "notes-daemon",
       opencodeModels: [
@@ -35,6 +36,23 @@ describe("daemon schema", () => {
       pollIntervalSeconds: 30,
     });
     expect(config.repository).toBe("owner/repo");
+    expect(config.opencodeCommand).toBe("processor");
+    expect(config.opencodeArgs).toEqual(["--limit", "5m", "--"]);
+    expect(() =>
+      Schema.decodeUnknownSync(DaemonConfig)({
+        ...config,
+        opencodeCommand: "",
+      }),
+    ).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(DaemonConfig)({
+        ...config,
+        opencodeArgs: "--limit 5m",
+      }),
+    ).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(DaemonConfig)({ ...config, opencodeArgs: [1] }),
+    ).toThrow();
     expect(config.opencodeModels[1]).toEqual({
       providerID: "github-copilot",
       modelID: "gpt-5.6-sol",
@@ -49,7 +67,6 @@ describe("daemon schema", () => {
         queueLabel: "agent:ready",
         workerId: "desktop",
         workerActor: "automation-user",
-        opencodeUrl: "http://127.0.0.1:4096",
         opencodeDirectory: "~/.config/dotfiles",
         opencodeAgent: "notes-daemon",
         opencodeModels: [],

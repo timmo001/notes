@@ -23,7 +23,6 @@ const config = DaemonConfig.make({
   queueLabel: "agent:ready",
   workerId: "desktop",
   workerActor: "worker",
-  opencodeUrl: "http://127.0.0.1:4096",
   opencodeDirectory: "/workspace",
   opencodeAgent: "notes-daemon",
   opencodeModels: [{ providerID: "opencode", modelID: "test" }],

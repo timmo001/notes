@@ -443,8 +443,8 @@ Panel {
     id: statusProcess; command: ["notes-capture-local", "--status", "--json"]
     onExited: function(exitCode) {
       root.captureAvailable = exitCode === 0
-      if (!root.captureAvailable) root.statusText = "Local processor unavailable. Start notes-capture-opencode.service to send."
-      else if (root.statusText === "Local processor unavailable. Start notes-capture-opencode.service to send.") root.statusText = ""
+      if (!root.captureAvailable) root.statusText = "Local processor unavailable."
+      else if (root.statusText === "Local processor unavailable.") root.statusText = ""
     }
   }
   Process {

@@ -1,19 +1,23 @@
-import { Cause, Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema, Stream } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { resolve } from "node:path";
 import type { DaemonConfig, OpenCodeModel } from "../schema.js";
 
 const STATUS_PREFIX = /^STATUS: (success|failure)(?=\s|$)/;
+const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
+const MAX_RESULT_LENGTH = 20_000;
 
-/** Failure returned by the local OpenCode server boundary. */
+/** Failure returned by the local OpenCode command boundary. */
 export class OpenCodeClientError extends Schema.TaggedError<OpenCodeClientError>()(
   "OpenCodeClientError",
   { operation: Schema.String, message: Schema.String },
 ) {}
 
-/** Local authenticated OpenCode operations required by the daemon. */
+/** Local OpenCode operations required by the daemon and direct captures. */
 export interface OpenCodeClientService {
-  /** Check whether the authenticated local server accepts requests. */
+  /** Check executable availability without starting OpenCode. */
   readonly status: Effect.Effect<void, OpenCodeClientError>;
-  /** Create a fresh session, submit a prompt, and return bounded final text. */
+  /** Run a fresh standalone session and return bounded final text. */
   readonly process: (
     prompt: string,
   ) => Effect.Effect<string, OpenCodeClientError>;
@@ -24,40 +28,51 @@ export class OpenCodeClient extends Context.Service<
   OpenCodeClient,
   OpenCodeClientService
 >()("OpenCodeClient") {
-  /** Build an authenticated local OpenCode HTTP client layer. */
-  static layer(config: DaemonConfig, password: string, username = "opencode") {
-    const request = makeRequest(config, username, password);
-
-    return Layer.succeed(OpenCodeClient, {
-      status: request("GET", "/api/health").pipe(Effect.asVoid),
-      process: (prompt) => processWithFallback(config, request, prompt),
-    });
+  /** Build a scoped OpenCode CLI processor layer. */
+  static layer(config: DaemonConfig) {
+    return Layer.effect(
+      OpenCodeClient,
+      Effect.gen(function* () {
+        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+        const command = config.opencodeCommand ?? "opencode2";
+        return OpenCodeClient.of({
+          status: Effect.try({
+            try: () => {
+              if (!Bun.which(command, { cwd: config.opencodeDirectory })) {
+                throw new Error(
+                  "Configured OpenCode executable is unavailable",
+                );
+              }
+            },
+            catch: () =>
+              new OpenCodeClientError({
+                operation: "command.status",
+                message: "Configured OpenCode executable is unavailable",
+              }),
+          }),
+          process: (prompt) => processWithFallback(config, spawner, prompt),
+        });
+      }),
+    );
   }
 }
 
-type Request = (
-  method: "GET" | "POST" | "DELETE",
-  path: string,
-  body?: Schema.Json,
-) => Effect.Effect<Schema.Json, OpenCodeClientError>;
-
-type SessionModel =
-  | { readonly providerID: string; readonly id: string }
-  | {
-      readonly providerID: string;
-      readonly id: string;
-      readonly variant: string;
-    };
-
 const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
-  function* (config: DaemonConfig, request: Request, prompt: string) {
+  function* (
+    config: DaemonConfig,
+    spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+    prompt: string,
+  ) {
     let lastError: OpenCodeClientError | undefined;
     for (const [index, model] of config.opencodeModels.entries()) {
-      const result = yield* Effect.exit(
-        processWithModel(config, request, prompt, model),
-      );
+      const result = yield* processWithModel(
+        config,
+        spawner,
+        prompt,
+        model,
+      ).pipe(Effect.result);
       if (result._tag === "Success") {
-        const response = result.value.trim();
+        const response = result.success.trim();
         const status = STATUS_PREFIX.exec(response);
         const summary = status
           ? response
@@ -65,41 +80,23 @@ const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
               .trim()
               .replace(/^(?:-|:|\u2014)\s*/, "")
           : "";
-        if (status?.[1] === "success") {
-          if (summary) return summary;
-        }
-
-        const message =
-          status?.[1] === "failure"
-            ? summary || "Agent reported failure"
-            : "Agent returned a result without a valid status line";
+        if (status?.[1] === "success" && summary) return summary;
         lastError = new OpenCodeClientError({
           operation: "message.status",
-          message,
+          message:
+            status?.[1] === "failure"
+              ? summary || "Agent reported failure"
+              : "Agent returned a result without a valid status line",
         });
-        if (index < config.opencodeModels.length - 1) {
-          console.warn(
-            `[notes-daemon] model failed model=${modelName(model)} operation=${lastError.operation} message=${lastError.message}; trying fallback`,
-          );
-        }
-        continue;
+      } else {
+        lastError = result.failure;
       }
-
-      const failure = Cause.squash(result.cause);
-      if (!(failure instanceof OpenCodeClientError)) {
-        return yield* new OpenCodeClientError({
-          operation: "process",
-          message: `Model ${modelName(model)} failed without a typed error`,
-        });
-      }
-      lastError = failure;
       if (index < config.opencodeModels.length - 1) {
         console.warn(
           `[notes-daemon] model failed model=${modelName(model)} operation=${lastError.operation} message=${lastError.message}; trying fallback`,
         );
       }
     }
-
     return yield* new OpenCodeClientError({
       operation: "process.models",
       message: `All models failed (${config.opencodeModels.map(modelName).join(", ")}): ${lastError?.message ?? "unknown error"}`,
@@ -107,238 +104,168 @@ const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
   },
 );
 
-function processWithModel(
-  config: DaemonConfig,
-  request: Request,
-  prompt: string,
-  model: OpenCodeModel,
-) {
-  const selectedModel: SessionModel =
-    model.variant === undefined
-      ? { providerID: model.providerID, id: model.modelID }
-      : {
-          providerID: model.providerID,
-          id: model.modelID,
-          variant: model.variant,
-        };
-
-  return request("POST", "/api/session", {
-    title: `Notes daemon ${config.workerId}`,
-    agent: config.opencodeAgent,
-    model: selectedModel,
-    location: { directory: config.opencodeDirectory },
-  }).pipe(
-    Effect.flatMap((session) => decodeId(session, "session.create")),
-    Effect.flatMap((sessionId) =>
-      Effect.acquireUseRelease(
-        Effect.succeed(sessionId),
-        () =>
-          Effect.raceFirst(
-            request("POST", sessionPath(sessionId, "prompt"), {
-              text: prompt,
-            }).pipe(
-              Effect.andThen(waitForOutcome(request, sessionId)),
-              Effect.andThen(
-                request(
-                  "GET",
-                  `${sessionPath(sessionId, "message")}?order=desc&limit=20`,
-                ),
-              ),
-              Effect.flatMap(decodeAssistantText),
-            ),
-            monitorHeadlessState(request, sessionId),
-          ).pipe(
-            Effect.timeout(`${config.sessionTimeoutSeconds} seconds`),
-            Effect.mapError((error) =>
-              error instanceof OpenCodeClientError
-                ? error
-                : new OpenCodeClientError({
-                    operation: "process",
-                    message: String(error),
-                  }),
-            ),
-          ),
-        () => cleanupSession(request, sessionId),
+const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
+  function* (
+    config: DaemonConfig,
+    spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+    prompt: string,
+    model: OpenCodeModel,
+  ) {
+    const child = yield* spawner.spawn(
+      ChildProcess.make(
+        config.opencodeCommand ?? "opencode2",
+        [
+          ...(config.opencodeArgs ?? []),
+          "run",
+          "--standalone",
+          "--format",
+          "json",
+          "--agent",
+          config.opencodeAgent,
+          "--model",
+          modelName(model),
+          "--title",
+          `Notes daemon ${config.workerId}`,
+          "--",
+          prompt,
+        ],
+        {
+          cwd: config.opencodeDirectory,
+          env: { PWD: resolve(config.opencodeDirectory) },
+          extendEnv: true,
+          shell: false,
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "inherit",
+          killSignal: "SIGTERM",
+          forceKillAfter: "10 seconds",
+        },
       ),
-    ),
-  );
-}
-
-function modelName(model: OpenCodeModel) {
-  return `${model.providerID}/${model.modelID}${model.variant ? `/${model.variant}` : ""}`;
-}
-
-function makeRequest(
-  config: DaemonConfig,
-  username: string,
-  password: string,
-): Request {
-  return (method, path, body) =>
-    Effect.tryPromise({
-      try: async (signal) => {
-        const url = new URL(path, config.opencodeUrl);
-        const headers = new Headers({
-          Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
-          "x-opencode-directory": encodeURIComponent(config.opencodeDirectory),
-        });
-        const init: RequestInit = {
-          method,
-          signal,
-          headers,
-        };
-        if (body !== undefined) {
-          headers.set("Content-Type", "application/json");
-          init.body = JSON.stringify(body);
-        }
-        const response = await fetch(url, init);
-        if (!response.ok) {
-          const detail = (await response.text())
-            .trim()
-            .replace(/\s+/g, " ")
-            .slice(0, 500);
-          throw new Error(
-            `OpenCode returned ${response.status}${detail ? `: ${detail}` : ""}`,
-          );
-        }
-        if (response.status === 204) return null;
-        const text = await response.text();
-        return text
-          ? Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(text)
-          : null;
-      },
-      catch: (error) =>
-        new OpenCodeClientError({
-          operation: `${method} ${path}`,
-          message: error instanceof Error ? error.message : String(error),
-        }),
-    });
-}
-
-function monitorHeadlessState(request: Request, sessionId: string) {
-  return Effect.gen(function* () {
-    while (true) {
-      const [permissions, forms] = yield* Effect.all([
-        request("GET", sessionPath(sessionId, "permission")),
-        request("GET", sessionPath(sessionId, "form")),
-      ]);
-      if (containsSessionRequest(permissions, sessionId)) {
-        return yield* new OpenCodeClientError({
-          operation: "permission",
-          message: "Headless session requested permission",
-        });
-      }
-      if (containsSessionRequest(forms, sessionId)) {
-        return yield* new OpenCodeClientError({
-          operation: "form",
-          message: "Headless session requested input",
-        });
-      }
-      yield* Effect.sleep("1 second");
-    }
-  });
-}
-
-function waitForOutcome(request: Request, sessionId: string) {
-  return Effect.gen(function* () {
-    while (true) {
-      const session = yield* request("GET", sessionPath(sessionId));
-      if (
-        Schema.is(
-          Schema.Struct({
-            data: Schema.Struct({ outcome: Schema.optional(Schema.String) }),
-          }),
-        )(session) &&
-        session.data.outcome !== undefined
-      ) {
-        return;
-      }
-      yield* Effect.sleep("250 millis");
-    }
-  });
-}
-
-const SessionRequests = Schema.Struct({
-  data: Schema.Array(Schema.Struct({ sessionID: Schema.String })),
-});
-
-function containsSessionRequest(
-  value: Schema.Json,
-  sessionId: string,
-): boolean {
-  return (
-    Schema.is(SessionRequests)(value) &&
-    value.data.some((entry) => entry.sessionID === sessionId)
-  );
-}
-
-function cleanupSession(request: Request, sessionId: string) {
-  const path = sessionPath(sessionId);
-  return request("POST", `${path}/interrupt`).pipe(
-    Effect.timeout("5 seconds"),
-    Effect.ignore,
-    Effect.andThen(
-      request("DELETE", path).pipe(Effect.timeout("5 seconds"), Effect.ignore),
-    ),
-  );
-}
-
-function decodeId(value: Schema.Json, operation: string) {
-  return Schema.decodeUnknownEffect(
-    Schema.Struct({ data: Schema.Struct({ id: Schema.String }) }),
-  )(value).pipe(
-    Effect.map((response) => response.data.id),
-    Effect.mapError(
-      (error) => new OpenCodeClientError({ operation, message: String(error) }),
-    ),
-  );
-}
-
-function decodeAssistantText(value: Schema.Json) {
-  return Schema.decodeUnknownEffect(
-    Schema.Struct({
-      data: Schema.Array(
-        Schema.Struct({
-          type: Schema.String,
-          content: Schema.optional(
-            Schema.Array(
+    );
+    let bytes = 0;
+    let messageId = "";
+    let text = "";
+    const output = child.stdout.pipe(
+      Stream.mapEffect((chunk) => {
+        bytes += chunk.byteLength;
+        return bytes <= MAX_OUTPUT_BYTES
+          ? Effect.succeed(chunk)
+          : Effect.fail(
+              new OpenCodeClientError({
+                operation: "command.output",
+                message: "OpenCode output exceeded its size limit",
+              }),
+            );
+      }),
+      Stream.decodeText(),
+      Stream.splitLines,
+      Stream.filter((line) => line.trim().length > 0),
+      Stream.runForEach(
+        Effect.fn("OpenCodeClient.decodeEvent")(function* (line) {
+          const event = yield* Schema.decodeUnknownEffect(
+            Schema.fromJsonString(
               Schema.Struct({
                 type: Schema.String,
-                text: Schema.optional(Schema.String),
+                part: Schema.optionalKey(Schema.Unknown),
+                error: Schema.optionalKey(Schema.Unknown),
               }),
             ),
-          ),
+          )(line).pipe(
+            Effect.mapError(
+              () =>
+                new OpenCodeClientError({
+                  operation: "command.decode",
+                  message: "OpenCode returned invalid JSON events",
+                }),
+            ),
+          );
+          if (event.type === "error") {
+            const error = yield* Schema.decodeUnknownEffect(
+              Schema.Struct({ message: Schema.String }),
+            )(event.error).pipe(
+              Effect.mapError(
+                () =>
+                  new OpenCodeClientError({
+                    operation: "command.decode",
+                    message: "OpenCode returned an invalid error event",
+                  }),
+              ),
+            );
+            return yield* new OpenCodeClientError({
+              operation: "command.run",
+              message: error.message.slice(0, 500),
+            });
+          }
+          if (event.type !== "text" && event.type !== "step_start") return;
+          const part = yield* Schema.decodeUnknownEffect(
+            Schema.Struct({
+              messageID: Schema.NonEmptyString,
+              text: Schema.optionalKey(Schema.String),
+            }),
+          )(event.part).pipe(
+            Effect.mapError(
+              () =>
+                new OpenCodeClientError({
+                  operation: "command.decode",
+                  message: "OpenCode returned an invalid assistant event",
+                }),
+            ),
+          );
+          // OpenCode message IDs are ascending. Reconciliation may emit older text later.
+          if (part.messageID < messageId) return;
+          if (part.messageID !== messageId) {
+            messageId = part.messageID;
+            text = "";
+          }
+          if (event.type === "text") {
+            if (part.text === undefined)
+              return yield* new OpenCodeClientError({
+                operation: "command.decode",
+                message: "OpenCode text event has no text",
+              });
+            text += part.text;
+            if (text.length > MAX_RESULT_LENGTH)
+              return yield* new OpenCodeClientError({
+                operation: "command.output",
+                message: "OpenCode result exceeded its size limit",
+              });
+          }
         }),
       ),
-    }),
-  )(value).pipe(
-    Effect.flatMap((response) => {
-      const message = response.data.find((entry) => entry.type === "assistant");
-      const text = (message?.content ?? [])
-        .filter((part) => part.type === "text")
-        .map((part) => part.text ?? "")
-        .join("\n")
-        .trim();
-      return text
-        ? Effect.succeed(text)
-        : Effect.fail(
-            new OpenCodeClientError({
-              operation: "message.decode",
-              message: "OpenCode returned no assistant text",
+    );
+    const [exitCode] = yield* Effect.all([child.exitCode, output], {
+      concurrency: "unbounded",
+    });
+    if (exitCode !== 0)
+      return yield* new OpenCodeClientError({
+        operation: "command.exit",
+        message: `OpenCode exited with code ${exitCode}`,
+      });
+    if (!text.trim())
+      return yield* new OpenCodeClientError({
+        operation: "message.decode",
+        message: "OpenCode returned no assistant text",
+      });
+    return text;
+  },
+  (effect, config) =>
+    effect.pipe(
+      Effect.scoped,
+      Effect.timeout(`${config.sessionTimeoutSeconds} seconds`),
+      Effect.mapError((error) =>
+        error instanceof OpenCodeClientError
+          ? error
+          : new OpenCodeClientError({
+              operation: "command.run",
+              message:
+                error._tag === "TimeoutError"
+                  ? "OpenCode session timed out"
+                  : "OpenCode command could not complete",
             }),
-          );
-    }),
-    Effect.mapError((error) =>
-      error instanceof OpenCodeClientError
-        ? error
-        : new OpenCodeClientError({
-            operation: "message.decode",
-            message: String(error),
-          }),
+      ),
     ),
-  );
-}
+);
 
-function sessionPath(sessionId: string, suffix?: string) {
-  const path = `/api/session/${encodeURIComponent(sessionId)}`;
-  return suffix ? `${path}/${suffix}` : path;
+function modelName(model: OpenCodeModel) {
+  return `${model.providerID}/${model.modelID}${model.variant ? `#${model.variant}` : ""}`;
 }

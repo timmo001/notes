@@ -20,7 +20,7 @@ notes-capture-local --stdin --json [--repository owner/repository]
 The status command exits with zero when capture is available. The submission
 command reads the note from standard input and returns JSON with
 `"status": "success"`. Capture usually also requires a configured OpenCode
-capture processor and `OPENCODE_SERVER_PASSWORD`.
+capture processor.
 
 ## Install
 
@@ -185,4 +185,4 @@ The plugin runs unsandboxed inside `omarchy-shell`. It starts the local `notes`,
 `notes-capture-local`, `nvim`, and Omarchy notification commands. The QML does
 not connect to the network directly, but Notes mutations may commit and push,
 agent opening starts configured Herdr integrations, and capture may call an
-OpenCode server. Review the plugin and local command configuration before use.
+OpenCode command. Review the plugin and local command configuration before use.

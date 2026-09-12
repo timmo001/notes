@@ -1,403 +1,255 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { Effect, Schema } from "effect";
+import { describe, expect, test } from "bun:test";
+import { Deferred, Effect, Exit, Fiber, Layer, Sink, Stream } from "effect";
+import { TestClock } from "effect/testing";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { OpenCodeClient } from "../../../src/daemon/services/OpenCodeClient.js";
-import type { DaemonConfig } from "../../../src/daemon/schema.js";
+import { DaemonConfig } from "../../../src/daemon/schema.js";
 
-const servers: Bun.Server<unknown>[] = [];
+const config = DaemonConfig.make({
+  repository: "owner/repo",
+  queueLabel: "agent:ready",
+  workerId: "desktop",
+  workerActor: "worker",
+  opencodeDirectory: "/workspace",
+  opencodeAgent: "notes-daemon",
+  opencodeModels: [
+    { providerID: "provider", modelID: "primary" },
+    { providerID: "other", modelID: "fallback", variant: "low" },
+  ],
+  allowedReadPaths: ["/workspace"],
+  sessionTimeoutSeconds: 30,
+  passTimeoutSeconds: 60,
+  commandTimeoutSeconds: 5,
+  consecutiveFailureLimit: 3,
+  pollIntervalSeconds: 30,
+});
+const textEvent = (text: string, messageID = "msg_2") =>
+  JSON.stringify({ type: "text", part: { messageID, text } }) + "\n";
+const output = (value: string) =>
+  Stream.succeed(new TextEncoder().encode(value));
 
-afterEach(() => {
-  for (const server of servers.splice(0)) server.stop(true);
+const fixture = Effect.fn("test.openCodeFixture")(function* (
+  respond: (attempt: number) => Partial<ChildProcessSpawner.ChildProcessHandle>,
+  overrides: Partial<DaemonConfig> = {},
+) {
+  const commands: ChildProcess.StandardCommand[] = [];
+  const spawned = yield* Deferred.make<void>();
+  let releases = 0;
+  const spawner = Layer.succeed(
+    ChildProcessSpawner.ChildProcessSpawner,
+    ChildProcessSpawner.make((command) =>
+      Effect.acquireRelease(
+        Effect.sync(() => {
+          if (command._tag !== "StandardCommand")
+            throw new Error("Expected a standard command");
+          commands.push(command);
+          return ChildProcessSpawner.makeHandle({
+            pid: ChildProcessSpawner.ProcessId(1),
+            exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+            isRunning: Effect.succeed(false),
+            kill: () => Effect.void,
+            stdin: Sink.drain,
+            stdout: output(textEvent("STATUS: success\nSaved note abc123")),
+            stderr: Stream.empty,
+            all: Stream.empty,
+            getInputFd: () => Sink.drain,
+            getOutputFd: () => Stream.empty,
+            unref: Effect.succeed(Effect.void),
+            ...respond(commands.length),
+          });
+        }).pipe(Effect.tap(() => Deferred.succeed(spawned, undefined))),
+        () => Effect.sync(() => releases++),
+      ),
+    ),
+  );
+  const client = yield* OpenCodeClient.pipe(
+    Effect.provide(
+      OpenCodeClient.layer({ ...config, ...overrides }).pipe(
+        Layer.provide(spawner),
+      ),
+    ),
+  );
+  return { client, commands, spawned, releases: () => releases };
 });
 
-interface RecordedRequest {
-  readonly method: string;
-  readonly path: string;
-  readonly auth: string | null;
-  readonly directory: string | null;
-  readonly body: Schema.Json | undefined;
-}
-
-describe("OpenCodeClient", () => {
-  test("uses the dedicated agent and cleans up the session", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests);
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* (yield* OpenCodeClient).process("prompt");
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result).toBe("First\nSecond");
-    const requestPaths = requests.map(
-      ({ method, path }) => `${method} ${path}`,
-    );
-    expect(requestPaths[0]).toBe("POST /api/session");
-    expect(requestPaths).toContain("POST /api/session/ses_1/prompt");
-    expect(requestPaths).toContain("GET /api/session/ses_1");
-    expect(requestPaths).toContain("GET /api/session/ses_1/permission");
-    const interruptIndex = requestPaths.indexOf(
-      "POST /api/session/ses_1/interrupt",
-    );
-    const deleteIndex = requestPaths.indexOf("DELETE /api/session/ses_1");
-    expect(interruptIndex).toBeGreaterThanOrEqual(0);
-    expect(deleteIndex).toBeGreaterThan(interruptIndex);
-    expect(requests[0]?.auth).toBe(
-      `Basic ${Buffer.from("opencode:secret").toString("base64")}`,
-    );
-    expect(
-      requests.every((request) => request.directory === "/tmp/dotfiles"),
-    ).toBe(true);
-    expect(requests[0]?.body).toMatchObject({
-      agent: "notes-daemon",
-      model: { providerID: "opencode", id: "big-pickle" },
-      location: { directory: "/tmp/dotfiles" },
-    });
-    const messageRequest = requests.find(
-      (request) =>
-        request.method === "POST" &&
-        request.path === "/api/session/ses_1/prompt",
-    );
-    expect(messageRequest?.body).toEqual({
-      text: "prompt",
-    });
-  });
-
-  test("accepts an inline status summary", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { inlineStatus: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* (yield* OpenCodeClient).process("prompt");
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result).toBe("Saved note abc123");
-  });
-
-  test("fails and cleans up when the session requests permission", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { pendingPermission: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result._tag).toBe("Failure");
-    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
-      "POST /api/session/ses_1/interrupt",
-    );
-    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
-      "DELETE /api/session/ses_1",
-    );
-  });
-
-  test("fails and cleans up when the session requests input", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { pendingForm: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result._tag).toBe("Failure");
-    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
-      "POST /api/session/ses_1/interrupt",
-    );
-    expect(requests.map(({ method, path }) => `${method} ${path}`)).toContain(
-      "DELETE /api/session/ses_1",
-    );
-  });
-
-  test("aborts and deletes a timed-out session", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { hangMessage: true });
-    const config = {
-      ...testConfig(`http://127.0.0.1:${server.port}`),
-      sessionTimeoutSeconds: 0.05,
-    };
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result._tag).toBe("Failure");
-    const paths = requests.map(({ method, path }) => `${method} ${path}`);
-    expect(paths).toContain("POST /api/session/ses_1/interrupt");
-    expect(paths).toContain("DELETE /api/session/ses_1");
-  });
-
-  test("uses a fresh fallback session after the primary request fails", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { failFirstMessage: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* (yield* OpenCodeClient).process("prompt");
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result).toBe("First\nSecond");
-    const sessions = requests.filter(
-      ({ method, path }) => method === "POST" && path === "/api/session",
-    );
-    expect(sessions.map(({ body }) => body)).toEqual([
-      expect.objectContaining({
-        model: { providerID: "opencode", id: "big-pickle" },
-      }),
-      expect.objectContaining({
-        model: {
-          providerID: "github-copilot",
-          id: "gpt-5.6-sol",
-          variant: "low",
-        },
-      }),
-    ]);
-    const paths = requests.map(({ method, path }) => `${method} ${path}`);
-    expect(paths).toContain("DELETE /api/session/ses_1");
-    expect(paths).toContain("DELETE /api/session/ses_2");
-  });
-
-  test("includes the OpenCode error response when every model fails", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { failEveryMessage: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const error = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Effect.flip((yield* OpenCodeClient).process("prompt"));
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(error).toMatchObject({
-      operation: "process.models",
-      message:
-        "All models failed (opencode/big-pickle, github-copilot/gpt-5.6-sol/low): OpenCode returned 500: provider unavailable",
-    });
-  });
-
-  test("uses a fresh fallback session after the agent reports failure", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { reportFirstFailure: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* (yield* OpenCodeClient).process("prompt");
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result).toBe("First\nSecond");
-    expect(
-      requests.filter(
-        ({ method, path }) => method === "POST" && path === "/api/session",
-      ),
-    ).toHaveLength(2);
-  });
-
-  test("fails when every agent response omits a valid status", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { omitEveryStatus: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
-    );
-
-    expect(result._tag).toBe("Failure");
-    expect(
-      requests.filter(
-        ({ method, path }) => method === "POST" && path === "/api/session",
-      ),
-    ).toHaveLength(2);
-  });
-
-  test("does not start a fallback session after primary success", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests);
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
+describe("OpenCodeClient command boundary", () => {
+  test("preserves prefix argv and prompt, uses cwd and keeps stderr separate", async () => {
     await Effect.runPromise(
       Effect.gen(function* () {
-        return yield* (yield* OpenCodeClient).process("prompt");
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+        const fake = yield* fixture(
+          () => ({
+            stderr: output("not JSON"),
+            all: output("must not be read"),
+          }),
+          {
+            opencodeCommand: "/opt/processor",
+            opencodeArgs: ["--limit", "two words", "--"],
+          },
+        );
+        expect(
+          yield* fake.client.process("--prompt 'quoted'\n$(literal)"),
+        ).toBe("Saved note abc123");
+        expect(fake.commands[0]?.command).toBe("/opt/processor");
+        expect(fake.commands[0]?.args).toEqual([
+          "--limit",
+          "two words",
+          "--",
+          "run",
+          "--standalone",
+          "--format",
+          "json",
+          "--agent",
+          "notes-daemon",
+          "--model",
+          "provider/primary",
+          "--title",
+          "Notes daemon desktop",
+          "--",
+          "--prompt 'quoted'\n$(literal)",
+        ]);
+        expect(fake.commands[0]?.options).toMatchObject({
+          cwd: "/workspace",
+          env: { PWD: "/workspace" },
+          extendEnv: true,
+          shell: false,
+          stdin: "ignore",
+          stdout: "pipe",
+          stderr: "inherit",
+          killSignal: "SIGTERM",
+          forceKillAfter: "10 seconds",
+        });
+        expect(fake.commands).toHaveLength(1);
+        expect(fake.releases()).toBe(1);
+      }),
     );
-
-    expect(
-      requests.filter(
-        ({ method, path }) => method === "POST" && path === "/api/session",
-      ),
-    ).toHaveLength(1);
   });
 
-  test("cleans up every session when all models return no text", async () => {
-    const requests: RecordedRequest[] = [];
-    const server = makeServer(requests, { emptyEveryMessage: true });
-    const config = testConfig(`http://127.0.0.1:${server.port}`);
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Effect.exit((yield* OpenCodeClient).process("prompt"));
-      }).pipe(Effect.provide(OpenCodeClient.layer(config, "secret"))),
+  test("decodes chunked UTF-8 JSON and only returns the final message including reconciled suffixes", async () => {
+    const encoded = new TextEncoder().encode(
+      textEvent("intermediate", "msg_1") +
+        '{"type":"step_start","part":{"messageID":"msg_2"}}\n' +
+        textEvent("STATUS: success\nSaved café ") +
+        '{"type":"tool_use","part":{"text":"ignored"}}\n' +
+        textEvent("abc123") +
+        textEvent("older reconciliation", "msg_1"),
     );
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fake = yield* fixture(() => ({
+          stdout: Stream.fromIterable(
+            Array.from(encoded, (byte) => Uint8Array.of(byte)),
+          ),
+        }));
+        expect(yield* fake.client.process("prompt")).toBe("Saved café abc123");
+        expect(fake.commands[0]?.command).toBe("opencode2");
+      }),
+    );
+  });
 
-    expect(result._tag).toBe("Failure");
-    const paths = requests.map(({ method, path }) => `${method} ${path}`);
-    expect(paths).toContain("DELETE /api/session/ses_1");
-    expect(paths).toContain("DELETE /api/session/ses_2");
+  test.each([
+    ["reported failure", textEvent("STATUS: failure\nNo note written"), 0],
+    ["missing status", textEvent("Saved maybe"), 0],
+    ["empty summary", textEvent("STATUS: success"), 0],
+    ["malformed JSON", "not JSON\n", 0],
+    ["invalid text event", '{"type":"text","part":{}}\n', 0],
+    ["empty output", "", 0],
+    [
+      "error event",
+      '{"type":"error","error":{"message":"provider unavailable"}}\n',
+      0,
+    ],
+    ["nonzero exit", textEvent("STATUS: success\nSaved"), 1],
+  ] as const)(
+    "releases a %s attempt before using the fallback model",
+    async (_name, stdout, code) => {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const fake = yield* fixture((attempt) =>
+            attempt === 1
+              ? {
+                  stdout: output(stdout),
+                  exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(code)),
+                }
+              : {},
+          );
+          expect(yield* fake.client.process("prompt")).toBe(
+            "Saved note abc123",
+          );
+          expect(fake.commands[1]?.args).toContain("other/fallback#low");
+          expect(fake.releases()).toBe(2);
+        }),
+      );
+    },
+  );
+
+  test("reports all model failures and bounds output", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fake = yield* fixture(() => ({
+          stdout: output(textEvent("x".repeat(20_001))),
+        }));
+        const error = yield* fake.client.process("prompt").pipe(Effect.flip);
+        expect(error.operation).toBe("process.models");
+        expect(error.message).toContain("provider/primary, other/fallback#low");
+        expect(error.message).toContain("size limit");
+        expect(fake.releases()).toBe(2);
+      }),
+    );
+  });
+
+  test("times out a session, releases its child and tries the fallback", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fake = yield* fixture((attempt) =>
+          attempt === 1 ? { stdout: Stream.never, exitCode: Effect.never } : {},
+        );
+        const fiber = yield* fake.client
+          .process("prompt")
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(fake.spawned);
+        yield* TestClock.adjust("30 seconds");
+        expect(yield* Fiber.join(fiber)).toBe("Saved note abc123");
+        expect(fake.commands).toHaveLength(2);
+        expect(fake.releases()).toBe(2);
+      }).pipe(Effect.provide(TestClock.layer())),
+    );
+  });
+
+  test("cancellation releases the child without starting a fallback", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fake = yield* fixture(() => ({
+          stdout: Stream.never,
+          exitCode: Effect.never,
+        }));
+        const fiber = yield* fake.client
+          .process("prompt")
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(fake.spawned);
+        yield* Fiber.interrupt(fiber);
+        expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
+        expect(fake.commands).toHaveLength(1);
+        expect(fake.releases()).toBe(1);
+      }),
+    );
+  });
+
+  test("readiness checks the executable without spawning it", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const available = yield* fixture(() => ({}), {
+          opencodeCommand: process.execPath,
+        });
+        yield* available.client.status;
+        expect(available.commands).toHaveLength(0);
+        const missing = yield* fixture(() => ({}), {
+          opencodeCommand: "/nonexistent/notes-processor",
+        });
+        expect((yield* missing.client.status.pipe(Effect.flip)).operation).toBe(
+          "command.status",
+        );
+        expect(missing.commands).toHaveLength(0);
+      }),
+    );
   });
 });
-
-function makeServer(
-  requests: RecordedRequest[],
-  options: {
-    readonly pendingPermission?: boolean;
-    readonly pendingForm?: boolean;
-    readonly hangMessage?: boolean;
-    readonly failFirstMessage?: boolean;
-    readonly failEveryMessage?: boolean;
-    readonly emptyEveryMessage?: boolean;
-    readonly reportFirstFailure?: boolean;
-    readonly omitEveryStatus?: boolean;
-    readonly inlineStatus?: boolean;
-  } = {},
-) {
-  const server = Bun.serve({
-    port: 0,
-    fetch: async (request) => {
-      const url = new URL(request.url);
-      const text = await request.text();
-      requests.push({
-        method: request.method,
-        path: url.pathname,
-        auth: request.headers.get("Authorization"),
-        directory: decodeURIComponent(
-          request.headers.get("x-opencode-directory") ?? "",
-        ),
-        body: text
-          ? Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json))(text)
-          : undefined,
-      });
-      if (request.method === "POST" && url.pathname === "/api/session") {
-        const sessionNumber = requests.filter(
-          ({ method, path }) => method === "POST" && path === "/api/session",
-        ).length;
-        return Response.json({ data: { id: `ses_${sessionNumber}` } });
-      }
-      if (/^\/api\/session\/ses_\d+\/permission$/.test(url.pathname))
-        return Response.json({
-          data: options.pendingPermission
-            ? [{ sessionID: url.pathname.split("/")[3] }]
-            : [],
-        });
-      if (/^\/api\/session\/ses_\d+\/form$/.test(url.pathname))
-        return Response.json({
-          data: options.pendingForm
-            ? [{ sessionID: url.pathname.split("/")[3] }]
-            : [],
-        });
-      if (
-        request.method === "GET" &&
-        /^\/api\/session\/ses_\d+$/.test(url.pathname)
-      )
-        return Response.json({ data: { outcome: "succeeded" } });
-      if (
-        request.method === "POST" &&
-        /^\/api\/session\/ses_\d+\/prompt$/.test(url.pathname)
-      ) {
-        if (
-          options.pendingPermission ||
-          options.pendingForm ||
-          options.hangMessage
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, 2_000));
-        }
-        if (
-          options.failEveryMessage ||
-          (options.failFirstMessage &&
-            url.pathname === "/api/session/ses_1/prompt")
-        ) {
-          return new Response("provider unavailable", { status: 500 });
-        }
-        if (options.emptyEveryMessage) {
-          return Response.json({ parts: [{ type: "tool", text: "ignored" }] });
-        }
-        if (
-          options.reportFirstFailure &&
-          url.pathname === "/api/session/ses_1/prompt"
-        ) {
-          return Response.json({ data: { type: "user" } });
-        }
-        return Response.json({ data: { type: "user" } });
-      }
-      if (/^\/api\/session\/ses_\d+\/message$/.test(url.pathname)) {
-        const session = url.pathname.split("/")[3];
-        const content = options.emptyEveryMessage
-          ? [{ type: "tool", text: "ignored" }]
-          : options.reportFirstFailure && session === "ses_1"
-            ? [{ type: "text", text: "STATUS: failure\nNo note written" }]
-            : options.inlineStatus
-              ? [
-                  {
-                    type: "text",
-                    text: "STATUS: success \u2014 Saved note abc123",
-                  },
-                ]
-              : options.omitEveryStatus
-                ? [{ type: "text", text: "No note written" }]
-                : [
-                    { type: "text", text: "STATUS: success\nFirst" },
-                    { type: "tool", text: "ignored" },
-                    { type: "text", text: "Second" },
-                  ];
-        return Response.json({
-          data: [{ type: "assistant", content }],
-          cursor: { previous: null, next: null },
-        });
-      }
-      return Response.json(true);
-    },
-  });
-  servers.push(server);
-  return server;
-}
-
-function testConfig(opencodeUrl: string): DaemonConfig {
-  return {
-    repository: "owner/repo",
-    queueLabel: "agent:ready",
-    workerId: "desktop",
-    workerActor: "worker",
-    opencodeUrl,
-    opencodeDirectory: "/tmp/dotfiles",
-    opencodeAgent: "notes-daemon",
-    opencodeModels: [
-      { providerID: "opencode", modelID: "big-pickle" },
-      {
-        providerID: "github-copilot",
-        modelID: "gpt-5.6-sol",
-        variant: "low",
-      },
-    ],
-    allowedReadPaths: ["~/repos/**", "~/.config/dotfiles/**"],
-    sessionTimeoutSeconds: 30,
-    passTimeoutSeconds: 60,
-    commandTimeoutSeconds: 5,
-    consecutiveFailureLimit: 3,
-    pollIntervalSeconds: 30,
-  };
-}

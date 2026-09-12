@@ -50,23 +50,8 @@ export const DaemonConfig = Schema.Struct({
     Schema.isPattern(/^[A-Za-z0-9_-]+$/),
   ),
   workerActor: Schema.String.check(Schema.isNonEmpty()),
-  opencodeUrl: Schema.String.check(
-    Schema.makeFilter((value: string) => {
-      try {
-        const url = new URL(value);
-        return (
-          !url.username &&
-          !url.password &&
-          !url.hash &&
-          (url.protocol === "https:" ||
-            (url.protocol === "http:" &&
-              ["127.0.0.1", "[::1]", "localhost"].includes(url.hostname)))
-        );
-      } catch {
-        return false;
-      }
-    }),
-  ),
+  opencodeCommand: Schema.optionalKey(Schema.NonEmptyString),
+  opencodeArgs: Schema.optionalKey(Schema.Array(Schema.String)),
   opencodeDirectory: Schema.String.check(Schema.isNonEmpty()),
   opencodeAgent: Schema.Literal("notes-daemon"),
   opencodeModels: Schema.Array(OpenCodeModel).check(
@@ -121,7 +106,7 @@ export function issueHasFailure(
   );
 }
 
-/** Build the bounded prompt passed to the local OpenCode server. */
+/** Build the bounded prompt passed to the local OpenCode command. */
 export function issuePrompt(
   capturedText: string,
   maxLength = 12_000,

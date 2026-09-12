@@ -1,4 +1,5 @@
 import { Effect, Layer, Ref, Schedule } from "effect";
+import { NodeServices } from "@effect/platform-node";
 import { layer as ghLayer } from "@timmo001/effect-gh";
 import { runProcessingPass } from "./coordinator.js";
 import { loadDaemonConfig } from "./config.js";
@@ -11,14 +12,10 @@ export const runDaemon = Effect.fn("NotesDaemon.run")(function* (
   once: boolean,
 ) {
   const config = yield* loadDaemonConfig(configPath);
-  const password = process.env.OPENCODE_SERVER_PASSWORD;
-  if (!password)
-    return yield* Effect.fail("OPENCODE_SERVER_PASSWORD is not set");
-  const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode";
   const layers = Layer.mergeAll(
     IssueQueue.layer(config),
-    OpenCodeClient.layer(config, password, username),
-  ).pipe(Layer.provide(ghLayer()));
+    OpenCodeClient.layer(config),
+  ).pipe(Layer.provide(ghLayer()), Layer.provide(NodeServices.layer));
   const pass = runProcessingPass(config.queueLabel, config.workerActor).pipe(
     Effect.timeout(`${config.passTimeoutSeconds} seconds`),
     Effect.tap((result) =>

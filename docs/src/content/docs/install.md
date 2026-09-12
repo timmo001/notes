@@ -37,7 +37,7 @@ features:
 Git is installed by the Linux packages. Set `EDITOR` and `VISUAL` to use other
 editors instead of Neovim. Missing `notify-send` only disables desktop
 notifications. The [capture processor](/integrations/capture-daemon/) needs a
-running OpenCode server in both queued and direct modes.
+configured OpenCode CLI in both queued and direct modes.
 
 Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
 GitHub draft, optionally generate its release notes, then publish it to build
