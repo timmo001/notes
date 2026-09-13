@@ -81,6 +81,31 @@ function writeConfig() {
     join(root, "processor.js"),
     `
     const fs = require("node:fs");
+    if (process.argv[2] === "service") {
+      console.log(process.argv[3] === "status" ? "http://127.0.0.1:49374" : "test-password");
+      process.exit(0);
+    }
+    if (process.argv[2] === "api") {
+      const path = process.argv[6];
+      if (path.startsWith("/api/plugin/await-activation?")) process.exit(0);
+      if (path.startsWith("/api/agent/")) {
+        console.log(JSON.stringify({ location: { directory: process.cwd() }, data: {
+          id: "notes-daemon", permissions: [
+            { action: "*", resource: "*", effect: "deny" },
+            { action: "notes_note_write", resource: "*", effect: "allow" },
+          ],
+        } }));
+        process.exit(0);
+      }
+      if (process.argv[5] === "post") {
+        fs.writeFileSync("session.json", JSON.stringify({ data: {
+          ...JSON.parse(process.argv.at(-1)), id: "ses_capture",
+        } }));
+      }
+      console.log(fs.readFileSync("session.json", "utf8"));
+      process.exit(0);
+    }
+    if (process.argv[process.argv.indexOf("--session") + 1] !== "ses_capture") process.exit(1);
     fs.writeFileSync("prompt", process.argv.at(-1));
     fs.writeFileSync("cwd", process.env.PWD);
     console.error("diagnostic, not JSON");

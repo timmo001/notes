@@ -7,9 +7,13 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
-import { resolve } from "node:path";
+import { ChildProcessSpawner } from "effect/unstable/process";
 import type { DaemonConfig, OpenCodeModel } from "../schema.js";
+import {
+  createOpenCodeSession,
+  openCodeCommand,
+  OpenCodeSessionError,
+} from "./OpenCodeSession.js";
 
 const STATUS_PREFIX = /^STATUS: (success|failure)(?=\s|$)/;
 
@@ -128,12 +132,28 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
     prompt: string,
     model: OpenCodeModel,
   ) {
+    const session = yield* createOpenCodeSession(config, spawner).pipe(
+      Effect.mapError(
+        (error) =>
+          new OpenCodeClientError({
+            operation: "session.permissions",
+            message:
+              error instanceof OpenCodeSessionError
+                ? error.message
+                : "OpenCode session permissions could not be established",
+          }),
+      ),
+    );
+
     const child = yield* spawner.spawn(
-      ChildProcess.make(
-        config.opencodeCommand ?? "opencode2",
+      openCodeCommand(
+        config,
         [
-          ...(config.opencodeArgs ?? []),
           "run",
+          "--server",
+          session.server,
+          "--session",
+          session.id,
           "--format",
           "json",
           "--agent",
@@ -145,17 +165,7 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
           "--",
           prompt,
         ],
-        {
-          cwd: config.opencodeDirectory,
-          env: { PWD: resolve(config.opencodeDirectory) },
-          extendEnv: true,
-          shell: false,
-          stdin: "ignore",
-          stdout: "pipe",
-          stderr: "inherit",
-          killSignal: "SIGTERM",
-          forceKillAfter: "10 seconds",
-        },
+        session.password,
       ),
     );
 

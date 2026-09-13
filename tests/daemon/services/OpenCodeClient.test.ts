@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { Deferred, Effect, Exit, Fiber, Layer, Sink, Stream } from "effect";
+import {
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Schema,
+  Sink,
+  Stream,
+} from "effect";
 import { TestClock } from "effect/testing";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { OpenCodeClient } from "../../../src/daemon/services/OpenCodeClient.js";
@@ -37,6 +46,8 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
   const commands: ChildProcess.StandardCommand[] = [];
   const spawned = yield* Deferred.make<void>();
   let releases = 0;
+  let attempts = 0;
+  let session = "";
 
   const spawner = Layer.succeed(
     ChildProcessSpawner.ChildProcessSpawner,
@@ -47,21 +58,85 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
             throw new Error("Expected a standard command");
           commands.push(command);
 
-          return ChildProcessSpawner.makeHandle({
-            pid: ChildProcessSpawner.ProcessId(1),
-            exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
-            isRunning: Effect.succeed(false),
-            kill: () => Effect.void,
-            stdin: Sink.drain,
-            stdout: output(textEvent("STATUS: success\nSaved note abc123")),
-            stderr: Stream.empty,
-            all: Stream.empty,
-            getInputFd: () => Sink.drain,
-            getOutputFd: () => Stream.empty,
-            unref: Effect.succeed(Effect.void),
-            ...respond(commands.length),
-          });
-        }).pipe(Effect.tap(() => Deferred.succeed(spawned, undefined))),
+          const args = command.args.slice(overrides.opencodeArgs?.length ?? 0);
+          const isRun = args[0] === "run";
+          let response: Partial<ChildProcessSpawner.ChildProcessHandle> = {};
+
+          if (isRun) {
+            response = respond(++attempts);
+          } else if (args[0] === "service") {
+            response = {
+              stdout: output(
+                args[1] === "status"
+                  ? "http://127.0.0.1:49374\n"
+                  : "test-password\n",
+              ),
+            };
+          } else if (args[4]?.startsWith("/api/plugin/await-activation?")) {
+            response = { stdout: Stream.empty };
+          } else if (args[4]?.startsWith("/api/agent/")) {
+            response = {
+              stdout: output(
+                JSON.stringify({
+                  location: { directory: config.opencodeDirectory },
+                  data: {
+                    id: "notes-daemon",
+                    permissions: [
+                      { action: "*", resource: "*", effect: "deny" },
+                      { action: "read", resource: "*", effect: "allow" },
+                      {
+                        action: "notes_note_write",
+                        resource: "*",
+                        effect: "allow",
+                      },
+                    ],
+                  },
+                }),
+              ),
+            };
+          } else {
+            if (args[3] === "post") {
+              const data = Schema.decodeSync(
+                Schema.fromJsonString(
+                  Schema.Struct({
+                    agent: Schema.String,
+                    location: Schema.Struct({ directory: Schema.String }),
+                    permissions: Schema.Unknown,
+                  }),
+                ),
+              )(args[6] ?? "");
+
+              session = JSON.stringify({
+                data: { ...data, id: `ses_attempt${attempts + 1}` },
+              });
+            }
+
+            response = { stdout: output(session) };
+          }
+
+          return {
+            isRun,
+            handle: ChildProcessSpawner.makeHandle({
+              pid: ChildProcessSpawner.ProcessId(1),
+              exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+              isRunning: Effect.succeed(false),
+              kill: () => Effect.void,
+              stdin: Sink.drain,
+              stdout: output(textEvent("STATUS: success\nSaved note abc123")),
+              stderr: Stream.empty,
+              all: Stream.empty,
+              getInputFd: () => Sink.drain,
+              getOutputFd: () => Stream.empty,
+              unref: Effect.succeed(Effect.void),
+              ...response,
+            }),
+          };
+        }).pipe(
+          Effect.tap(({ isRun }) =>
+            isRun ? Deferred.succeed(spawned, undefined) : Effect.void,
+          ),
+          Effect.map(({ handle }) => handle),
+        ),
         () => Effect.sync(() => releases++),
       ),
     ),
@@ -97,11 +172,15 @@ describe("OpenCodeClient command boundary", () => {
           yield* fake.client.process("--prompt 'quoted'\n$(literal)"),
         ).toBe("Saved note abc123");
         expect(fake.commands[0]?.command).toBe("/opt/processor");
-        expect(fake.commands[0]?.args).toEqual([
+        expect(fake.commands[6]?.args).toEqual([
           "--limit",
           "two words",
           "--",
           "run",
+          "--server",
+          "http://127.0.0.1:49374",
+          "--session",
+          "ses_attempt1",
           "--format",
           "json",
           "--agent",
@@ -124,8 +203,8 @@ describe("OpenCodeClient command boundary", () => {
           killSignal: "SIGTERM",
           forceKillAfter: "10 seconds",
         });
-        expect(fake.commands).toHaveLength(1);
-        expect(fake.releases()).toBe(1);
+        expect(fake.commands).toHaveLength(7);
+        expect(fake.releases()).toBe(7);
       }),
     );
   });
@@ -184,8 +263,8 @@ describe("OpenCodeClient command boundary", () => {
           expect(yield* fake.client.process("prompt")).toBe(
             "Saved note abc123",
           );
-          expect(fake.commands[1]?.args).toContain("other/fallback#low");
-          expect(fake.releases()).toBe(2);
+          expect(fake.commands[13]?.args).toContain("other/fallback#low");
+          expect(fake.releases()).toBe(14);
         }),
       );
     },
@@ -202,7 +281,7 @@ describe("OpenCodeClient command boundary", () => {
         expect(error.operation).toBe("process.models");
         expect(error.message).toContain("provider/primary, other/fallback#low");
         expect(error.message).toContain("size limit");
-        expect(fake.releases()).toBe(2);
+        expect(fake.releases()).toBe(14);
       }),
     );
   });
@@ -221,8 +300,8 @@ describe("OpenCodeClient command boundary", () => {
         yield* Deferred.await(fake.spawned);
         yield* TestClock.adjust("30 seconds");
         expect(yield* Fiber.join(fiber)).toBe("Saved note abc123");
-        expect(fake.commands).toHaveLength(2);
-        expect(fake.releases()).toBe(2);
+        expect(fake.commands).toHaveLength(14);
+        expect(fake.releases()).toBe(14);
       }).pipe(Effect.provide(TestClock.layer())),
     );
   });
@@ -242,8 +321,8 @@ describe("OpenCodeClient command boundary", () => {
         yield* Deferred.await(fake.spawned);
         yield* Fiber.interrupt(fiber);
         expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
-        expect(fake.commands).toHaveLength(1);
-        expect(fake.releases()).toBe(1);
+        expect(fake.commands).toHaveLength(7);
+        expect(fake.releases()).toBe(7);
       }),
     );
   });
