@@ -51,8 +51,10 @@ export const toolRegistrar: Effect.Effect<
   McpServer.McpServer
 > = Effect.gen(function* () {
   const server = yield* McpServer.McpServer;
+
   const register: ToolRegistrar = (options) => {
     const decode = Schema.decodeEffect(options.parameters);
+
     return server.addTool({
       tool: new McpSchema.Tool({
         name: options.name,
@@ -79,5 +81,6 @@ export const toolRegistrar: Effect.Effect<
         ),
     });
   };
+
   return register;
 });

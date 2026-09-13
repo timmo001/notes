@@ -33,9 +33,11 @@ class AgentOpenError extends Schema.TaggedError<AgentOpenError>()(
 ) {}
 
 const OPENCODE2 = "/home/aidan/.local/bin/opencode2";
+
 const RepositoryPicker = Schema.Array(
   Schema.Struct({ name: Schema.String, path: Schema.String }),
 );
+
 const TARGETS: readonly AgentTarget[] = [
   { command: "opencode2", executable: OPENCODE2, label: "OpenCode 2" },
   { command: "opencode", executable: "opencode", label: "OpenCode 1" },
@@ -67,11 +69,13 @@ export const detectAgentTargets = Effect.fn("detectAgentTargets")(function* (
 ) {
   const sdk = yield* HerdrSdk;
   const integrations = yield* sdk.integrations.list();
+
   const installed = new Set<string>(
     integrations
       .filter(({ state }) => state === "current" || state === "outdated")
       .map(({ target }) => target),
   );
+
   return TARGETS.filter((target) =>
     target.command === "opencode2"
       ? installed.has("opencode") && executableAvailable(OPENCODE2)
@@ -87,8 +91,10 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
   options: OpenAgentOptions = {},
 ) {
   const mode = options.mode ?? "default";
+
   const executableAvailable =
     options.executableAvailable ?? isRegularExecutable;
+
   if (
     target.command === "opencode2" &&
     !executableAvailable(target.executable)
@@ -97,14 +103,17 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
       message: `${target.executable} is not a regular executable file`,
     });
   }
+
   const cwd = entry.projectDir ?? homedir();
   const workspaceLabel = yield* workspaceLabelForDirectory(cwd);
   const sdk = yield* HerdrSdk;
   const listed = yield* sdk.workspaces.list();
+
   let workspaceId = listed.find(
     (workspace) =>
       workspace.label.toLowerCase() === workspaceLabel.toLowerCase(),
   )?.id;
+
   let tabId: TabId;
   let paneId: PaneId;
 
@@ -113,6 +122,7 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
       label: workspaceLabel,
       focus: false,
     });
+
     workspaceId = created.workspace.id;
     tabId = created.tab.id;
     paneId = created.rootPane.id;
@@ -124,6 +134,7 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
       label: target.label,
       focus: false,
     });
+
     tabId = created.tab.id;
     paneId = created.rootPane.id;
   }
@@ -135,10 +146,12 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
           "opencode2",
         ])).trim()
       : null;
+
   const agentArgs =
     mode === "plan" && target.command === "opencode"
       ? [target.executable, "--agent", "plan"]
       : [target.executable];
+
   yield* sdk.panes.sendInput(paneId, {
     text: agentArgs.join(" "),
     keys: ["enter"],
@@ -158,8 +171,10 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
     { timeoutMs: 30_000 },
     { requestTimeout: Duration.seconds(35) },
   );
+
   if (expectedOpenCode2) {
     const processInfo = yield* sdk.panes.processInfo(paneId);
+
     if (
       !processInfo.foregroundProcesses?.some((process) =>
         Option.exists(process.argv, (argv) => argv.includes(expectedOpenCode2)),
@@ -170,6 +185,7 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
       });
     }
   }
+
   yield* sdk.agents.prompt(
     { paneId },
     {
@@ -178,6 +194,7 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
     },
     { requestTimeout: Duration.seconds(125) },
   );
+
   return {
     note: entry.filePath,
     agent: target,
@@ -196,12 +213,15 @@ export function workspaceLabelForDirectory(
   ),
 ) {
   const fallback = basename(directory);
+
   return Effect.gen(function* () {
     const value = yield* Effect.try(() =>
       JSON.parse(readFileSync(pickerCache, "utf8")),
     );
+
     const repositories =
       yield* Schema.decodeUnknownEffect(RepositoryPicker)(value);
+
     return (
       repositories.find((repository) => repository.path === directory)?.name ??
       fallback
@@ -214,6 +234,7 @@ export function isRegularExecutable(path: string): boolean {
   try {
     if (!statSync(path).isFile()) return false;
     accessSync(path, constants.X_OK);
+
     return true;
   } catch {
     return false;

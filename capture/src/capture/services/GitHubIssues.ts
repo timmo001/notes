@@ -41,11 +41,13 @@ export async function createGitHubIssue(
       body: JSON.stringify(payload),
     },
   );
+
   if (!response.ok) {
     throw new Error(`GitHub issue creation failed (${response.status})`);
   }
 
   let result: typeof GitHubIssueResponse.Type;
+
   try {
     result = Schema.decodeUnknownSync(GitHubIssueResponse)(
       await response.json(),
@@ -53,5 +55,6 @@ export async function createGitHubIssue(
   } catch {
     throw new Error("GitHub returned an invalid issue response");
   }
+
   return { number: result.number, url: result.html_url };
 }

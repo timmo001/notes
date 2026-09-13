@@ -19,6 +19,7 @@ import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
 import { Config } from "../../../src/services/Config.js";
 
 const temporaryDirectories: string[] = [];
+
 const identity = {
   source: "remote" as const,
   owner: "timmo001",
@@ -26,6 +27,7 @@ const identity = {
   remote: "origin",
   remoteUrl: "git@github.com:timmo001/notes.git",
 };
+
 const client = McpSchema.McpServerClient.of({
   clientId: 1,
   protocolVersion: "2025-03-26",
@@ -43,6 +45,7 @@ type ToolArgument = string | number | boolean | null;
 
 function git(cwd: string, ...args: string[]): void {
   const result = Bun.spawnSync(["git", ...args], { cwd });
+
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
 }
 
@@ -61,6 +64,7 @@ function fixture() {
   );
   git(root, "add", ".");
   git(root, "commit", "-m", "Initial note");
+
   return { root, notesPath, path };
 }
 
@@ -87,9 +91,11 @@ async function callTool(
         Effect.sync(() => notifications.push(`${title}: ${message}`)),
     }),
   );
+
   return Effect.runPromise(
     Effect.gen(function* () {
       yield* registerNotesTools;
+
       return yield* (yield* McpServer.McpServer)
         .callTool({ name, arguments: args })
         .pipe(Effect.provideService(McpSchema.McpServerClient, client));
@@ -138,6 +144,7 @@ describe("notes MCP tools", () => {
     const { root, path } = fixture();
     const notifications: string[] = [];
     const read = await callTool(root, "note_read", { path });
+
     const { content, hash } = Schema.decodeUnknownSync(
       Schema.Struct({ content: Schema.String, hash: Schema.String }),
     )(JSON.parse(resultText(read)));
@@ -162,6 +169,7 @@ describe("notes MCP tools", () => {
   test("note_write adds a date when frontmatter omits it", async () => {
     const { root, notesPath } = fixture();
     const path = join(notesPath, "without-date.md");
+
     const content = `---
 repo: timmo001/notes
 name: Without Date
@@ -183,11 +191,13 @@ tags: [test]
 
   test("note_write rejects malformed and stale revision hashes", async () => {
     const { root, path } = fixture();
+
     const malformed = await callTool(root, "note_write", {
       path,
       content: readFileSync(path, "utf8"),
       expectedHash: "invalid",
     });
+
     const stale = await callTool(root, "note_write", {
       path,
       content: readFileSync(path, "utf8"),

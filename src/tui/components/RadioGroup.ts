@@ -64,7 +64,9 @@ export class RadioGroup<T extends string> extends BoxRenderable {
           this.focus();
         },
       });
+
       this.add(row);
+
       return row;
     });
     this.refresh();
@@ -76,6 +78,7 @@ export class RadioGroup<T extends string> extends BoxRenderable {
 
   set value(value: T) {
     const index = this.choices.findIndex((choice) => choice.value === value);
+
     if (index >= 0) this.select(index, false);
   }
 
@@ -84,22 +87,29 @@ export class RadioGroup<T extends string> extends BoxRenderable {
       this.select(
         (this.selectedIndex - 1 + this.choices.length) % this.choices.length,
       );
+
       return true;
     }
+
     if (key.name === "down" || key.name === "right") {
       this.select((this.selectedIndex + 1) % this.choices.length);
+
       return true;
     }
+
     if (key.name === "return" || key.name === "space") {
       this.onActivate?.(this.value);
+
       return true;
     }
+
     return false;
   }
 
   private select(index: number, emit = true): void {
     this.selectedIndex = index;
     this.refresh();
+
     if (emit) this.onValueChange?.(this.value);
   }
 

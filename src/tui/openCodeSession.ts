@@ -44,6 +44,8 @@ export function openCodeSessionLabel(mode: OpenCodeSessionMode): string {
 function openCodeArgs(options: OpenCodeSessionOptions): string[] {
   const args =
     options.mode === "plan" ? ["opencode", "--agent", "plan"] : ["opencode"];
+
   if (options.prompt !== undefined) args.push("--prompt", options.prompt);
+
   return args;
 }

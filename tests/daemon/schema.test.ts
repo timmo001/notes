@@ -35,6 +35,7 @@ describe("daemon schema", () => {
       consecutiveFailureLimit: 3,
       pollIntervalSeconds: 30,
     });
+
     expect(config.repository).toBe("owner/repo");
     expect(config.opencodeCommand).toBe("processor");
     expect(config.opencodeArgs).toEqual(["--limit", "5m", "--"]);
@@ -89,6 +90,7 @@ describe("daemon schema", () => {
       labels: ["agent:ready"],
       comments: [{ author: "daemon", body: COMPLETION_MARKER }],
     });
+
     expect(issueIsComplete(issue, "daemon")).toBe(true);
     expect(issueIsComplete(issue, "someone-else")).toBe(false);
   });
@@ -102,6 +104,7 @@ describe("daemon schema", () => {
       labels: ["agent:ready"],
       comments: [{ author: "daemon", body: "<!-- notes-daemon:failed -->" }],
     });
+
     expect(issueHasFailure(issue, "daemon")).toBe(true);
     expect(issueHasFailure(issue, "someone-else")).toBe(false);
   });
@@ -115,6 +118,7 @@ describe("daemon schema", () => {
       labels: ["agent:ready"],
       comments: [],
     });
+
     const prompt = issuePrompt(issue.body);
     expect(prompt.match(/<\/captured-note-base64>/g)).toHaveLength(1);
     expect(prompt).not.toContain("</captured-note-json>");

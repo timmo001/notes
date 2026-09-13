@@ -76,6 +76,7 @@ export class StatusList<T> extends ScrollSurface {
     preferredId?: string | null,
   ): void {
     const selectedId = preferredId ?? this.getSelectedItem()?.id;
+
     for (const row of this.scrollBox.getChildren()) this.scrollBox.remove(row);
     this.items = items;
     this.selectedIndex = Math.max(
@@ -91,6 +92,7 @@ export class StatusList<T> extends ScrollSurface {
         sectionHeader = this.createSection(item.section, index);
         this.addContent(sectionHeader);
       }
+
       const row = this.createRow(item, index, sectionHeader);
       this.rows.push(row);
       this.addContent(row.container);
@@ -106,6 +108,7 @@ export class StatusList<T> extends ScrollSurface {
 
   setActive(active: boolean, options?: { readonly focus?: boolean }): void {
     this.active = active;
+
     if (active && (options?.focus ?? true)) this.focus();
     else this.blur();
     this.refresh();
@@ -132,29 +135,38 @@ export class StatusList<T> extends ScrollSurface {
   override handleKeyPress(key: KeyEvent): boolean {
     if (key.name === "up" || key.name === "down") {
       this.moveSelection(key.name === "up" ? -1 : 1);
+
       return true;
     }
+
     if (key.name === "pageup" || key.name === "pagedown") {
       const page = this.completeItemsPerPage();
       this.moveSelection(key.name === "pageup" ? -page : page, false);
+
       return true;
     }
+
     if (key.name === "return" && this.selectOnEnter) {
       const item = this.getSelectedItem();
+
       if (item) this.onSelectItem(item);
+
       return true;
     }
+
     return this.scrollBox.handleKeyPress(key);
   }
 
   private moveSelection(delta: number, wrap = true): void {
     if (!this.items.length) return;
+
     const next = wrap
       ? (this.selectedIndex + delta + this.items.length) % this.items.length
       : Math.max(
           0,
           Math.min(this.items.length - 1, this.selectedIndex + delta),
         );
+
     if (next === this.selectedIndex) return;
     this.selectedIndex = next;
     this.refresh();
@@ -169,7 +181,9 @@ export class StatusList<T> extends ScrollSurface {
       this.ensureSelectionVisible();
       this.emitSelection();
     }
+
     const item = this.items[index];
+
     if (item) this.onSelectItem(item);
   }
 
@@ -181,6 +195,7 @@ export class StatusList<T> extends ScrollSurface {
       flexShrink: 0,
       paddingLeft: 1,
     });
+
     header.add(
       new TextRenderable(this.renderer, {
         content: t`${bold(fg(this.listTheme.fgSubtle)(label))}`,
@@ -189,6 +204,7 @@ export class StatusList<T> extends ScrollSurface {
         truncate: true,
       }),
     );
+
     return header;
   }
 
@@ -210,18 +226,21 @@ export class StatusList<T> extends ScrollSurface {
         this.activate(index);
       },
     });
+
     const marker = new TextRenderable(this.renderer, {
       width: 2,
       height: 2,
       flexShrink: 0,
       content: "",
     });
+
     const content = new BoxRenderable(this.renderer, {
       flexDirection: "column",
       flexGrow: 1,
       minWidth: 0,
       height: 2,
     });
+
     const title = new TextRenderable(this.renderer, {
       height: 1,
       flexShrink: 0,
@@ -230,6 +249,7 @@ export class StatusList<T> extends ScrollSurface {
       overflow: "hidden",
       content: "",
     });
+
     const description = new TextRenderable(this.renderer, {
       height: 1,
       flexShrink: 0,
@@ -238,10 +258,12 @@ export class StatusList<T> extends ScrollSurface {
       overflow: "hidden",
       content: "",
     });
+
     content.add(title);
     content.add(description);
     container.add(marker);
     container.add(content);
+
     return { container, marker, title, description, item, sectionHeader };
   }
 
@@ -260,17 +282,23 @@ export class StatusList<T> extends ScrollSurface {
 
   private ensureSelectionVisible(): void {
     const row = this.rows[this.selectedIndex];
+
     if (!row) return;
     const viewport = this.scrollBox.viewport.height;
     const rowStart = this.childStart(row.container);
+
     const contextStart = row.sectionHeader
       ? this.childStart(row.sectionHeader)
       : rowStart;
+
     const rowEnd = rowStart + row.container.height;
+
     const targetStart =
       rowEnd - contextStart <= viewport ? contextStart : rowStart;
+
     const current = this.scrollBox.scrollTop;
     let target = current;
+
     if (targetStart < current) target = targetStart;
     else if (rowEnd > current + viewport) target = rowEnd - viewport;
     this.scrollBox.scrollTop = this.completeChildBoundary(target);
@@ -279,7 +307,9 @@ export class StatusList<T> extends ScrollSurface {
 
   private completeItemsPerPage(): number {
     const viewport = this.scrollBox.viewport.height;
+
     if (viewport <= 0) return 1;
+
     return Math.max(1, Math.floor(viewport / 2));
   }
 
@@ -288,27 +318,33 @@ export class StatusList<T> extends ScrollSurface {
       0,
       this.scrollBox.scrollHeight - this.scrollBox.viewport.height,
     );
+
     const bounded = Math.max(0, Math.min(offset, extent));
     const starts: number[] = [];
     let start = 0;
+
     for (const child of this.scrollBox.getChildren()) {
       if (start <= bounded) starts.push(start);
       start += child.height;
     }
+
     return Math.max(0, ...starts);
   }
 
   private childStart(target: BoxRenderable): number {
     let start = 0;
+
     for (const child of this.scrollBox.getChildren()) {
       if (child === target) return start;
       start += child.height;
     }
+
     return start;
   }
 
   private emitSelection(): void {
     const item = this.getSelectedItem();
+
     if (item) this.onItemSelectionChanged?.(item);
   }
 }

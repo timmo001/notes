@@ -76,18 +76,22 @@ export class ScrollSurface extends BoxRenderable {
   ): boolean {
     const handled = this.scrollBox.handleKeyPress(key);
     this.syncMarker();
+
     return handled;
   }
 
   syncMarker(): void {
     const viewport = this.scrollBox.viewport.height;
+
     if (viewport <= 0) return;
     const extent = Math.max(0, this.scrollBox.scrollHeight - viewport);
     const offset = Math.max(0, Math.min(this.scrollBox.scrollTop, extent));
     const metrics = `${viewport}:${extent}:${offset}`;
+
     if (metrics === this.markerMetrics) return;
     this.markerMetrics = metrics;
     const marker = renderMarker(viewport, extent, offset);
+
     if (marker === this.markerText) return;
     this.markerText = marker;
     this.marker.content = t`${fg(this.theme.fgSubtle)(marker)}`;
@@ -95,6 +99,7 @@ export class ScrollSurface extends BoxRenderable {
 
   protected override onUpdate(deltaTime: number): void {
     super.onUpdate(deltaTime);
+
     if (this.markerMetrics) this.syncMarker();
   }
 }
@@ -105,12 +110,16 @@ function renderMarker(
   offset: number,
 ): string {
   if (viewport <= 0) return "";
+
   if (extent === 0) return " ".repeat(viewport).split("").join("\n");
+
   const thumb = Math.max(
     1,
     Math.floor((viewport * viewport) / (viewport + extent)),
   );
+
   const start = Math.round((offset / extent) * Math.max(0, viewport - thumb));
+
   return Array.from({ length: viewport }, (_, row) =>
     row >= start && row < start + thumb ? "┃" : "│",
   ).join("\n");

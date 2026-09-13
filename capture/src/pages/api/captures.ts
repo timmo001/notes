@@ -32,30 +32,37 @@ export const POST = (async ({ request }) => {
       reason: "content-type",
       status: 415,
     });
+
     return json({ error: CAPTURE_ERRORS.expectedJson }, 415);
   }
+
   const length = Number(request.headers.get("Content-Length") ?? 0);
+
   if (length > MAX_REQUEST_BYTES) {
     console.warn("Capture submission rejected", {
       reason: "declared-size",
       status: 413,
       bytes: length,
     });
+
     return json({ error: CAPTURE_ERRORS.tooLarge }, 413);
   }
 
   const raw = await request.text();
   const bytes = new TextEncoder().encode(raw).byteLength;
+
   if (bytes > MAX_REQUEST_BYTES) {
     console.warn("Capture submission rejected", {
       reason: "measured-size",
       status: 413,
       bytes,
     });
+
     return json({ error: CAPTURE_ERRORS.tooLarge }, 413);
   }
 
   let capture: Capture;
+
   try {
     capture = decodeCapture(JSON.parse(raw));
   } catch {
@@ -63,11 +70,13 @@ export const POST = (async ({ request }) => {
       reason: "invalid-capture",
       status: 400,
     });
+
     return json({ error: CAPTURE_ERRORS.invalidCapture }, 400);
   }
 
   const defaultRepository = `${env.GITHUB_OWNER}/${env.GITHUB_REPO}`;
   let repositories: readonly RepositoryOption[] | undefined;
+
   try {
     repositories = parseRepositoryOptions(env.CAPTURE_REPOSITORIES);
   } catch {
@@ -76,11 +85,13 @@ export const POST = (async ({ request }) => {
       status: 500,
       requestId: capture.requestId,
     });
+
     return json({ error: CAPTURE_ERRORS.invalidConfiguration }, 500);
   }
 
   let owner: string;
   let repository: string;
+
   try {
     validateTargetRepository(capture.repository, repositories);
     [owner, repository] = splitRepository(defaultRepository);
@@ -90,6 +101,7 @@ export const POST = (async ({ request }) => {
       status: 400,
       requestId: capture.requestId,
     });
+
     return json({ error: CAPTURE_ERRORS.invalidRepository }, 400);
   }
 
@@ -105,6 +117,7 @@ export const POST = (async ({ request }) => {
           }),
       }),
     );
+
     return json(issue, 201);
   } catch {
     console.error("Capture submission failed", {
@@ -112,6 +125,7 @@ export const POST = (async ({ request }) => {
       status: 502,
       requestId: capture.requestId,
     });
+
     return json({ error: CAPTURE_ERRORS.queueFailed }, 502);
   }
 }) satisfies APIRoute;

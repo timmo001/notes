@@ -25,6 +25,7 @@ export class HelpDialog {
       height: 14,
       onDismiss,
     });
+
     for (const [heading, commands] of GROUPS) {
       this.dialog.body.add(
         new TextRenderable(renderer, {
@@ -42,12 +43,14 @@ export class HelpDialog {
         }),
       );
     }
+
     const close = new Button(renderer, {
       id: "help-dialog-close",
       theme,
       label: "Close",
       onPress: () => this.dialog.dismiss(),
     });
+
     this.dialog.body.add(close);
     this.dialog.registerFocusable(close, true);
   }

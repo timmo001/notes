@@ -45,18 +45,22 @@ export class AgentDialog {
         onOpen(item.value);
       },
     });
+
     const cancel = new Button(renderer, {
       id: "agent-dialog-cancel",
       theme,
       label: "Cancel",
       onPress: () => this.dialog.dismiss(),
     });
+
     this.dialog.body.add(this.note);
     this.dialog.body.add(this.list);
+
     const actions = new BoxRenderable(renderer, {
       height: 1,
       flexShrink: 0,
     });
+
     actions.add(cancel);
     this.dialog.body.add(actions);
     this.dialog.registerFocusable(this.list, true);

@@ -17,6 +17,7 @@ export const GENERIC_CAPTURE_ERROR =
 const CaptureErrorResponse = Schema.Struct({
   error: Schema.Literals(Object.values(CAPTURE_ERRORS)),
 });
+
 const decodeCaptureErrorOption =
   Schema.decodeUnknownOption(CaptureErrorResponse);
 
@@ -25,5 +26,6 @@ export const decodeCaptureError = <Input>(value: Input) =>
 
 export function captureErrorMessage<Input>(value: Input): string {
   const error = decodeCaptureError(value);
+
   return error ? `${error}. Your text is still here.` : GENERIC_CAPTURE_ERROR;
 }

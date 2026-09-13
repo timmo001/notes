@@ -12,10 +12,12 @@ export const runDaemon = Effect.fn("NotesDaemon.run")(function* (
   once: boolean,
 ) {
   const config = yield* loadDaemonConfig(configPath);
+
   const layers = Layer.mergeAll(
     IssueQueue.layer(config),
     OpenCodeClient.layer(config),
   ).pipe(Layer.provide(ghLayer()), Layer.provide(NodeServices.layer));
+
   const pass = runProcessingPass(config.queueLabel, config.workerActor).pipe(
     Effect.timeout(`${config.passTimeoutSeconds} seconds`),
     Effect.tap((result) =>
@@ -30,19 +32,23 @@ export const runDaemon = Effect.fn("NotesDaemon.run")(function* (
 
   if (once) return yield* pass;
   const consecutiveFailures = yield* Ref.make(0);
+
   const supervisedPass = pass.pipe(
     Effect.tap(() => Ref.set(consecutiveFailures, 0)),
     Effect.catch((error) =>
       Effect.gen(function* () {
         console.error("[notes-daemon] pass failed", error);
+
         const failures = yield* Ref.updateAndGet(
           consecutiveFailures,
           (count) => count + 1,
         );
+
         if (failures >= config.consecutiveFailureLimit) return yield* error;
       }),
     ),
   );
+
   return yield* supervisedPass.pipe(
     Effect.repeat(
       Schedule.spaced(`${config.pollIntervalSeconds} seconds`).pipe(

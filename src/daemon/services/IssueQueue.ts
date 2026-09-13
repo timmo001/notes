@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Predicate, Schema } from "effect";
 import { Gh } from "@timmo001/effect-gh";
 import { QueueIssue, type DaemonConfig } from "../schema.js";
 
@@ -47,10 +47,13 @@ export class IssueQueue extends Context.Service<
       IssueQueue,
       Effect.gen(function* () {
         const gh = yield* Gh;
+
         const options = {
           timeout: `${config.commandTimeoutSeconds} seconds` as const,
         };
+
         const run = (args: readonly string[]) => gh.execute(args, options);
+
         const json = Effect.fn("IssueQueue.ghJson")(function* (
           operation: string,
           args: readonly string[],
@@ -60,14 +63,14 @@ export class IssueQueue extends Context.Service<
               (error) =>
                 new IssueQueueError({
                   operation,
-                  message:
-                    error._tag === "GhDecodeError"
-                      ? String(error.cause)
-                      : String(error),
+                  message: Predicate.isTagged(error, "GhDecodeError")
+                    ? String(error.cause)
+                    : String(error),
                 }),
             ),
           );
         });
+
         const get = Effect.fn("IssueQueue.get")(function* (number: number) {
           return yield* json("get", [
             "issue",
@@ -79,7 +82,9 @@ export class IssueQueue extends Context.Service<
             "number,title,body,state,labels,comments",
           ]).pipe(Effect.flatMap(decodeIssue));
         });
+
         const claimLabel = `agent:processing:${config.workerId}:${crypto.randomUUID().slice(0, 8)}`;
+
         const processingLabels = (issue: QueueIssue) =>
           issue.labels.filter((label) => label.startsWith("agent:processing:"));
 
@@ -138,6 +143,7 @@ export class IssueQueue extends Context.Service<
                 claimLabel,
               ]);
               const labels = processingLabels(yield* get(number));
+
               if (labels.length === 1 && labels[0] === claimLabel)
                 return claimLabel;
               yield* run([
@@ -148,6 +154,7 @@ export class IssueQueue extends Context.Service<
                 config.repository,
                 "--yes",
               ]);
+
               return null;
             }).pipe(
               Effect.mapError((error) =>
@@ -163,6 +170,7 @@ export class IssueQueue extends Context.Service<
             get(number).pipe(
               Effect.map((issue) => {
                 const labels = processingLabels(issue);
+
                 return labels.length === 1 && labels[0] === label;
               }),
             ),

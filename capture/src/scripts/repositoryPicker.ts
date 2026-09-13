@@ -5,11 +5,12 @@ export function filterRepositories(
   query: string,
 ): readonly string[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  return options
-    .filter(({ searchText }) =>
-      searchText.toLocaleLowerCase().includes(normalizedQuery),
-    )
-    .map(({ repository }) => repository);
+
+  return options.flatMap(({ repository, searchText }) =>
+    searchText.toLocaleLowerCase().includes(normalizedQuery)
+      ? [repository]
+      : [],
+  );
 }
 
 export function restoreRepository(

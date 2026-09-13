@@ -109,7 +109,9 @@ export class App {
 
   private notesTitle(): string {
     const title = this.activeNotesFilter?.title ?? "Notes";
+
     if (!this.activeNotesFilter?.includeAllRepos) return title;
+
     return title.startsWith("All ") ? title : `All ${title}`;
   }
 }

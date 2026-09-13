@@ -4,6 +4,7 @@ import { renderHelp } from "../../cli/help.js";
 import { Notes } from "../../notes/services/Notes.js";
 
 const commandParam = McpSchema.param("name", Schema.String);
+
 const CONTEXT_COMMAND = "notes-list";
 
 /** Register notes read-only resources on the current MCP server. */
@@ -16,6 +17,7 @@ export const registerNotesResources = Effect.gen(function* () {
     mimeType: "text/markdown",
     content: Effect.gen(function* () {
       const notes = yield* Notes;
+
       return yield* notes.context({ command: CONTEXT_COMMAND });
     }),
   });

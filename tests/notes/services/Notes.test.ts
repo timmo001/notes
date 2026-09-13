@@ -18,6 +18,7 @@ import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
 import { Config } from "../../../src/services/Config.js";
 
 const temporaryDirectories: string[] = [];
+
 const identity = {
   source: "remote" as const,
   owner: "timmo001",
@@ -28,6 +29,7 @@ const identity = {
 
 function git(cwd: string, ...args: string[]): void {
   const result = Bun.spawnSync(["git", ...args], { cwd });
+
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
 }
 
@@ -51,6 +53,7 @@ function fixture(parent = tmpdir()) {
   );
   git(root, "add", ".");
   git(root, "commit", "-m", "Initial note");
+
   const layer = Notes.layer.pipe(
     Layer.provideMerge(CommandExecutor.layer),
     Layer.provideMerge(
@@ -61,6 +64,7 @@ function fixture(parent = tmpdir()) {
       }),
     ),
   );
+
   return { root, path, layer };
 }
 
@@ -145,12 +149,14 @@ describe("Notes service", () => {
     const { root } = fixture();
     const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
     temporaryDirectories.push(projectDir);
+
     const localNotesPath = join(
       root,
       "projects",
       "local",
       basename(projectDir),
     );
+
     mkdirSync(localNotesPath, { recursive: true });
     writeFileSync(
       join(localNotesPath, "local.md"),
@@ -279,12 +285,14 @@ describe("Notes service", () => {
     const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
     temporaryDirectories.push(projectDir);
     const repoSlug = `local/${basename(projectDir)}`;
+
     const localNotesPath = join(
       root,
       "projects",
       "local",
       basename(projectDir),
     );
+
     mkdirSync(localNotesPath, { recursive: true });
     writeFileSync(
       join(localNotesPath, "local.md"),
@@ -304,6 +312,7 @@ describe("Notes service", () => {
     );
 
     expect(scope).toMatchObject({ scope: "all", repoSlug });
+
     if (scope.scope !== "all") throw new Error("Expected all-repository scope");
     expect(scope.sections.map((section) => section.repoSlug)).toEqual([
       repoSlug,
@@ -335,11 +344,13 @@ describe("Notes service", () => {
 
   test("retains known project directories when listing all repositories", async () => {
     const { layer } = fixture();
+
     const currentScope = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).tuiScope();
       }).pipe(Effect.provide(layer)),
     );
+
     if (currentScope.scope !== "current")
       throw new Error("Expected current repository scope");
 
@@ -430,6 +441,7 @@ describe("Notes service", () => {
         });
       }).pipe(Effect.provide(layer)),
     );
+
     const ordinary = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).contextPayload({
@@ -478,6 +490,7 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(layer)),
     );
+
     const content = readFileSync(result.draft.entry.filePath, "utf8");
 
     expect(result.draft.entry.filePath).toBe(
@@ -541,6 +554,7 @@ describe("Notes service", () => {
         return yield* (yield* Notes).setPriority(path, "critical");
       }).pipe(Effect.provide(layer)),
     );
+
     const content = readFileSync(path, "utf8");
 
     expect(result.commit).toMatchObject({ ok: true, committed: true });
@@ -550,11 +564,13 @@ describe("Notes service", () => {
 
   test("returns a revision and rejects a stale write", async () => {
     const { path, layer } = fixture();
+
     const initial = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
     );
+
     const updated = initial.content.replace("# Note", "# Updated");
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -576,12 +592,15 @@ describe("Notes service", () => {
 
   test("accepts a tilde path for guarded writes", async () => {
     const { path, layer } = fixture(process.env.HOME);
+
     const initial = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
     );
+
     const homePath = path.replace(process.env.HOME ?? "", "~");
+
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
@@ -591,16 +610,19 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(layer)),
     );
+
     expect(result.commit).toMatchObject({ ok: true, committed: true });
   });
 
   test("refuses staged work before touching a note", async () => {
     const { root, path, layer } = fixture();
+
     const before = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
     );
+
     writeFileSync(join(root, "unfinished.txt"), "unfinished");
     git(root, "add", "unfinished.txt");
     await expect(
@@ -613,11 +635,13 @@ describe("Notes service", () => {
         }).pipe(Effect.provide(layer)),
       ),
     ).rejects.toThrow("not ready for a mutation");
+
     const after = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
     );
+
     expect(after.content).toBe(before.content);
   });
 
@@ -640,6 +664,7 @@ describe("Notes service", () => {
 
     git(root, "config", "user.name", "Notes Test");
     git(root, "config", "user.email", "notes@example.invalid");
+
     const retried = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
@@ -648,6 +673,7 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(layer)),
     );
+
     expect(retried.commit).toMatchObject({ ok: true, committed: true });
   });
 
@@ -669,6 +695,7 @@ describe("Notes service", () => {
   test("allows malformed notes to be repaired in the editor", async () => {
     const { path, layer } = fixture();
     writeFileSync(path, "malformed");
+
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).edit(
@@ -682,11 +709,13 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(layer)),
     );
+
     expect(result.commit).toMatchObject({ ok: true, committed: true });
   });
 
   test("commits a note deleted by the editor", async () => {
     const { root, path, layer } = fixture();
+
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).edit(
@@ -696,12 +725,15 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(layer)),
     );
+
     expect(result.commit).toMatchObject({ ok: true, committed: true });
     expect(existsSync(path)).toBeFalse();
+
     const changed = Bun.spawnSync(
       ["git", "show", "--name-status", "--format=", "HEAD"],
       { cwd: root },
     ).stdout.toString();
+
     expect(changed).toContain("projects/timmo001/notes/note.md");
   });
 
@@ -714,6 +746,7 @@ describe("Notes service", () => {
     git(root, "init");
     git(root, "config", "user.name", "Notes Test");
     git(root, "config", "user.email", "notes@example.invalid");
+
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
@@ -722,12 +755,14 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(serviceLayer(root))),
     );
+
     expect(result.commit).toMatchObject({ ok: true, committed: true });
   });
 
   test("keeps draft creation and editing under one lock", async () => {
     const { root, layer } = fixture();
     let competitor: ReturnType<typeof Bun.spawn> | undefined;
+
     const created = Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).create(
@@ -749,12 +784,14 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(layer)),
     );
+
     await created;
     expect(await competitor?.exited).toBe(0);
   });
 
   test("treats deletion of a new draft as a cancelled create", async () => {
     const { layer } = fixture();
+
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         return yield* (yield* Notes).create(
@@ -765,6 +802,7 @@ describe("Notes service", () => {
         );
       }).pipe(Effect.provide(layer)),
     );
+
     expect(result.created).toBeFalse();
     expect(result.git.commit).toMatchObject({ ok: true, committed: false });
   });

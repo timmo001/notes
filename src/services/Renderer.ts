@@ -14,7 +14,9 @@ export class Renderer extends Context.Service<Renderer, CliRenderer>()(
         Effect.promise(async () => {
           const { createCliRenderer, setRenderLibPath } =
             await import("@opentui/core");
+
           if (nativeLibPath) setRenderLibPath(nativeLibPath);
+
           return createCliRenderer({
             exitOnCtrlC: false,
             screenMode: "alternate-screen",

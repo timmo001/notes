@@ -25,6 +25,8 @@ export async function runSupervisedProcess(
     stdout: options.stdout,
     stderr: options.stderr,
   });
+
   const exitCode = await proc.exited;
+
   if (exitCode !== 0) throw new ProcessExitError(options.label, exitCode);
 }

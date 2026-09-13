@@ -32,6 +32,7 @@ describe("runProcessingPass", () => {
   test("comments, closes, and releases a claimed issue", async () => {
     let current = issue();
     const released: string[] = [];
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -63,6 +64,7 @@ describe("runProcessingPass", () => {
     const result = await Effect.runPromise(
       runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
     );
+
     expect(result).toEqual({
       observed: 1,
       completed: 1,
@@ -76,6 +78,7 @@ describe("runProcessingPass", () => {
 
   test("skips when another daemon owns the issue", async () => {
     const current = issue();
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -95,6 +98,7 @@ describe("runProcessingPass", () => {
     const result = await Effect.runPromise(
       runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
     );
+
     expect(result).toEqual({
       observed: 1,
       completed: 0,
@@ -107,7 +111,9 @@ describe("runProcessingPass", () => {
     let current = issue([
       { author: "worker", body: `${COMPLETION_MARKER}\n\nAlready done` },
     ]);
+
     let opencodeCalls = 0;
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -126,6 +132,7 @@ describe("runProcessingPass", () => {
         process: () =>
           Effect.sync(() => {
             opencodeCalls += 1;
+
             return "unexpected";
           }),
       }),
@@ -134,6 +141,7 @@ describe("runProcessingPass", () => {
     const result = await Effect.runPromise(
       runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
     );
+
     expect(result.completed).toBe(1);
     expect(current.state).toBe("closed");
     expect(opencodeCalls).toBe(0);
@@ -142,6 +150,7 @@ describe("runProcessingPass", () => {
   test("does not close an issue dequeued after the result comment", async () => {
     let current = issue();
     let closeCalls = 0;
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -171,12 +180,14 @@ describe("runProcessingPass", () => {
     const result = await Effect.runPromise(
       runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
     );
+
     expect(result.skipped).toBe(1);
     expect(closeCalls).toBe(0);
   });
 
   test("escalates release failure to pass supervision", async () => {
     const issues = [issue(), { ...issue(), number: 2 }];
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed(issues),
@@ -211,6 +222,7 @@ describe("runProcessingPass", () => {
         runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
       ),
     );
+
     expect(result._tag).toBe("Failure");
   });
 
@@ -219,6 +231,7 @@ describe("runProcessingPass", () => {
     const errors: unknown[][] = [];
     const originalError = console.error;
     console.error = (...args: unknown[]) => errors.push(args);
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -251,6 +264,7 @@ describe("runProcessingPass", () => {
       const first = await Effect.runPromise(
         runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
       );
+
       const second = await Effect.runPromise(
         runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
       );
@@ -273,6 +287,7 @@ describe("runProcessingPass", () => {
 
   test("sanitizes and bounds a known processing error", async () => {
     let current = issue();
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -311,6 +326,7 @@ describe("runProcessingPass", () => {
 
     const originalError = console.error;
     console.error = () => {};
+
     try {
       await Effect.runPromise(
         runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
@@ -338,6 +354,7 @@ describe("runProcessingPass", () => {
     let current = issue();
     const unexpected = new Error("private implementation detail");
     const errors: unknown[][] = [];
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -364,6 +381,7 @@ describe("runProcessingPass", () => {
 
     const originalError = console.error;
     console.error = (...args: unknown[]) => errors.push(args);
+
     try {
       await Effect.runPromise(
         runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),

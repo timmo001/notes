@@ -40,6 +40,7 @@ class UsageError extends Schema.TaggedError<UsageError>()("UsageError", {
 
 function invokedCommand(): string | undefined {
   const name = basename(process.argv[1] ?? "");
+
   return name === "handoffs" || name === "handoff" ? "handoffs" : undefined;
 }
 
@@ -83,8 +84,10 @@ function emitNoteResult(
   if (json) {
     return writeLine(JSON.stringify(result));
   }
+
   return Effect.gen(function* () {
     yield* writeLine(result.output);
+
     if (result.push) yield* writeLine(formatPushLine(result.push));
   });
 }
@@ -96,6 +99,7 @@ function emitGitMutation(
 ): Effect.Effect<void> {
   return Effect.gen(function* () {
     yield* writeLine(output);
+
     if (result.commit.ok && result.commit.committed) {
       yield* writeLine(`Committed to git: \`${commitMessage}\``);
     } else if (!result.commit.ok) {
@@ -103,12 +107,14 @@ function emitGitMutation(
         `Git commit failed (saved locally): ${result.commit.error ?? "unknown error"}`,
       );
     }
+
     if (result.push) yield* writeLine(formatPushLine(result.push));
   });
 }
 
 function hasTag(entry: NoteEntry, tag: string): boolean {
   const wanted = tag.toLowerCase();
+
   return entry.tags.some((current) => current.toLowerCase() === wanted);
 }
 
@@ -124,12 +130,12 @@ function filterSections(
   tag: string | undefined,
 ): readonly NoteRepoSection[] {
   if (!tag) return sections;
-  return sections
-    .map((section) => ({
-      ...section,
-      entries: section.entries.filter((entry) => hasTag(entry, tag)),
-    }))
-    .filter((section) => section.entries.length > 0);
+
+  return sections.flatMap((section) => {
+    const entries = section.entries.filter((entry) => hasTag(entry, tag));
+
+    return entries.length > 0 ? [{ ...section, entries }] : [];
+  });
 }
 
 function formatHandoffLabel(entry: NoteEntry): string {
@@ -140,6 +146,7 @@ function sortHandoffs(entries: readonly NoteEntry[]): readonly NoteEntry[] {
   return [...entries].sort((a, b) => {
     const rankDelta =
       priorityRank(notePriority(a)) - priorityRank(notePriority(b));
+
     return rankDelta !== 0 ? rankDelta : b.mtime - a.mtime;
   });
 }
@@ -160,10 +167,12 @@ function includeAllRepos(filter: NotesViewFilter): NotesViewFilter {
 function guardInteractiveTui(mode: TuiMode): void {
   if (process.stdout.isTTY) return;
   const filter = mode.initialNotesFilter;
+
   const alternative =
     filter?.tag === "handoff"
       ? `notes handoffs --list${filter.includeAllRepos ? " --all" : ""}`
       : `notes list${filter?.includeAllRepos ? " --all" : ""}`;
+
   console.error(
     "notes: not opening the interactive TUI (stdout is not an interactive terminal).",
   );
@@ -202,11 +211,14 @@ function runContext({
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
+
       if (json) {
         const payload = yield* notes.contextPayload({ command });
         yield* writeLine(JSON.stringify(payload, null, 2));
+
         return;
       }
+
       yield* writeLine(yield* notes.context({ command }));
     }),
   );
@@ -224,21 +236,27 @@ function runList({
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
+
       if (all) {
         const sections = filterSections(yield* notes.listAll(), tag);
+
         const output =
           format === "json"
             ? JSON.stringify(sections, null, 2)
             : formatNoteSections(sections);
+
         yield* writeLine(output);
+
         return;
       }
 
       const entries = filterEntries(yield* notes.list(), tag);
+
       const output =
         format === "json"
           ? JSON.stringify(entries, null, 2)
           : entries.map(formatNoteLabel).join("\n");
+
       yield* writeLine(output);
     }),
   );
@@ -258,9 +276,11 @@ function runSearch({
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
+
       const entries = all
         ? (yield* notes.listAll()).flatMap((section) => section.entries)
         : yield* notes.list();
+
       const results = searchNoteEntries(filterEntries(entries, tag), query);
       yield* writeLine(
         format === "json"
@@ -358,6 +378,7 @@ function runCreate({
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
+
       const result = yield* notes.createFromInput(
         repository,
         kind,
@@ -365,6 +386,7 @@ function runCreate({
         description,
         yield* Effect.promise(() => Bun.stdin.text()),
       );
+
       if (json) {
         yield* writeLine(JSON.stringify(result));
       } else {
@@ -402,6 +424,7 @@ function runAgents({ format }: { readonly format: NotesListFormat }) {
           }),
       ),
     );
+
     yield* writeLine(
       format === "json"
         ? JSON.stringify(agents, null, 2)
@@ -422,6 +445,7 @@ function runPriority({
   return handleNotesError(
     Effect.gen(function* () {
       const result = yield* (yield* Notes).setPriority(path, value);
+
       if (json) {
         yield* writeLine(JSON.stringify({ path, priority: value, ...result }));
       } else {
@@ -447,6 +471,7 @@ function runOpenAgent({
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
+
       const target = (yield* detectAgentTargets().pipe(
         Effect.mapError(
           (error) =>
@@ -455,11 +480,13 @@ function runOpenAgent({
             }),
         ),
       )).find((candidate) => candidate.command === agent);
+
       if (!target)
         return yield* new NotesError({
           message: `Agent target is not installed: ${agent}`,
         });
       const note = yield* notes.resolveEntry(path);
+
       const result = yield* openNoteAgent(note.entry, note.content, target, {
         mode,
       }).pipe(
@@ -470,6 +497,7 @@ function runOpenAgent({
             }),
         ),
       );
+
       yield* writeLine(JSON.stringify(result));
     }).pipe(
       Effect.provide(herdrSdkLayer),
@@ -500,23 +528,31 @@ function runHandoffs({
       }),
     );
   }
+
   return handleNotesError(
     Effect.gen(function* () {
       const notes = yield* Notes;
+
       if (all) {
         const sections = filterSections(yield* notes.listAll(), "handoff");
+
         const output =
           format === "json"
             ? JSON.stringify(sections, null, 2)
             : formatHandoffSections(sections);
+
         yield* writeLine(output || "No handoff notes found.");
+
         return;
       }
+
       const entries = sortHandoffs((yield* notes.list()).filter(isHandoff));
+
       const output =
         format === "json"
           ? JSON.stringify(entries, null, 2)
           : entries.map(formatHandoffLabel).join("\n");
+
       yield* writeLine(output || "No handoff notes found.");
     }),
   );
@@ -527,6 +563,7 @@ async function runTui(mode: TuiMode): Promise<void> {
 
   const { extractNativeLibIfNeeded } =
     await import("./lib/extractNativeLib.js");
+
   const nativeLibPath = await extractNativeLibIfNeeded();
   const { Renderer } = await import("./services/Renderer.js");
   const { loadTheme } = await import("./theme.js");
@@ -534,6 +571,7 @@ async function runTui(mode: TuiMode): Promise<void> {
   const { openNoteInEditor } = await import("./notes/tui/NoteEditor.js");
 
   const theme = Effect.runSync(loadTheme);
+
   const TuiLayers = Renderer.layer(theme, nativeLibPath).pipe(
     Layer.provideMerge(Notes.layer),
     Layer.provideMerge(CommandExecutor.layer),
@@ -592,6 +630,7 @@ async function runTui(mode: TuiMode): Promise<void> {
     );
 
     renderer.start();
+
     return yield* Effect.callback<void>((resume) => {
       renderer.once("destroy", () => resume(Effect.void));
     });
@@ -604,12 +643,15 @@ async function runTui(mode: TuiMode): Promise<void> {
 
 const describedFlag = <A>(flag: Flag.Flag<A>, description: string) =>
   flag.pipe(Flag.withDescription(description));
+
 const optionalString = (name: string, description: string) =>
   describedFlag(Flag.string(name), description).pipe(
     Flag.withDefault(undefined),
   );
+
 const booleanFlag = (name: string, description: string) =>
   describedFlag(Flag.boolean(name), description).pipe(Flag.withDefault(false));
+
 const requiredBooleanFlag = (name: string, description: string) =>
   booleanFlag(name, description).pipe(
     Flag.mapEffect((enabled) =>
@@ -618,18 +660,22 @@ const requiredBooleanFlag = (name: string, description: string) =>
         : new CliError.MissingOption({ option: name }),
     ),
   );
+
 const pathFlag = () =>
   describedFlag(
     Flag.path("path"),
     "Absolute path to a note file inside the notes vault",
   );
+
 const formatFlag = (required = false) => {
   const flag = describedFlag(
     Flag.choice("format", ["labels", "json"] as const),
     "Output format",
   );
+
   return required ? flag : flag.pipe(Flag.withDefault("labels" as const));
 };
+
 const examples = (...commands: readonly string[]) =>
   Command.withExamples(commands.map((command) => ({ command })));
 
@@ -707,6 +753,7 @@ const expectedHashFlag = describedFlag(
       if (!/^[0-9a-f]{64}$/.test(value)) {
         throw new Error("must be a lowercase SHA-256 hash");
       }
+
       return value;
     },
     () => "Expected a lowercase SHA-256 hash",
@@ -885,19 +932,24 @@ const captureCommand = Command.make(
           message: "notes capture requires exactly one of --status or --stdin",
         });
       }
+
       if (status && repository !== undefined) {
         return yield* new UsageError({
           message: "notes capture --status does not accept --repository",
         });
       }
+
       if (status) {
         const result = yield* captureStatus(config);
         yield* writeLine(
           json ? JSON.stringify(result) : "Local capture is available",
         );
+
         return;
       }
+
       const text = yield* Effect.promise(() => Bun.stdin.text());
+
       const result = yield* processLocalCapture(config, {
         version: 1,
         requestId: crypto.randomUUID(),
@@ -906,6 +958,7 @@ const captureCommand = Command.make(
         source: "text",
         repository,
       });
+
       yield* writeLine(json ? JSON.stringify(result) : result.summary);
     }),
 ).pipe(
@@ -953,14 +1006,17 @@ const CliLayers = Notes.layer.pipe(
   Layer.provideMerge(CommandExecutor.layer),
   Layer.provideMerge(Config.layer),
 );
+
 export const MainLayer = Layer.merge(CliLayers, NodeServices.layer);
 
 setHelpRenderer((commandName) => {
   const lines: string[] = [];
+
   const output: Console.Console = Object.assign(Object.create(console), {
     log: (...values: readonly unknown[]) => lines.push(values.join(" ")),
     error: (...values: readonly unknown[]) => lines.push(values.join(" ")),
   });
+
   return runCli(commandName ? [commandName, "--help"] : ["--help"]).pipe(
     Effect.provideService(Console.Console, output),
     Effect.provide(MainLayer),
@@ -971,8 +1027,10 @@ setHelpRenderer((commandName) => {
 
 if (import.meta.main) {
   const initialCommand = invokedCommand();
+
   const cliArgs = initialCommand
     ? [initialCommand, ...process.argv.slice(2)]
     : process.argv.slice(2);
+
   NodeRuntime.runMain(runCli(cliArgs).pipe(Effect.provide(MainLayer)));
 }

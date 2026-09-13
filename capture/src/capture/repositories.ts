@@ -17,12 +17,15 @@ export function parseRepositoryOptions(
   if (!raw) return undefined;
 
   const options = Schema.decodeUnknownSync(RepositoryOptions)(JSON.parse(raw));
+
   if (options.length === 0) return undefined;
 
   const repositories = new Set(options.map((option) => option.repository));
+
   if (repositories.size !== options.length) {
     throw new Error("Capture repositories contain duplicates");
   }
+
   return options;
 }
 
@@ -31,16 +34,20 @@ export function validateTargetRepository(
   options: readonly RepositoryOption[] | undefined,
 ): void {
   if (selectedRepository === undefined) return;
+
   if (options?.some(({ repository }) => repository === selectedRepository)) {
     return;
   }
+
   throw new Error("Capture repository is not allowed");
 }
 
 export function splitRepository(repository: string): readonly [string, string] {
   const separator = repository.indexOf("/");
+
   if (separator <= 0 || separator === repository.length - 1) {
     throw new Error("Capture repository is invalid");
   }
+
   return [repository.slice(0, separator), repository.slice(separator + 1)];
 }

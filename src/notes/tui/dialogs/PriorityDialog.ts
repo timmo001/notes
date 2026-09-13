@@ -5,6 +5,7 @@ import {
   t,
   type CliRenderer,
 } from "@opentui/core";
+import { Match } from "effect";
 import type { Theme } from "../../../theme.js";
 import { Button } from "../../../tui/components/Button.js";
 import { Dialog } from "../../../tui/components/Dialog.js";
@@ -23,13 +24,12 @@ const DESCRIPTIONS = {
 } satisfies Readonly<Record<NotePriority, string>>;
 
 export function priorityColor(theme: Theme, priority: NotePriority): string {
-  return priority === "critical"
-    ? theme.red
-    : priority === "high"
-      ? theme.yellow
-      : priority === "low"
-        ? theme.green
-        : theme.accent;
+  return Match.value(priority).pipe(
+    Match.when("critical", () => theme.red),
+    Match.when("high", () => theme.yellow),
+    Match.when("low", () => theme.green),
+    Match.orElse(() => theme.accent),
+  );
 }
 
 export interface PriorityDialogOptions {
@@ -74,12 +74,14 @@ export class PriorityDialog {
       })),
       onValueChange: (value) => (this.selected = value),
     });
+
     const actions = new BoxRenderable(renderer, {
       flexDirection: "row",
       height: 1,
       flexShrink: 0,
       gap: 1,
     });
+
     const apply = new Button(renderer, {
       id: "priority-dialog-apply",
       theme,
@@ -90,12 +92,14 @@ export class PriorityDialog {
         options.onApply(this.selected);
       },
     });
+
     const cancel = new Button(renderer, {
       id: "priority-dialog-cancel",
       theme,
       label: "Cancel",
       onPress: () => this.dialog.dismiss(),
     });
+
     actions.add(apply);
     actions.add(cancel);
     this.dialog.body.add(this.title);

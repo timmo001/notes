@@ -17,6 +17,7 @@ describe("acquireVaultLock", () => {
     temporaryDirectories.push(root);
     const release = await acquireVaultLock(root);
     const startedAt = Date.now();
+
     const child = Bun.spawn(
       [
         "bun",
@@ -25,6 +26,7 @@ describe("acquireVaultLock", () => {
       ],
       { stdout: "ignore", stderr: "pipe" },
     );
+
     await Bun.sleep(150);
     expect(child.exitCode).toBeNull();
     await release();

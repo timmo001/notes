@@ -14,6 +14,7 @@ import {
 } from "./services/OpenCodeClient.js";
 
 const MAX_RESULT_LENGTH = 20_000;
+
 const MAX_PUBLIC_ERROR_LENGTH = 1_000;
 
 /** Failure raised when daemon processing loses ownership or returns invalid output. */
@@ -36,6 +37,7 @@ function sanitizePublicErrorText(value: string, redactPaths = false): string {
       /\b(password|passwd|token|secret|api[-_]?key)\s*[:=]\s*[^\s,;]+/gi,
       "$1: [redacted]",
     );
+
   if (!redactPaths) return sanitized.trim();
 
   return sanitized
@@ -51,6 +53,7 @@ type PublicError =
 function publicErrorSummary(error: PublicError): string {
   let operation: string | undefined;
   let message: string;
+
   if (
     error instanceof OpenCodeClientError ||
     error instanceof IssueQueueError
@@ -66,6 +69,7 @@ function publicErrorSummary(error: PublicError): string {
   const summary = operation
     ? `**Error:** \`${operation}\`: ${message}`
     : `**Error:** ${message}`;
+
   return summary.slice(0, MAX_PUBLIC_ERROR_LENGTH);
 }
 
@@ -86,7 +90,9 @@ const requireOwnership = Effect.fn("NotesDaemon.requireOwnership")(function* (
   claimLabel: string,
 ) {
   const queue = yield* IssueQueue;
+
   if (yield* queue.owns(issueNumber, claimLabel)) return;
+
   return yield* new DaemonProcessingError({
     issueNumber,
     message: "Issue claim ownership was lost",
@@ -97,6 +103,7 @@ const currentQueuedIssue = Effect.fn("NotesDaemon.currentQueuedIssue")(
   function* (issueNumber: number, queueLabel: string) {
     const queue = yield* IssueQueue;
     const issue = yield* queue.get(issueNumber);
+
     return issue.state === "open" && issue.labels.includes(queueLabel)
       ? issue
       : null;
@@ -113,15 +120,18 @@ const processClaimedIssue = Effect.fn("NotesDaemon.processClaimedIssue")(
     const queue = yield* IssueQueue;
     const opencode = yield* OpenCodeClient;
     const current = yield* currentQueuedIssue(issue.number, queueLabel);
+
     if (!current) return false;
 
     if (issueIsComplete(current, workerActor)) {
       yield* requireOwnership(issue.number, claimLabel);
       yield* queue.complete(issue.number);
+
       return true;
     }
 
     const result = (yield* opencode.process(issuePrompt(current.body))).trim();
+
     if (!result || result.length > MAX_RESULT_LENGTH) {
       return yield* new DaemonProcessingError({
         issueNumber: issue.number,
@@ -130,14 +140,17 @@ const processClaimedIssue = Effect.fn("NotesDaemon.processClaimedIssue")(
     }
 
     yield* requireOwnership(issue.number, claimLabel);
+
     if (!(yield* currentQueuedIssue(issue.number, queueLabel))) return false;
     yield* queue.comment(issue.number, `${COMPLETION_MARKER}\n\n${result}`);
 
     yield* requireOwnership(issue.number, claimLabel);
     const beforeClose = yield* currentQueuedIssue(issue.number, queueLabel);
+
     if (!beforeClose || !issueIsComplete(beforeClose, workerActor))
       return false;
     yield* queue.complete(issue.number);
+
     return true;
   },
 );
@@ -149,9 +162,11 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
 ) {
   const queue = yield* IssueQueue;
   const claimLabel = yield* queue.claim(issue.number);
+
   if (!claimLabel) return "skipped" as const;
 
   const releaseFailed = yield* Ref.make(false);
+
   const outcome = yield* Effect.acquireUseRelease(
     Effect.succeed(claimLabel),
     () =>
@@ -165,10 +180,12 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
               `[notes-daemon] issue=${issue.number} processing failed`,
               error,
             );
+
             const [, current] = yield* Effect.all([
               requireOwnership(issue.number, claimLabel),
               currentQueuedIssue(issue.number, queueLabel),
             ]);
+
             if (
               current &&
               !issueIsComplete(current, workerActor) &&
@@ -179,6 +196,7 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
                 `${FAILURE_MARKER}\n\nProcessing failed and the issue was left open.\n\n${publicErrorSummary(error)}`,
               );
             }
+
             return "failed" as const;
           }).pipe(Effect.orElseSucceed(() => "failed" as const)),
         ),
@@ -201,12 +219,14 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
           ),
         ),
   );
+
   if (yield* Ref.get(releaseFailed)) {
     return yield* new DaemonProcessingError({
       issueNumber: issue.number,
       message: `Failed to release issue claim ${claimLabel}`,
     });
   }
+
   return outcome;
 });
 
@@ -215,6 +235,7 @@ export const runProcessingPass = Effect.fn("NotesDaemon.runProcessingPass")(
   function* (queueLabel: string, workerActor: string) {
     const queue = yield* IssueQueue;
     const issues = yield* queue.list();
+
     const outcomes = yield* Effect.forEach(
       issues,
       (issue) => processIssue(issue, queueLabel, workerActor),

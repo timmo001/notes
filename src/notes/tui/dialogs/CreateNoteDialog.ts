@@ -76,6 +76,7 @@ export class CreateNoteDialog {
       onValueChange: (value) => (this.kind = value),
       onActivate: () => this.showDetails(),
     });
+
     const next = new Button(renderer, {
       id: "create-template-next",
       theme,
@@ -83,6 +84,7 @@ export class CreateNoteDialog {
       variant: "primary",
       onPress: () => this.showDetails(),
     });
+
     this.templateStage.add(this.templates);
     this.templateStage.add(next);
     this.name = new Input(renderer, {
@@ -97,8 +99,10 @@ export class CreateNoteDialog {
       placeholder: "Description (optional)",
       onSubmit: () => submit(),
     });
+
     const submit = () => {
       const name = this.name.value.trim();
+
       if (!name) return this.name.focus();
       this.dialog.hide();
       onSubmit({
@@ -107,6 +111,7 @@ export class CreateNoteDialog {
         description: this.description.value.trim(),
       });
     };
+
     const labels = [
       new TextRenderable(renderer, {
         content: t`${fg(theme.fgMuted)("Name")}`,
@@ -117,11 +122,13 @@ export class CreateNoteDialog {
         height: 1,
       }),
     ];
+
     const actions = new BoxRenderable(renderer, {
       flexDirection: "row",
       height: 1,
       gap: 1,
     });
+
     const create = new Button(renderer, {
       id: "create-note-submit",
       theme,
@@ -129,12 +136,14 @@ export class CreateNoteDialog {
       variant: "primary",
       onPress: submit,
     });
+
     const cancel = new Button(renderer, {
       id: "create-note-cancel",
       theme,
       label: "Cancel",
       onPress: () => this.dialog.dismiss(),
     });
+
     actions.add(create);
     actions.add(cancel);
     this.detailsStage.add(labels[0]);
@@ -161,6 +170,7 @@ export class CreateNoteDialog {
       )
         this.showTemplates();
     };
+
     renderer.keyInput.on("keypress", this.keyHandler);
   }
 
@@ -172,9 +182,11 @@ export class CreateNoteDialog {
     this.description.value = "";
     this.kind = preferHandoff ? "handoff" : "note";
     this.templates.value = this.kind;
+
     if (preferHandoff) this.showDetails();
     else this.showTemplates();
     this.dialog.show();
+
     if (preferHandoff) this.name.focus();
   }
   destroy(): void {

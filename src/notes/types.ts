@@ -262,6 +262,7 @@ export function parseNotePriority(value: string): NotePriority | null {
     .trim()
     .replace(/^["']|["']$/g, "")
     .toLowerCase();
+
   switch (normalised) {
     case "low":
     case "medium":

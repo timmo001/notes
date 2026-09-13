@@ -14,8 +14,10 @@ export const loadDaemonConfig = Effect.fn("NotesDaemon.loadConfig")(function* (
   const content = yield* Effect.promise(() =>
     readFile(expandHomePath(filePath), "utf8"),
   );
+
   const value = yield* Effect.try(() => parse(content));
   const decoded = yield* Schema.decodeUnknownEffect(DaemonConfig)(value);
+
   return {
     ...decoded,
     opencodeCommand: expandHomePath(decoded.opencodeCommand ?? "opencode2"),

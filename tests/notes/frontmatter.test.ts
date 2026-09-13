@@ -23,6 +23,7 @@ describe("note frontmatter", () => {
       "Review: paths #1",
       "Quotes ' and \" plus: values # stay data",
     );
+
     expect(readFrontmatter(content)).toEqual({
       name: "Review: paths #1",
       description: "Quotes ' and \" plus: values # stay data",
@@ -39,6 +40,7 @@ describe("note frontmatter", () => {
       "Handoff",
       "Description",
     );
+
     const updated = setFrontmatterField(content, "date", "new");
     expect(updated).toContain("date: new");
     expect(updated.slice(updated.indexOf("# Handoff"))).toBe(

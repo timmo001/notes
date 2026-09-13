@@ -71,11 +71,13 @@ describe("NotesView", () => {
     const setup = await createTestRenderer({ width: 60, height: 20 });
     renderer = setup.renderer;
     let back = 0;
+
     const view = new NotesView(
       renderer,
       TEST_THEME,
       callbacks(() => back++),
     );
+
     view.setVisible(true);
     await setup.flush();
     await Promise.resolve();
@@ -107,14 +109,17 @@ describe("NotesView", () => {
     const setup = await createTestRenderer({ width: 30, height: 10 });
     renderer = setup.renderer;
     let back = 0;
+
     const view = new NotesView(
       renderer,
       TEST_THEME,
       callbacks(() => back++),
     );
+
     view.setVisible(true);
     await settle(setup);
     expect(renderer.currentFocusedRenderable?.id).toBe("notes-minimum-size");
+
     for (const key of ["?", "a", "i", "return", "tab", "down"])
       emitGlobalKey(renderer, key);
     await settle(setup);
@@ -149,6 +154,7 @@ describe("NotesView", () => {
     let opened = "";
     let openedMode = "";
     let back = 0;
+
     const view = new NotesView(renderer, TEST_THEME, {
       ...callbacks(() => back++),
       listAgentTargets: async () => [
@@ -160,6 +166,7 @@ describe("NotesView", () => {
         openedMode = mode;
       },
     });
+
     view.setVisible(true);
     await settle(setup);
     setup.mockInput.pressKey("o");
@@ -227,6 +234,7 @@ async function settle(setup: Awaited<ReturnType<typeof createTestRenderer>>) {
     await Promise.resolve();
     await setup.flush();
   }
+
   await setup.waitForVisualIdle({ quietFrames: 2, maxFrames: 100 });
 }
 
@@ -238,6 +246,7 @@ async function waitForDocument(
     await Bun.sleep(5);
     await setup.flush();
   }
+
   throw new Error("Markdown document did not render");
 }
 

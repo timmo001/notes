@@ -54,6 +54,7 @@ function errorCode<ErrorValue>(error: ErrorValue): string | undefined {
 
 function isInsideDirectory(parent: string, child: string): boolean {
   const relativePath = relative(parent, child);
+
   return (
     relativePath === "" ||
     (!relativePath.startsWith(`..${sep}`) && relativePath !== "..")
@@ -62,22 +63,28 @@ function isInsideDirectory(parent: string, child: string): boolean {
 
 function notePathParts(projectsRoot: string, input: string): NotePathParts {
   const expanded = expandHomePath(input);
+
   if (!isAbsolute(expanded))
     throw new Error(`Note path must be absolute: ${input}`);
 
   const root = resolve(projectsRoot);
   const path = resolve(expanded);
   const relativePath = relative(root, path);
+
   if (!isInsideDirectory(root, path)) {
     throw new Error(`Path is outside the repository notes directory: ${input}`);
   }
+
   const parts = relativePath.split(sep);
+
   if (parts.length !== 3) {
     throw new Error(
       `Note path must match projects/<owner>/<repo>/<note>.md: ${input}`,
     );
   }
+
   const [owner, repo, filename] = parts;
+
   if (
     !owner ||
     !repo ||
@@ -90,11 +97,13 @@ function notePathParts(projectsRoot: string, input: string): NotePathParts {
   ) {
     throw new Error(`Invalid repository note path: ${input}`);
   }
+
   return { path, owner, repo, filename };
 }
 
 function assertDirectory(path: string): void {
   const stat = lstatSync(path);
+
   if (stat.isSymbolicLink() || !stat.isDirectory()) {
     throw new Error(`Note directory is not a physical directory: ${path}`);
   }
@@ -112,8 +121,10 @@ function lstatIfPresent(path: string) {
 /** Create the vault root when needed and reject a symlinked root. */
 export function ensurePhysicalVaultRoot(notesRoot: string): string {
   const path = resolve(notesRoot);
+
   if (!lstatIfPresent(path)) mkdirSync(path, { recursive: true });
   assertDirectory(path);
+
   return path;
 }
 
@@ -132,24 +143,29 @@ function ensurePhysicalParents(
       if (!create) throw new Error(`Note directory does not exist: ${path}`);
       mkdirSync(path);
     }
+
     assertDirectory(path);
   }
 
   const physicalRoot = realpathSync(root);
   const parent = join(root, owner, repo);
   const physicalParent = realpathSync(parent);
+
   if (!isInsideDirectory(physicalRoot, physicalParent)) {
     throw new Error(`Note directory resolves outside projects: ${parent}`);
   }
+
   return parent;
 }
 
 function assertRegularTarget(path: string, allowMissing: boolean): void {
   const stat = lstatIfPresent(path);
+
   if (!stat) {
     if (allowMissing) return;
     throw new Error(`Note file does not exist: ${path}`);
   }
+
   if (stat.isSymbolicLink() || !stat.isFile()) {
     throw new Error(`Note path is not a physical regular file: ${path}`);
   }
@@ -163,6 +179,7 @@ export function resolveRepositoryNotesDirectory(
   const root = resolve(projectsRoot);
   const path = resolve(input);
   const parts = relative(root, path).split(sep);
+
   if (
     !isInsideDirectory(root, path) ||
     parts.length !== 2 ||
@@ -173,6 +190,7 @@ export function resolveRepositoryNotesDirectory(
   ) {
     throw new Error(`Invalid repository notes directory: ${input}`);
   }
+
   return ensurePhysicalParents(root, parts[0], parts[1], false);
 }
 
@@ -200,6 +218,7 @@ function prepareNotePath(
     options.createParents,
   );
   assertRegularTarget(parts.path, options.allowMissing);
+
   return parts.path;
 }
 
@@ -236,11 +255,14 @@ export function readNoteFile(
 ): ReadNoteFileResult {
   const path = resolveExistingNotePath(projectsRoot, input);
   const fd = openSync(path, constants.O_RDONLY | NO_FOLLOW);
+
   try {
     const stat = fstatSync(fd);
+
     if (!stat.isFile())
       throw new Error(`Note path is not a regular file: ${path}`);
     const content = readFileSync(fd, "utf8");
+
     return {
       path,
       content,
@@ -261,11 +283,13 @@ function writeTemporaryFile(
     dirname(path),
     `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`,
   );
+
   const fd = openSync(
     temporary,
     constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NO_FOLLOW,
     mode,
   );
+
   try {
     writeFileSync(fd, content, "utf8");
     fsyncSync(fd);
@@ -274,7 +298,9 @@ function writeTemporaryFile(
     unlinkSync(temporary);
     throw error;
   }
+
   closeSync(fd);
+
   return temporary;
 }
 
@@ -287,6 +313,7 @@ export function atomicWriteNoteFile(
   const path = resolveWritableNotePath(projectsRoot, input);
   const mode = existsSync(path) ? statSync(path).mode & 0o777 : 0o666;
   const temporary = writeTemporaryFile(path, content, mode);
+
   try {
     resolveWritableNotePath(projectsRoot, path);
     renameSync(temporary, path);
@@ -294,6 +321,7 @@ export function atomicWriteNoteFile(
     if (existsSync(temporary)) unlinkSync(temporary);
     throw error;
   }
+
   return path;
 }
 
@@ -308,21 +336,28 @@ export function createExclusiveNoteFile(
   if (!isSafeRepositorySegment(owner) || !isSafeRepositorySegment(repo)) {
     throw new Error(`Invalid repository identity: ${owner}/${repo}`);
   }
+
   ensurePhysicalParents(projectsRoot, owner, repo, true);
   const directory = join(projectsRoot, owner, repo);
+
   for (let suffix = 1; ; suffix += 1) {
     const filename = suffix === 1 ? `${slug}.md` : `${slug}-${suffix}.md`;
+
     const path = resolveWritableNotePath(
       projectsRoot,
       join(directory, filename),
     );
+
     const temporary = writeTemporaryFile(path, content, 0o666);
+
     try {
       linkSync(temporary, path);
       unlinkSync(temporary);
+
       return path;
     } catch (error) {
       unlinkSync(temporary);
+
       if (errorCode(error) !== "EEXIST") throw error;
     }
   }
@@ -332,5 +367,6 @@ export function createExclusiveNoteFile(
 export function deleteNoteFile(projectsRoot: string, input: string): string {
   const path = resolveExistingNotePath(projectsRoot, input);
   unlinkSync(path);
+
   return path;
 }

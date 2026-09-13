@@ -18,7 +18,9 @@ export function searchNoteEntries(
   query: string,
 ): readonly NoteEntry[] {
   const trimmed = query.trim();
+
   if (!trimmed) return entries;
+
   return new Fuse([...entries], NOTE_SEARCH_OPTIONS)
     .search(trimmed)
     .map((result) => result.item);

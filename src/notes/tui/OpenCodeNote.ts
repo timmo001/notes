@@ -39,6 +39,7 @@ const OpenCodeConfig = Schema.Struct({
     }),
   ),
 });
+
 const OpenCodeConfigJson = Schema.fromJsonString(OpenCodeConfig);
 
 /** Suspend the TUI, launch a full OpenCode session for a note, then resume. */
@@ -50,10 +51,12 @@ export async function openNoteInOpenCode(
 ): Promise<void> {
   const mode = options.mode ?? "default";
   const cwd = opencodeNoteDirectory(entry);
+
   const planCommand =
     mode === "plan"
       ? await (options.loadPlanCommand ?? loadConfiguredPlanCommand)(cwd)
       : null;
+
   await openOpenCodeSession(renderer, {
     mode,
     cwd,
@@ -70,6 +73,7 @@ export function opencodeNotePrompt(
   planCommand: string | null = null,
 ): string {
   const displayPath = projectsDisplayPath(entry);
+
   const notePrompt = [
     `Use the repository note ${entry.filename} included below as loaded context for this OpenCode session, following the note-reference next-step flow.`,
     `The note file path is ${entry.filePath}.`,
@@ -112,6 +116,7 @@ export function opencodeNotePrompt(
   if (mode !== "plan") return notePrompt;
 
   const instructions = planCommand?.trim() || DEFAULT_PLAN_INSTRUCTIONS;
+
   return instructions.includes("${ARGUMENTS}")
     ? instructions.replaceAll("${ARGUMENTS}", notePrompt)
     : `${instructions}\n\n${notePrompt}`;
@@ -128,12 +133,15 @@ export async function loadConfiguredPlanCommand(
       stdout: "pipe",
       stderr: "pipe",
     });
+
     const [stdout, , exitCode] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
       proc.exited,
     ]);
+
     if (exitCode !== 0) return null;
+
     return Option.match(
       Schema.decodeUnknownOption(OpenCodeConfigJson)(stdout),
       {
@@ -154,7 +162,9 @@ export function opencodeNoteDirectory(entry: NoteEntry): string | undefined {
       `No source checkout is known for ${entry.repoSlug ?? entry.filename}. Run Notes from that repository once to record it.`,
     );
   }
+
   if (!entry.repoSlug?.startsWith("local/")) return entry.projectDir;
+
   try {
     return statSync(entry.projectDir).isDirectory()
       ? entry.projectDir
@@ -178,6 +188,8 @@ function projectsDisplayPath(entry: NoteEntry): string {
   const marker = "/projects/";
   const normalized = entry.filePath.replaceAll("\\", "/");
   const markerIndex = normalized.lastIndexOf(marker);
+
   if (markerIndex === -1) return entry.filename;
+
   return `projects/${normalized.slice(markerIndex + marker.length)}`;
 }

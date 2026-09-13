@@ -70,25 +70,32 @@ export class CommandBar extends BoxRenderable {
   sync(): void {
     this.status.content = t`${fg(this.theme.fgMuted)(this.statusText)}`;
     const width = Math.max(0, this.width || this.renderer.width - 2);
+
     const required = this.commands.filter((command) =>
       command.contexts.includes(this.context),
     );
+
     const ordered = [...required].sort((a, b) => {
       const pinned = (command: CommandHint) =>
         command.key === "Tab" || command.key === "Esc"
           ? -100
           : command.priority;
+
       return pinned(a) - pinned(b);
     });
+
     const visible: string[] = [];
     let used = 0;
+
     for (const command of ordered) {
       const text = `${command.key} ${command.action}`;
       const cost = text.length + (visible.length ? 2 : 0);
+
       if (used + cost > width) continue;
       visible.push(text);
       used += cost;
     }
+
     this.hints.content = t`${fg(this.theme.fgSubtle)(visible.join("  "))}`;
   }
 }

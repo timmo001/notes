@@ -50,12 +50,14 @@ export class MoveNoteDialog {
       },
       onSelectionChanged: (item) => (this.selected = item.value),
     });
+
     const actions = new BoxRenderable(renderer, {
       flexDirection: "row",
       height: 1,
       flexShrink: 0,
       gap: 1,
     });
+
     const move = new Button(renderer, {
       id: "move-note-apply",
       theme,
@@ -67,12 +69,14 @@ export class MoveNoteDialog {
         onMove(this.selected);
       },
     });
+
     const cancel = new Button(renderer, {
       id: "move-note-cancel",
       theme,
       label: "Cancel",
       onPress: () => this.dialog.dismiss(),
     });
+
     actions.add(move);
     actions.add(cancel);
     this.dialog.body.add(this.note);
@@ -88,6 +92,7 @@ export class MoveNoteDialog {
       )
         this.list.handleKeyPress(key);
     };
+
     renderer.keyInput.on("keypress", this.keyHandler);
   }
 

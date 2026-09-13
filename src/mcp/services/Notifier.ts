@@ -16,6 +16,7 @@ export class Notifier extends Context.Service<Notifier, NotifierService>()(
     Notifier,
     Effect.gen(function* () {
       const executor = yield* CommandExecutor;
+
       return {
         notify: (title, message) =>
           executor.exitCode("notify-send", [title, message]).pipe(

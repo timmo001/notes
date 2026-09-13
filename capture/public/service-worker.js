@@ -1,4 +1,5 @@
 const CACHE_NAME = "notes-capture-v2";
+
 const PUBLIC_ASSETS = ["/manifest.webmanifest", "/icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
