@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { captureStatus, processLocalCapture } from "../../src/capture/run.js";
 
 const roots: string[] = [];
+
 afterEach(() => {
   for (const root of roots.splice(0))
     rmSync(root, { recursive: true, force: true });
@@ -24,6 +25,7 @@ describe("local capture", () => {
       { available: true },
     );
     expect(existsSync(join(root, "prompt"))).toBe(false);
+
     const result = await Effect.runPromise(
       processLocalCapture(configPath, {
         version: 1,
@@ -34,6 +36,7 @@ describe("local capture", () => {
         repository: "owner/repository",
       }),
     );
+
     expect(result).toEqual({
       status: "success",
       requestId: "019c92df-71d2-7fb0-8c2e-d29f633a355b",
@@ -54,6 +57,7 @@ describe("local capture", () => {
 
   test("rejects invalid input before starting OpenCode", async () => {
     const { root, configPath } = writeConfig();
+
     const result = await Effect.runPromiseExit(
       processLocalCapture(configPath, {
         version: 1,
@@ -63,6 +67,7 @@ describe("local capture", () => {
         source: "text",
       }),
     );
+
     expect(result._tag).toBe("Failure");
     expect(existsSync(join(root, "prompt"))).toBe(false);
   });
@@ -106,5 +111,6 @@ function writeConfig() {
       "pollIntervalSeconds: 10",
     ].join("\n"),
   );
+
   return { root, configPath };
 }

@@ -22,6 +22,7 @@ export async function openPathInEditor(
       stdout: "ignore",
       stderr: "ignore",
     });
+
     return;
   }
 

@@ -1,5 +1,5 @@
 import { captureErrorMessage, GENERIC_CAPTURE_ERROR } from "../capture/http.js";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import {
   filterRepositories,
   REPOSITORY_STORAGE_KEY,
@@ -7,8 +7,11 @@ import {
 } from "./repositoryPicker.js";
 
 const form = document.querySelector<HTMLFormElement>("[data-capture-form]");
+
 const textarea = document.querySelector<HTMLTextAreaElement>("#capture");
+
 const status = document.querySelector<HTMLElement>("[data-status]");
+
 const repositoryPicker = document.querySelector<HTMLElement>(
   "[data-repository-picker]",
 );
@@ -18,27 +21,34 @@ if (!form || !textarea || !status) {
 }
 
 let preserveRepositorySelection = () => {};
+
 let repositoryForCapture: string | undefined;
 
 if (repositoryPicker) {
   const repositoryValue = repositoryPicker.querySelector<HTMLInputElement>(
     "[data-repository-value]",
   );
+
   const repositoryLabel = repositoryPicker.querySelector<HTMLElement>(
     "[data-repository-label]",
   );
+
   const repositoryTrigger = repositoryPicker.querySelector<HTMLButtonElement>(
     "[data-repository-trigger]",
   );
+
   const popover = repositoryPicker.querySelector<HTMLElement>(
     "[data-repository-popover]",
   );
+
   const search = repositoryPicker.querySelector<HTMLInputElement>(
     "[data-repository-search]",
   );
+
   const empty = repositoryPicker.querySelector<HTMLElement>(
     "[data-repository-empty]",
   );
+
   const options = Array.from(
     repositoryPicker.querySelectorAll<HTMLButtonElement>(
       "[data-repository-option]",
@@ -57,10 +67,12 @@ if (repositoryPicker) {
   }
 
   let selectedRepository = repositoryValue.value;
+
   const selectRepository = (repository: string) => {
     const selected = options.find(
       (option) => option.dataset.repositoryOption === repository,
     );
+
     if (!selected) return;
 
     repositoryValue.value = repository;
@@ -72,6 +84,7 @@ if (repositoryPicker) {
     );
     selectedRepository = repository;
     repositoryForCapture = repository;
+
     for (const option of options) {
       option.setAttribute(
         "aria-pressed",
@@ -81,11 +94,13 @@ if (repositoryPicker) {
   };
 
   let storedRepository: string | null = null;
+
   try {
     storedRepository = localStorage.getItem(REPOSITORY_STORAGE_KEY);
   } catch {
     // Storage can be unavailable without preventing capture submission.
   }
+
   selectRepository(
     restoreRepository(
       storedRepository,
@@ -102,13 +117,16 @@ if (repositoryPicker) {
   for (const option of options) {
     option.addEventListener("click", () => {
       const repository = option.dataset.repositoryOption;
+
       if (repository === undefined) return;
       selectRepository(repository);
+
       try {
         localStorage.setItem(REPOSITORY_STORAGE_KEY, repository);
       } catch {
         // Keep the in-page selection when persistence is blocked.
       }
+
       popover.hidePopover?.();
     });
   }
@@ -123,9 +141,11 @@ if (repositoryPicker) {
         search.value,
       ),
     );
+
     for (const option of options) {
       option.hidden = !visible.has(option.dataset.repositoryOption ?? "");
     }
+
     empty.hidden = visible.size > 0;
   });
 
@@ -141,11 +161,13 @@ if (repositoryPicker) {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const submit = form.querySelector<HTMLButtonElement>("[type=submit]");
+
   if (!submit || !textarea.value.trim()) return;
 
   submit.disabled = true;
   status.textContent = "Adding note...";
   let responseError: string | undefined;
+
   try {
     const capture = {
       version: 1,
@@ -155,26 +177,34 @@ form.addEventListener("submit", async (event) => {
       source: "text",
       repository: repositoryForCapture,
     };
+
     const response = await fetch("/api/captures", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(capture),
     });
+
     const result = await response.json();
+
     if (!response.ok) {
       responseError = captureErrorMessage(result);
       throw new Error("Capture request failed");
     }
+
     const issue = Schema.decodeUnknownOption(
       Schema.Struct({ url: Schema.String }),
     )(result);
-    if (issue._tag === "None") {
+
+    if (Option.isNone(issue)) {
       throw new Error("Capture request failed");
     }
+
     const issueUrl = new URL(issue.value.url);
+
     if (issueUrl.protocol !== "https:" || issueUrl.hostname !== "github.com") {
       throw new Error("Unexpected issue URL");
     }
+
     form.reset();
     preserveRepositorySelection();
     const link = document.createElement("a");

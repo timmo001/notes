@@ -7,15 +7,19 @@ async function rendererFixture(events: string[]) {
   renderer.suspend = () => {
     events.push("suspend");
   };
+
   renderer.currentRenderBuffer.clear = () => {
     events.push("clear");
   };
+
   renderer.resume = () => {
     events.push("resume");
   };
+
   renderer.requestRender = () => {
     events.push("render");
   };
+
   return renderer;
 }
 
@@ -31,6 +35,7 @@ describe("runWithRendererSuspended", () => {
       },
       async () => {
         events.push("work");
+
         return "result";
       },
     );

@@ -21,6 +21,7 @@ describe("createGitHubIssue", () => {
 
   test("does not expose the response body on failure", async () => {
     let message = "";
+
     try {
       await createGitHubIssue(
         { title: "Test", body: "Body", labels: ["agent:ready"] },
@@ -30,6 +31,7 @@ describe("createGitHubIssue", () => {
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     }
+
     expect(message).toBe("GitHub issue creation failed (403)");
   });
 });

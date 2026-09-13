@@ -11,7 +11,9 @@ export interface IssuePayload {
 
 function defaultTitle(text: string): string {
   const firstLine = text.split("\n", 1)[0]?.trim() ?? "";
+
   if (firstLine.length <= 72) return firstLine;
+
   return `${firstLine.slice(0, 69).trimEnd()}...`;
 }
 
@@ -20,6 +22,7 @@ export function buildIssuePayload(
   queueLabel: string,
 ): IssuePayload {
   const title = capture.titleHint?.trim() || defaultTitle(capture.text);
+
   return {
     title,
     labels: [queueLabel],

@@ -7,16 +7,21 @@ import { Notes } from "./services/Notes.js";
 export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {
   const sdk = yield* HerdrSdk;
   const snapshot = yield* sdk.session.snapshot();
+
   const pane = snapshot.panes.find(
     (pane) => pane.id === Option.getOrNull(snapshot.focusedPaneId),
   );
+
   if (!pane) return null;
+
   const cwd = Option.getOrNull(
     Option.orElse(pane.foregroundCwd, () => pane.cwd),
   );
+
   if (!cwd) return null;
 
   const config = yield* Config;
+
   const entries = yield* Effect.gen(function* () {
     return yield* (yield* Notes).list();
   }).pipe(
@@ -27,6 +32,7 @@ export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {
       { local: true },
     ),
   );
+
   return {
     workspaceId: pane.workspaceId,
     paneId: pane.id,

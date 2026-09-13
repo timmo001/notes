@@ -5,6 +5,7 @@ import { Option, Schema } from "effect";
 type RepositoryDirectories = Record<string, string>;
 
 const FILENAME = "repository-directories.json";
+
 const RepositoryDirectoriesFile = Schema.Record(Schema.String, Schema.String);
 
 /** Read locally known source checkout directories by repository slug. */

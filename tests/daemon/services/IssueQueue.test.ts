@@ -6,6 +6,7 @@ import {
   Exit,
   Fiber,
   Layer,
+  Match,
   PlatformError,
   Sink,
   Stream,
@@ -33,6 +34,7 @@ const config = DaemonConfig.make({
   consecutiveFailureLimit: 3,
   pollIntervalSeconds: 30,
 });
+
 const issue = {
   number: 42,
   title: "Captured note",
@@ -41,7 +43,9 @@ const issue = {
   labels: [{ name: "agent:ready" }],
   comments: [{ author: { login: "worker" }, body: "Saved note" }],
 };
+
 const fields = "number,title,body,state,labels,comments";
+
 const text = (value: string) => Stream.succeed(new TextEncoder().encode(value));
 
 const fixture = Effect.fn("test.issueQueueFixture")(function* (
@@ -52,14 +56,16 @@ const fixture = Effect.fn("test.issueQueueFixture")(function* (
   const commands: ChildProcess.StandardCommand[] = [];
   const spawned = yield* Deferred.make<void>();
   let releases = 0;
+
   const spawner = Layer.succeed(
     ChildProcessSpawner.ChildProcessSpawner,
     ChildProcessSpawner.make((command) =>
       Effect.acquireRelease(
         Effect.sync(() => {
-          if (command._tag !== "StandardCommand")
+          if (!ChildProcess.isStandardCommand(command))
             throw new Error("Expected a standard command");
           commands.push(command);
+
           return ChildProcessSpawner.makeHandle({
             pid: ChildProcessSpawner.ProcessId(1),
             exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
@@ -79,6 +85,7 @@ const fixture = Effect.fn("test.issueQueueFixture")(function* (
       ),
     ),
   );
+
   const queue = yield* IssueQueue.pipe(
     Effect.provide(
       IssueQueue.layer(config).pipe(
@@ -86,6 +93,7 @@ const fixture = Effect.fn("test.issueQueueFixture")(function* (
       ),
     ),
   );
+
   return { queue, commands, spawned, releases: () => releases };
 });
 
@@ -96,6 +104,7 @@ describe("IssueQueue SDK boundary", () => {
         const fake = yield* fixture((args) => ({
           stdout: text(JSON.stringify(args[1] === "list" ? [issue] : issue)),
         }));
+
         const issues = yield* fake.queue.list();
         expect(issues).toEqual([
           {
@@ -123,6 +132,7 @@ describe("IssueQueue SDK boundary", () => {
           ],
           ["issue", "view", "42", "--repo", "owner/repo", "--json", fields],
         ]);
+
         for (const command of fake.commands) {
           expect(command.command).toBe("gh");
           expect(command.options).toMatchObject({
@@ -134,6 +144,7 @@ describe("IssueQueue SDK boundary", () => {
           });
           expect(command.options.env).not.toHaveProperty("GH_TOKEN");
         }
+
         expect(fake.releases()).toBe(2);
       }),
     );
@@ -151,6 +162,7 @@ describe("IssueQueue SDK boundary", () => {
             ),
           ),
         }));
+
         expect(yield* fake.queue.list()).toEqual([]);
         expect(yield* fake.queue.get(42)).toMatchObject({
           state: "closed",
@@ -179,11 +191,13 @@ describe("IssueQueue SDK boundary", () => {
         await Effect.runPromise(
           Effect.gen(function* () {
             const fake = yield* fixture(() => ({ stdout: text(stdout) }));
+
             const error = yield* (
               operation === "list"
                 ? fake.queue.list().pipe(Effect.asVoid)
                 : fake.queue.get(42).pipe(Effect.asVoid)
             ).pipe(Effect.flip);
+
             expect(error).toBeInstanceOf(IssueQueueError);
             expect(error.operation).toBe(operation + suffix);
             expect(error.message.length).toBeGreaterThan(0);
@@ -201,8 +215,10 @@ describe("IssueQueue SDK boundary", () => {
         Effect.gen(function* () {
           let label = "";
           const otherLabel = "agent:processing:other:12345678";
+
           const fake = yield* fixture((args) => {
             if (args[0] === "label" && args[1] === "create") label = args[2];
+
             return args[1] === "view"
               ? {
                   stdout: text(
@@ -222,6 +238,7 @@ describe("IssueQueue SDK boundary", () => {
                 }
               : {};
           });
+
           const claimed = yield* fake.queue.claim(42);
           expect(label).toMatch(/^agent:processing:desktop:[a-f0-9]{8}$/);
           expect(claimed).toBe(competing ? null : label);
@@ -271,6 +288,7 @@ describe("IssueQueue SDK boundary", () => {
             }),
           ),
         }));
+
         expect(yield* fake.queue.claim(42)).toBeNull();
         expect(fake.commands).toHaveLength(1);
       }),
@@ -321,6 +339,7 @@ describe("IssueQueue SDK boundary", () => {
               ChildProcessSpawner.ExitCode(args[1] === step ? 1 : 0),
             ),
           }));
+
           const error = yield* fake.queue.claim(42).pipe(Effect.flip);
           expect(error).toBeInstanceOf(IssueQueueError);
           expect(error.operation).toBe("claim");
@@ -344,6 +363,7 @@ describe("IssueQueue SDK boundary", () => {
               ChildProcessSpawner.ExitCode(args[1] === step ? 7 : 0),
             ),
           }));
+
           const error = yield* fake.queue.complete(42).pipe(Effect.flip);
           expect(error).toBeInstanceOf(IssueQueueError);
           expect(error.operation).toBe("complete");
@@ -367,17 +387,21 @@ describe("IssueQueue SDK boundary", () => {
               PlatformError.systemError({
                 module: "ChildProcess",
                 method: "read",
+                // Effect's systemError constructor requires this tag in its options.
+                // oxlint-disable-next-line anti-slop-effect/no-manual-tagged-construction
                 _tag: "Unknown",
               }),
             ),
           }));
-          const error = yield* (
-            operation === "list"
-              ? fake.queue.list()
-              : operation === "comment"
-                ? fake.queue.comment(42, "saved")
-                : fake.queue.release("claim")
-          ).pipe(Effect.flip);
+
+          const error = yield* Match.value(operation).pipe(
+            Match.when("list", () => fake.queue.list()),
+            Match.when("comment", () => fake.queue.comment(42, "saved")),
+            Match.when("release", () => fake.queue.release("claim")),
+            Match.exhaustive,
+            Effect.flip,
+          );
+
           expect(error).toBeInstanceOf(IssueQueueError);
           expect(error.operation).toBe(operation);
           expect(error.message).toBe("GhPlatformError");
@@ -397,13 +421,16 @@ describe("IssueQueue SDK boundary", () => {
             stdout: Stream.never,
             exitCode: Effect.never,
           }));
-          const fiber = yield* (
-            operation === "get"
-              ? fake.queue.get(42)
-              : operation === "comment"
-                ? fake.queue.comment(42, "saved")
-                : fake.queue.complete(42)
-          ).pipe(Effect.flip, Effect.forkChild);
+
+          const fiber = yield* Match.value(operation).pipe(
+            Match.when("get", () => fake.queue.get(42)),
+            Match.when("comment", () => fake.queue.comment(42, "saved")),
+            Match.when("complete", () => fake.queue.complete(42)),
+            Match.exhaustive,
+            Effect.flip,
+            Effect.forkChild,
+          );
+
           yield* Deferred.await(fake.spawned);
           yield* TestClock.adjust("5 seconds");
           const error = yield* Fiber.join(fiber);
@@ -424,6 +451,7 @@ describe("IssueQueue SDK boundary", () => {
           stdout: Stream.never,
           exitCode: Effect.never,
         }));
+
         const fiber = yield* fake.queue.complete(42).pipe(Effect.forkChild);
         yield* Deferred.await(fake.spawned);
         yield* Fiber.interrupt(fiber);

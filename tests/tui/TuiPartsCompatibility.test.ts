@@ -35,23 +35,29 @@ describe("TUI Parts compatibility with OpenTUI 0.5", () => {
     before.focus();
 
     const root = new DialogRootRenderable(renderer, { id: "dialog-root" });
+
     const portal = new DialogPortalRenderable(renderer, {
       id: "dialog-portal",
       store: root.store,
     });
+
     const backdrop = new DialogBackdropRenderable(renderer, {
       id: "dialog-backdrop",
       store: root.store,
     });
+
     const popup = new DialogPopupRenderable(renderer, {
       id: "dialog-popup",
       store: root.store,
     });
+
     const first = new ButtonRenderable(renderer, { id: "dialog-first" });
+
     const close = new DialogCloseRenderable(renderer, {
       id: "dialog-close",
       store: root.store,
     });
+
     first.add(new TextRenderable(renderer, { content: "First" }));
     close.add(new TextRenderable(renderer, { content: "Close" }));
     popup.add(first);
@@ -83,6 +89,7 @@ describe("TUI Parts compatibility with OpenTUI 0.5", () => {
     const setup = await createTestRenderer({ width: 40, height: 12 });
     renderer = setup.renderer;
     let open = false;
+
     const root = new CollapsibleRootRenderable(renderer, {
       open,
       onOpenChange: (next) => {
@@ -90,14 +97,17 @@ describe("TUI Parts compatibility with OpenTUI 0.5", () => {
         root.open = next;
       },
     });
+
     const trigger = new CollapsibleTriggerRenderable(renderer, {
       id: "collapsible-trigger",
       store: root.store,
     });
+
     const panel = new CollapsiblePanelRenderable(renderer, {
       id: "collapsible-panel",
       store: root.store,
     });
+
     trigger.add(new TextRenderable(renderer, { content: "Details" }));
     panel.add(new TextRenderable(renderer, { content: "Metadata" }));
     root.add(trigger);
@@ -114,10 +124,12 @@ describe("TUI Parts compatibility with OpenTUI 0.5", () => {
     const setup = await createTestRenderer({ width: 40, height: 8 });
     renderer = setup.renderer;
     let submitted = "";
+
     const input = new InputRenderable(renderer, {
       id: "input",
       onSubmit: (value) => (submitted = value),
     });
+
     renderer.root.add(input);
     input.focus();
     await setup.mockInput.typeText("note");
@@ -130,10 +142,12 @@ describe("TUI Parts compatibility with OpenTUI 0.5", () => {
     const setup = await createTestRenderer({ width: 40, height: 8 });
     renderer = setup.renderer;
     let presses = 0;
+
     const button = new ButtonRenderable(renderer, {
       id: "button",
       onPress: () => presses++,
     });
+
     button.add(new TextRenderable(renderer, { content: "Apply" }));
     renderer.root.add(button);
     button.focus();
@@ -146,6 +160,7 @@ describe("TUI Parts compatibility with OpenTUI 0.5", () => {
     const setup = await createTestRenderer({ width: 40, height: 8 });
     renderer = setup.renderer;
     let selected = "one";
+
     const group = new RadioGroupRenderable(renderer, {
       id: "group",
       value: selected,
@@ -154,18 +169,21 @@ describe("TUI Parts compatibility with OpenTUI 0.5", () => {
         group.value = value;
       },
     });
+
     for (const value of ["one", "two"]) {
       const radio = new RadioRootRenderable(renderer, {
         id: `radio-${value}`,
         store: group.store,
         value,
       });
+
       const indicator = new RadioIndicatorRenderable(renderer, { radio });
       indicator.add(new BoxRenderable(renderer, { width: 1, height: 1 }));
       radio.add(indicator);
       radio.add(new TextRenderable(renderer, { content: value }));
       group.add(radio);
     }
+
     renderer.root.add(group);
     const first = renderer.root.getRenderable("radio-one");
     first?.focus();

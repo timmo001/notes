@@ -10,6 +10,7 @@ export const onRequest = defineMiddleware(async ({ request }, next) => {
       audience: env.ACCESS_AUD,
       teamDomain: env.ACCESS_TEAM_DOMAIN,
     });
+
     return next();
   } catch {
     return new Response("Unauthorized", { status: 401 });

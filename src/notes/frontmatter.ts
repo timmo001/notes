@@ -38,6 +38,7 @@ interface ParsedFrontmatter {
 
 function parseFrontmatter(content: string): ParsedFrontmatter {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?=\r?\n|$)/);
+
   if (!match) throw new Error("Note content must start with YAML frontmatter");
 
   const document = parseDocument(match[1], {
@@ -46,14 +47,17 @@ function parseFrontmatter(content: string): ParsedFrontmatter {
     stringKeys: true,
     uniqueKeys: true,
   });
+
   if (document.errors.length > 0) {
     throw new Error(`Invalid note frontmatter: ${document.errors[0].message}`);
   }
+
   if (!isMap(document.contents)) {
     throw new Error("Note frontmatter must be a YAML mapping");
   }
 
   let data: FrontmatterRecord;
+
   try {
     data = Schema.decodeUnknownSync(Frontmatter)(
       document.toJS({ maxAliasCount: 0 }),
@@ -63,7 +67,9 @@ function parseFrontmatter(content: string): ParsedFrontmatter {
       `Invalid note frontmatter: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+
   validateKnownFields(data);
+
   return {
     document,
     data,
@@ -86,6 +92,7 @@ function validateKnownFields(data: FrontmatterRecord): void {
 export function readFrontmatter(content: string): NoteFrontmatter {
   const { data, body } = parseFrontmatter(content);
   const heading = body.match(/^#\s+(.+)\s*$/m)?.[1]?.trim();
+
   return {
     name:
       data.name !== undefined
@@ -108,6 +115,7 @@ export function setFrontmatterField(
 ): string {
   const { document, body } = parseFrontmatter(content);
   document.set(key, value);
+
   return `---\n${document.toString().trimEnd()}\n---${body}`;
 }
 
@@ -138,6 +146,7 @@ export function renderDraft(
           description: description || "Draft repository note.",
           tags: ["draft"],
         };
+
   const body =
     kind === "handoff"
       ? [
@@ -160,6 +169,7 @@ export function renderDraft(
           "",
         ]
       : [`# ${name}`, "", ""];
+
   return `---\n${stringify(frontmatter).trimEnd()}\n---\n\n${body.join("\n")}`;
 }
 

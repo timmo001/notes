@@ -75,6 +75,7 @@ const COMMANDS: readonly CommandHint[] = [
 ];
 
 type NotesPane = "list" | "content";
+
 type NoteSortMode = "modified-desc" | "modified-asc" | "name-asc" | "name-desc";
 
 const SORT_CYCLE: readonly NoteSortMode[] = [
@@ -83,6 +84,7 @@ const SORT_CYCLE: readonly NoteSortMode[] = [
   "name-asc",
   "name-desc",
 ];
+
 /** Configuration callbacks for the repository notes view. */
 export interface NotesViewOptions {
   /** Resolve the initial repository scope and its note entries. */
@@ -292,6 +294,7 @@ export class NotesView {
     });
     this.contentTitle = new PaneHeader(renderer, "notes-content-title", theme);
     this.rightPane.add(this.contentTitle);
+
     const heading = new BoxRenderable(renderer, {
       id: "notes-content-heading",
       flexDirection: "column",
@@ -299,6 +302,7 @@ export class NotesView {
       flexShrink: 0,
       backgroundColor: surfaceBackground(theme),
     });
+
     this.noteHeading = new TextRenderable(renderer, {
       id: "notes-content-heading-title",
       content: t`${bold(fg(theme.fgMuted)("No note selected"))}`,
@@ -472,6 +476,7 @@ export class NotesView {
         this.bodySurface.syncMarker();
       });
     };
+
     renderer.keyInput.on("keypress", this.keyHandler);
     renderer.on(CliRenderEvents.RESIZE, this.resizeHandler);
     renderer.root.add(this.root);
@@ -483,6 +488,7 @@ export class NotesView {
   setFilter(filter: NotesViewFilter | null): void {
     const previous = this.filterKey;
     this.filter = filter;
+
     if (previous !== this.filterKey) {
       this.clearDeleteConfirmation(false);
       this.searchActive = false;
@@ -495,6 +501,7 @@ export class NotesView {
       this.usingAllReposFallback = false;
       this.updateAppHeader();
       this.applyFilter();
+
       if (this.isVisible) void this.refresh();
     }
   }
@@ -503,12 +510,16 @@ export class NotesView {
   setVisible(visible: boolean): void {
     this.isVisible = visible;
     this.root.visible = visible;
+
     if (!visible) {
       this.clearDeleteConfirmation(false);
+
       return;
     }
+
     if (this.layout.mode === "minimum")
       this.renderer.focusRenderable(this.minimumSize);
+
     if (this.requestedInitialRefresh) return;
     this.requestedInitialRefresh = true;
     void this.refresh();
@@ -537,14 +548,17 @@ export class NotesView {
   private get filterKey(): string {
     const tag = this.filter?.tag?.toLowerCase() ?? "";
     const scope = this.filter?.includeAllRepos ? "all" : "current";
+
     return `${tag}:${scope}`;
   }
 
   private async refresh(): Promise<boolean> {
     const version = ++this.loadVersion;
     this.statusBar.content = t`${fg(this.theme.yellow)("Refreshing notes...")}`;
+
     try {
       const loaded = await this.loadEntriesForActiveScope();
+
       if (version !== this.loadVersion) return false;
       this.entries = loaded.entries;
       this.showingAllRepos = loaded.allRepos;
@@ -553,6 +567,7 @@ export class NotesView {
       this.updateAppHeader();
       this.applyFilter();
       this.updateStatusBar();
+
       return true;
     } catch (error) {
       if (version !== this.loadVersion) return false;
@@ -561,6 +576,7 @@ export class NotesView {
       this.noteList.setItems([]);
       this.showEmptyContent("Unable to load notes", errorMessage(error));
       this.statusBar.content = t`${fg(this.theme.red)(`Unable to load notes: ${errorMessage(error)}`)}`;
+
       return false;
     }
   }
@@ -580,6 +596,7 @@ export class NotesView {
     }
 
     const scope = await this.callbacks.loadTuiScope();
+
     if (scope.scope === "all") {
       return {
         entries: flattenNoteSections(scope.sections),
@@ -588,6 +605,7 @@ export class NotesView {
         preferredRepoSlug: scope.repoSlug,
       };
     }
+
     return { entries: scope.entries, allRepos: false, fallback: false };
   }
 
@@ -595,11 +613,13 @@ export class NotesView {
     const tagFiltered = this.entries.filter((entry) =>
       matchesFilter(entry, this.filter),
     );
+
     const query = this.searchQuery.trim();
     const searching = query.length > 0;
     this.visibleEntries = searching
       ? this.searchEntries(tagFiltered, query)
       : this.sortEntries(tagFiltered);
+
     const preferredFilePath =
       this.selectedFilePath ??
       (this.preferredInitialRepoSlug
@@ -607,6 +627,7 @@ export class NotesView {
             (entry) => entry.repoSlug === this.preferredInitialRepoSlug,
           )?.filePath
         : undefined);
+
     this.preferredInitialRepoSlug = null;
     this.noteList.setItems(
       this.visibleEntries.map((entry) => this.listItem(entry, !searching)),
@@ -614,6 +635,7 @@ export class NotesView {
     );
     this.updateAppHeader();
     this.updatePaneTitles();
+
     if (this.visibleEntries.length === 0)
       this.showEmptyContent(this.emptyTitle(), this.emptyBody());
   }
@@ -645,16 +667,22 @@ export class NotesView {
   private handleSearchKey(key: KeyEvent): void {
     if (key.name === "escape" || key.name === "return") {
       this.exitSearch();
+
       return;
     }
+
     if (key.name === "up") {
       this.noteList.selectPrevious();
+
       return;
     }
+
     if (key.name === "down") {
       this.noteList.selectNext();
+
       return;
     }
+
     if (key.name === "backspace") {
       if (this.searchQuery.length > 0) {
         this.searchQuery = this.searchQuery.slice(0, -1);
@@ -662,8 +690,10 @@ export class NotesView {
       } else {
         this.exitSearch();
       }
+
       return;
     }
+
     if (
       key.sequence &&
       key.sequence.length === 1 &&
@@ -684,6 +714,7 @@ export class NotesView {
   private cycleSortMode(): void {
     const nextIndex =
       (SORT_CYCLE.indexOf(this.sortMode) + 1) % SORT_CYCLE.length;
+
     this.sortMode = SORT_CYCLE[nextIndex];
     this.applyFilter();
     this.updateStatusBar();
@@ -692,6 +723,7 @@ export class NotesView {
   private cycleGroupMode(): void {
     const nextIndex =
       (GROUP_CYCLE.indexOf(this.groupMode) + 1) % GROUP_CYCLE.length;
+
     this.groupMode = GROUP_CYCLE[nextIndex];
     this.applyFilter();
     this.updateStatusBar();
@@ -711,38 +743,48 @@ export class NotesView {
 
   private sortEntries(entries: readonly NoteEntry[]): readonly NoteEntry[] {
     const compare = sortComparator(this.sortMode);
+
     if (this.groupingByPriority()) {
       return [...entries].sort((a, b) => {
         const rankDelta =
           priorityRank(notePriority(a)) - priorityRank(notePriority(b));
+
         return rankDelta !== 0 ? rankDelta : compare(a, b);
       });
     }
 
     if (!this.groupingByRepo()) return [...entries].sort(compare);
     const sectionOrder = new Map<string, number>();
+
     for (const entry of entries) {
       const key = entry.repoSlug ?? "";
+
       if (!sectionOrder.has(key)) sectionOrder.set(key, sectionOrder.size);
     }
+
     return [...entries].sort((a, b) => {
       const sectionDelta =
         (sectionOrder.get(a.repoSlug ?? "") ?? 0) -
         (sectionOrder.get(b.repoSlug ?? "") ?? 0);
+
       return sectionDelta !== 0 ? sectionDelta : compare(a, b);
     });
   }
 
   private toggleAllRepos(): void {
     const currentFilter = this.filter;
+
     if (currentFilter?.includeAllRepos) {
       const nextFilter: NotesViewFilter = {
         ...(currentFilter.tag && { tag: currentFilter.tag }),
         ...(currentFilter.title && { title: currentFilter.title }),
       };
+
       this.setFilter(Object.keys(nextFilter).length > 0 ? nextFilter : null);
+
       return;
     }
+
     this.setFilter({ ...currentFilter, includeAllRepos: true });
   }
 
@@ -760,6 +802,7 @@ export class NotesView {
 
     try {
       const content = await this.callbacks.readNote(entry.filePath);
+
       if (version !== this.loadVersion) return;
       this.loadedNoteContent = content;
       this.setMarkdownContent(noteBodyContent(content));
@@ -784,13 +827,16 @@ export class NotesView {
     const minimum = layout.mode === "minimum";
     this.minimumSize.visible = minimum;
     this.shell.visible = !minimum;
+
     if (minimum) {
       this.noteList.setActive(false);
       this.bodyScroll.blur();
       this.minimumSizeText.content = t`${bold(fg(this.theme.accent)("Notes needs more room"))}\n${fg(this.theme.fgMuted)(`Resize to at least ${layout.requiredWidth}x${layout.requiredHeight}.`)}\n${fg(this.theme.fgSubtle)("Esc exits")}`;
       this.renderer.focusRenderable(this.minimumSize);
+
       return;
     }
+
     if (layout.mode === "split") {
       this.leftPane.visible = true;
       this.rightPane.visible = true;
@@ -804,6 +850,7 @@ export class NotesView {
       this.leftPane.visible = this.activePane === "list";
       this.rightPane.visible = this.activePane === "content";
     }
+
     this.metadata.setOpen(this.metadataOpen());
     this.commandBar.update(
       this.currentStatusText(),
@@ -826,19 +873,27 @@ export class NotesView {
   private async requestOpenSelectedInAgent(mode: AgentOpenMode): Promise<void> {
     if (this.activeOperation) {
       this.showActiveOperation();
+
       return;
     }
+
     const entry = this.selectedEntry;
+
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before opening an agent")}`;
+
       return;
     }
+
     try {
       const targets = await this.callbacks.listAgentTargets();
+
       if (targets.length === 0) {
         this.statusBar.content = t`${fg(this.theme.yellow)("No installed agent targets")}`;
+
         return;
       }
+
       this.noteList.setActive(false);
       this.bodyScroll.blur();
       this.agentMode = mode;
@@ -859,18 +914,23 @@ export class NotesView {
     const mode = this.agentMode;
     this.agentMode = "default";
     const modeLabel = mode === "plan" ? `${target.label} plan` : target.label;
+
     if (!entry || !this.beginOperation(`opening ${modeLabel}`)) {
       this.focusPane(this.activePane);
+
       return;
     }
+
     const label = notePathLabel(entry);
     this.statusBar.content = t`${fg(this.theme.yellow)(`Opening ${label} in ${modeLabel}...`)}`;
+
     try {
       const content =
         this.loadedNoteContentPath === entry.filePath &&
         this.loadedNoteContent !== null
           ? this.loadedNoteContent
           : await this.callbacks.readNote(entry.filePath);
+
       this.loadedNoteContent = content;
       this.loadedNoteContentPath = entry.filePath;
       await this.callbacks.onOpenAgent(entry, content, target, mode);
@@ -885,10 +945,13 @@ export class NotesView {
 
   private async openSelectedInEditor(kind: NoteEditorKind): Promise<void> {
     const entry = this.selectedEntry;
+
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before editing")}`;
+
       return;
     }
+
     if (!this.beginOperation(`editing ${notePathLabel(entry)}`)) return;
 
     this.editingFilePath = entry.filePath;
@@ -899,12 +962,14 @@ export class NotesView {
     let editError: unknown;
     let gitResult: NoteGitResult | undefined;
     let refreshed = false;
+
     try {
       try {
         gitResult = await this.callbacks.editNote(entry, kind, false);
       } catch (error) {
         editError = error;
       }
+
       refreshed = await this.refresh();
     } finally {
       this.editingFilePath = null;
@@ -913,13 +978,17 @@ export class NotesView {
 
     if (editError) {
       this.statusBar.content = t`${fg(this.theme.red)(`Failed to edit ${label}: ${errorMessage(editError)}`)}`;
+
       return;
     }
+
     if (refreshed) {
       const outcome = gitResult ? noteGitOutcome(gitResult) : undefined;
+
       const message = outcome?.complete
         ? `Updated ${label}`
         : `Updated ${label}; ${outcome?.detail ?? "git status unavailable"}`;
+
       if (outcome && !outcome.complete) this.showAcknowledgement(message);
       else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
     }
@@ -928,8 +997,10 @@ export class NotesView {
   private startCreateFlow(editorKind: NoteEditorKind): void {
     if (this.activeOperation) {
       this.showActiveOperation();
+
       return;
     }
+
     this.createEditorKind = editorKind;
     this.noteList.setActive(false);
     this.bodyScroll.blur();
@@ -950,6 +1021,7 @@ export class NotesView {
     this.focusPane(this.activePane);
 
     let created: NoteCreateResult;
+
     try {
       created = await this.callbacks.createNote(
         result.kind,
@@ -961,11 +1033,13 @@ export class NotesView {
       this.creatingNote = false;
       this.endOperation();
       this.statusBar.content = t`${fg(this.theme.red)(`Failed to create draft: ${errorMessage(error)}`)}`;
+
       return;
     }
 
     const { draft, git } = created;
     this.selectedFilePath = draft.entry.filePath;
+
     try {
       await this.refresh();
     } finally {
@@ -975,14 +1049,17 @@ export class NotesView {
 
     if (!created.created) {
       this.statusBar.content = t`${fg(this.theme.fgMuted)(`Create cancelled: ${draft.entry.filename}`)}`;
+
       return;
     }
 
     const matchesActiveFilter = this.visibleEntries.some(
       (entry) => entry.filePath === draft.entry.filePath,
     );
+
     const outcome = noteGitOutcome(git);
     const message = `${outcome?.complete ? "Created" : "Created locally"} ${draft.entry.filename}${matchesActiveFilter ? "" : " (hidden by current filter)"}${outcome && !outcome.complete ? `; ${outcome.detail}` : ""}`;
+
     if (!outcome.complete) this.showAcknowledgement(message);
     else
       this.statusBar.content = t`${fg(matchesActiveFilter ? this.theme.green : this.theme.yellow)(message)}`;
@@ -991,13 +1068,18 @@ export class NotesView {
   private requestChangePriority(): void {
     if (this.activeOperation) {
       this.showActiveOperation();
+
       return;
     }
+
     const entry = this.selectedEntry;
+
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before changing priority")}`;
+
       return;
     }
+
     this.noteList.setActive(false);
     this.bodyScroll.blur();
     this.priorityPopup.show(
@@ -1013,10 +1095,13 @@ export class NotesView {
 
   private async executeSetPriority(priority: NotePriority): Promise<void> {
     const entry = this.selectedEntry;
+
     if (!entry) {
       this.focusPane(this.activePane);
+
       return;
     }
+
     if (!this.beginOperation(`setting ${notePathLabel(entry)} priority`))
       return;
     this.settingPriorityPath = entry.filePath;
@@ -1024,14 +1109,17 @@ export class NotesView {
     const label = notePathLabel(entry);
     this.statusBar.content = t`${fg(this.theme.yellow)(`Setting ${label} to ${priorityLabel(priority)}...`)}`;
     this.focusPane(this.activePane);
+
     try {
       const result = await this.callbacks.onSetPriority(
         entry.filePath,
         priority,
       );
+
       await this.refresh();
       const outcome = noteGitOutcome(result);
       const message = `Set ${label} priority to ${priorityLabel(priority)}${outcome.complete ? "" : `; ${outcome.detail}`}`;
+
       if (!outcome.complete) this.showAcknowledgement(message);
       else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
     } catch (error) {
@@ -1045,13 +1133,18 @@ export class NotesView {
   private requestDeleteSelected(): void {
     if (this.activeOperation) {
       this.showActiveOperation();
+
       return;
     }
+
     const entry = this.selectedEntry;
+
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before deleting")}`;
+
       return;
     }
+
     this.deleteConfirmation = entry;
     this.showDeletePrompt(entry);
   }
@@ -1059,22 +1152,31 @@ export class NotesView {
   private async requestMoveSelected(): Promise<void> {
     if (this.activeOperation) {
       this.showActiveOperation();
+
       return;
     }
+
     const entry = this.selectedEntry;
+
     if (!entry) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Select a note before moving")}`;
+
       return;
     }
+
     try {
       const currentRepoSlug = entry.repoSlug;
+
       const targets = (await this.callbacks.listMoveTargets()).filter(
         (target) => target !== currentRepoSlug,
       );
+
       if (targets.length === 0) {
         this.statusBar.content = t`${fg(this.theme.yellow)("No other known move destinations")}`;
+
         return;
       }
+
       this.noteList.setActive(false);
       this.bodyScroll.blur();
       this.movePopup.show(targets, notePathLabel(entry));
@@ -1090,18 +1192,23 @@ export class NotesView {
 
   private async executeMove(repoSlug: string): Promise<void> {
     const entry = this.selectedEntry;
+
     if (!entry || !this.beginOperation(`moving ${notePathLabel(entry)}`)) {
       this.focusPane(this.activePane);
+
       return;
     }
+
     const label = notePathLabel(entry);
     this.statusBar.content = t`${fg(this.theme.yellow)(`Moving ${label} to ${repoSlug}...`)}`;
+
     try {
       const result = await this.callbacks.moveNote(entry.filePath, repoSlug);
       this.selectedFilePath = result.path;
       await this.refresh();
       const outcome = noteGitOutcome(result);
       const message = `Moved ${entry.filename} to ${repoSlug}${outcome.complete ? "" : `; ${outcome.detail}`}`;
+
       if (!outcome.complete) this.showAcknowledgement(message);
       else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
     } catch (error) {
@@ -1114,6 +1221,7 @@ export class NotesView {
 
   private async confirmDeleteSelected(): Promise<void> {
     const entry = this.deleteConfirmation;
+
     if (!entry || !this.beginOperation(`deleting ${notePathLabel(entry)}`))
       return;
     this.deletingFilePath = entry.filePath;
@@ -1121,12 +1229,15 @@ export class NotesView {
     this.loadVersion += 1;
     const label = notePathLabel(entry);
     this.statusBar.content = t`${fg(this.theme.yellow)(`Deleting ${label}...`)}`;
+
     try {
       const nextSelectedFilePath = this.nextSelectedFilePathAfterDelete(
         entry.filePath,
       );
+
       const result = await this.callbacks.deleteNote(entry.filePath);
       this.clearDeletedSelection(entry.filePath, nextSelectedFilePath);
+
       if (await this.refresh()) this.showDeleteSuccess(label, result);
     } catch (error) {
       this.statusBar.content = t`${fg(this.theme.red)(`Failed to delete ${label}: ${errorMessage(error)}`)}`;
@@ -1140,7 +1251,9 @@ export class NotesView {
     const deletedIndex = this.visibleEntries.findIndex(
       (entry) => entry.filePath === filePath,
     );
+
     if (deletedIndex === -1) return null;
+
     return (
       this.visibleEntries[deletedIndex + 1]?.filePath ??
       this.visibleEntries[deletedIndex - 1]?.filePath ??
@@ -1154,8 +1267,10 @@ export class NotesView {
   ): void {
     if (this.selectedFilePath === deletedFilePath)
       this.selectedFilePath = nextSelectedFilePath;
+
     if (this.selectedEntry?.filePath === deletedFilePath)
       this.selectedEntry = null;
+
     if (this.loadedNoteContentPath === deletedFilePath) {
       this.loadedNoteContent = null;
       this.loadedNoteContentPath = null;
@@ -1165,6 +1280,7 @@ export class NotesView {
   private showDeleteSuccess(label: string, result: NoteDeleteResult): void {
     const outcome = noteGitOutcome(result);
     const message = `Deleted ${label}${outcome.complete ? "" : `; ${outcome.detail}`}`;
+
     if (!outcome.complete) this.showAcknowledgement(message);
     else this.statusBar.content = t`${fg(this.theme.green)(message)}`;
   }
@@ -1178,6 +1294,7 @@ export class NotesView {
   private cancelDeleteConfirmation(): void {
     const entry = this.deleteConfirmation;
     this.clearDeleteConfirmation();
+
     if (entry)
       this.statusBar.content = t`${fg(this.theme.fgMuted)(`Delete cancelled: ${notePathLabel(entry)}`)}`;
   }
@@ -1185,41 +1302,54 @@ export class NotesView {
   private clearDeleteConfirmation(refocus = true): void {
     this.deleteConfirmation = null;
     this.deletePrompt.hide();
+
     if (refocus && this.isVisible) this.focusPane(this.activePane);
   }
 
   private handleKeyPress(key: KeyEvent): void {
     if (!this.isVisible) return;
+
     if (this.agentPopup.visible) {
       if (["up", "down", "pageup", "pagedown", "return"].includes(key.name))
         this.agentPopup.handleKeyPress(key);
       else Dialog.handleTopmostKey(key);
+
       return;
     }
+
     if (Dialog.handleTopmostKey(key)) return;
+
     if (this.layout.mode === "minimum") {
       if ((key.ctrl && key.name === "c") || key.name === "escape") {
         key.preventDefault();
         this.callbacks.onBack();
       }
+
       return;
     }
+
     if (this.acknowledgement) {
       key.preventDefault();
       this.acknowledgement = null;
       this.updateStatusBar();
+
       return;
     }
+
     if (this.activeOperation) {
       key.preventDefault();
       this.showActiveOperation();
+
       return;
     }
+
     if (key.ctrl && key.name === "c") {
       key.preventDefault();
       this.callbacks.onBack();
+
       return;
     }
+
     if (
       this.createPrompt.visible ||
       this.agentPopup.visible ||
@@ -1229,36 +1359,46 @@ export class NotesView {
       this.helpDialog.visible
     )
       return;
+
     if (this.searchActive) {
       key.preventDefault();
       this.handleSearchKey(key);
+
       return;
     }
+
     if (
       this.activePane === "list" &&
       ["up", "down", "pageup", "pagedown", "return"].includes(key.name)
     ) {
       key.preventDefault();
       this.noteList.handleKeyPress(key);
+
       return;
     }
+
     if (
       this.activePane === "content" &&
       ["up", "down", "pageup", "pagedown", "home", "end"].includes(key.name)
     ) {
       key.preventDefault();
       this.bodySurface.handleKeyPress(key);
+
       return;
     }
+
     this.keyHandlers[`${key.shift ? "shift+" : ""}${key.name}`]?.();
   }
 
   private beginOperation(label: string): boolean {
     if (this.activeOperation) {
       this.showActiveOperation();
+
       return false;
     }
+
     this.activeOperation = label;
+
     return true;
   }
 
@@ -1277,11 +1417,14 @@ export class NotesView {
 
   private focusPane(pane: NotesPane): void {
     this.activePane = pane;
+
     if (this.layout.mode === "master-detail") {
       this.leftPane.visible = pane === "list";
       this.rightPane.visible = pane === "content";
     }
+
     this.noteList.setActive(pane === "list");
+
     if (pane === "content") this.bodyScroll.focus();
     else this.bodyScroll.blur();
     this.updatePaneTitles();
@@ -1311,7 +1454,9 @@ export class NotesView {
     showSection: boolean,
   ): string | undefined {
     if (!showSection) return undefined;
+
     if (this.groupingByPriority()) return priorityLabel(notePriority(entry));
+
     return this.groupingByRepo() ? entry.repoSlug : undefined;
   }
 
@@ -1348,12 +1493,14 @@ export class NotesView {
 
   private updatePaneTitles(): void {
     const query = this.searchQuery.trim();
+
     const detail =
       this.searchActive || query.length > 0
         ? `search "${query}"`
         : this.groupMode === "none"
           ? sortModeLabel(this.sortMode)
           : `group:${this.groupMode} | ${sortModeLabel(this.sortMode)}`;
+
     this.listTitle.update(
       `${notesDisplayTitle(this.filter, this.showingAllRepos)} | ${detail}`,
       `${this.visibleEntries.length}`,
@@ -1369,21 +1516,30 @@ export class NotesView {
   private updateStatusBar(): void {
     if (this.searchActive && this.searchQuery.trim().length === 0) {
       this.statusBar.content = t`${fg(this.theme.yellow)("Search:")}${fg(this.theme.fgMuted)(" type to filter")}    ${fg(this.theme.fgSubtle)("Enter/Esc exit")}`;
+
       return;
     }
+
     if (this.visibleEntries.length === 0) {
       this.statusBar.content = t`${fg(this.theme.fgMuted)(this.emptyBody())}`;
+
       return;
     }
+
     const query = this.searchQuery.trim();
+
     if (query.length > 0) {
       const count = this.visibleEntries.length;
+
       const hint = this.searchActive
         ? "type to filter | Enter/Esc exit"
         : "/ edit search";
+
       this.statusBar.content = t`${fg(this.theme.fgMuted)(`${count} ${matchLabel(count)} for "${query}"`)}    ${fg(this.theme.fgSubtle)(hint)}`;
+
       return;
     }
+
     this.statusBar.content = t`${fg(this.theme.fgMuted)(formatStatusBarText(this.visibleEntries.length, this.selectedEntry, this.filter, this.showingAllRepos, this.usingAllReposFallback))}`;
     this.commandBar.update(
       this.currentStatusText(),
@@ -1397,7 +1553,9 @@ export class NotesView {
       return this.searchQuery
         ? `Search: ${this.searchQuery}`
         : "Search: type to filter";
+
     if (!this.visibleEntries.length) return this.emptyBody();
+
     return formatStatusBarText(
       this.visibleEntries.length,
       this.selectedEntry,
@@ -1409,17 +1567,21 @@ export class NotesView {
 
   private emptyTitle(): string {
     if (this.searchQuery.trim().length > 0) return "No matches";
+
     return `No ${notesDisplayTitle(this.filter, this.showingAllRepos)}`;
   }
 
   private emptyBody(): string {
     const query = this.searchQuery.trim();
+
     if (query.length > 0) return `No notes match "${query}".`;
+
     if (this.showingAllRepos) {
       return this.filter?.tag
         ? `No notes tagged ${this.filter.tag} found in any repository.`
         : "No notes found in any repository.";
     }
+
     return this.filter?.tag
       ? `No notes tagged ${this.filter.tag} found for this repository.`
       : "No notes found for this repository.";
@@ -1457,6 +1619,7 @@ function matchesFilter(
 ): boolean {
   if (!filter?.tag) return true;
   const wanted = filter.tag.toLowerCase();
+
   return entry.tags.some((tag) => tag.toLowerCase() === wanted);
 }
 
@@ -1506,6 +1669,7 @@ function flattenNoteSections(
 
 function splitNoteBody(content: string): string {
   const match = content.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+
   return match ? content.slice(match[0].length) : content;
 }
 
@@ -1518,6 +1682,7 @@ function stripH1Headings(content: string): string {
 
 function noteBodyContent(content: string): string {
   const body = stripH1Headings(splitNoteBody(content)).trim();
+
   return body || "No content after frontmatter.";
 }
 
@@ -1526,7 +1691,9 @@ function notesDisplayTitle(
   showingAllRepos: boolean,
 ): string {
   const title = filter?.title ?? "Notes";
+
   if (!showingAllRepos) return title;
+
   return title.startsWith("All ") ? title : `All ${title}`;
 }
 
@@ -1535,6 +1702,7 @@ function notesSubtitle(
   showingAllRepos: boolean,
 ): string {
   const scope = showingAllRepos ? "all repos" : "repo notes";
+
   return filter?.tag ? `tag:${filter.tag} | ${scope}` : scope;
 }
 
@@ -1567,6 +1735,7 @@ function filterStatusText(
       ? [usingAllReposFallback ? "all repos fallback" : "all repos"]
       : []),
   ];
+
   return parts.length ? ` | ${parts.join(" | ")}` : "";
 }
 
@@ -1577,6 +1746,7 @@ function selectedStatusText(entry: NoteEntry | null): string {
 function formatListDescription(entry: NoteEntry): string {
   const description = entry.description ?? "No description";
   const tags = entry.tags.length ? ` [${entry.tags.join(", ")}]` : "";
+
   return `${description}${tags} | ${formatLocalNoteDateTimeFromEpochSeconds(entry.mtime)}`;
 }
 
@@ -1596,5 +1766,6 @@ function stripMarkdownExtension(filename: string): string {
 
 function errorMessage<Failure>(error: Failure): string {
   if (error instanceof Error) return error.message;
+
   return String(error);
 }

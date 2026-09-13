@@ -25,6 +25,7 @@ const workspace = {
   agent_status: "idle",
   focused: false,
 };
+
 const tab = {
   tab_id: "w1:t2",
   workspace_id: "w1",
@@ -34,6 +35,7 @@ const tab = {
   agent_status: "idle",
   focused: false,
 };
+
 const pane = {
   pane_id: "w1:p2",
   tab_id: "w1:t2",
@@ -63,6 +65,7 @@ export async function herdrFixture(
   const requests: HerdrRequest[] = [];
   const sockets = new Set<Socket>();
   let detectionFailures = options.detectionFailures ?? 0;
+
   const server = createServer((socket) => {
     sockets.add(socket);
     socket.on("close", () => sockets.delete(socket));
@@ -71,13 +74,16 @@ export async function herdrFixture(
     socket.on("data", (chunk) => {
       buffered += chunk;
       let newline;
+
       while ((newline = buffered.indexOf("\n")) >= 0) {
         const request = Schema.decodeSync(Request)(buffered.slice(0, newline));
         buffered = buffered.slice(newline + 1);
         requests.push(request);
+
         const fail =
           request.method === options.failMethod ||
           (request.method === "agent.get" && detectionFailures-- > 0);
+
         socket.write(
           JSON.stringify(
             fail
@@ -94,6 +100,7 @@ export async function herdrFixture(
       }
     });
   });
+
   function response(method: string) {
     switch (method) {
       case "ping":
@@ -215,10 +222,12 @@ export async function herdrFixture(
         throw new Error(`Unexpected Herdr method: ${method}`);
     }
   }
+
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(socketPath, resolve);
   });
+
   return {
     socketPath,
     requests,

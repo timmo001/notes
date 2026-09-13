@@ -48,6 +48,7 @@ describe("StatusList", () => {
     renderer.root.add(list);
     list.setActive(true);
     await setup.flush();
+
     for (const [width, height] of [
       [80, 24],
       [60, 20],
@@ -70,6 +71,7 @@ describe("StatusList", () => {
     renderer.root.add(list);
     list.setActive(true);
     await setup.flush();
+
     for (let index = 0; index < 6; index++) list.selectNext();
     await setup.flush();
     expect(list.getSelectedItem()?.id).toBe("6");

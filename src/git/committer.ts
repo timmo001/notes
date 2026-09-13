@@ -64,7 +64,9 @@ export function ensureRepo(
       "rev-parse",
       "--is-inside-work-tree",
     ]);
+
     if (inside === "true") return { ok: true, text: "" };
+
     return yield* runStep(cwd, ["init"]);
   });
 }
@@ -82,8 +84,10 @@ export function stageIn(
   if (spec.mode === "paths" && spec.paths.length === 0) {
     return Effect.succeed({ ok: true, text: "" });
   }
+
   const args =
     spec.mode === "all" ? ["add", "-A"] : ["add", "--", ...spec.paths];
+
   return runStep(opts?.cwd, args);
 }
 
@@ -93,12 +97,14 @@ export function unstageIn(
   opts?: { readonly cwd?: string; readonly io?: GitIo },
 ): Effect.Effect<GitStepResult, never, CommandExecutor> {
   if (paths.length === 0) return Effect.succeed({ ok: true, text: "" });
+
   return Effect.gen(function* () {
     const hasHead =
       (yield* gitExitCode(
         ["rev-parse", "--verify", "HEAD"],
         opts?.cwd ? { cwd: opts.cwd } : undefined,
       )) === 0;
+
     return yield* runStep(
       opts?.cwd,
       hasHead
@@ -133,16 +139,20 @@ export function commitIn(
   return Effect.gen(function* () {
     if (step.tolerateEmpty) {
       const staged = yield* hasStagedChanges(step.cwd, step.paths);
+
       if (!staged)
         return { ok: true, committed: false, text: "nothing to commit" };
     }
+
     const args = [
       "commit",
       ...(step.message !== undefined ? ["-m", step.message] : []),
       ...(step.noVerify ? ["--no-verify"] : []),
       ...(step.paths?.length ? ["--only", "--", ...step.paths] : []),
     ];
+
     const result = yield* runStep(step.cwd, args);
+
     return result.ok
       ? { ok: true, committed: true, text: result.text }
       : { ok: false, committed: false, text: result.text, error: result.error };
@@ -161,11 +171,13 @@ export function preflightMutation(
   cwd?: string,
 ): Effect.Effect<GitStepResult, never, CommandExecutor> {
   const opts = cwd ? { cwd } : undefined;
+
   return Effect.gen(function* () {
     const stagedCode = yield* gitExitCode(
       ["diff", "--cached", "--quiet"],
       opts,
     );
+
     if (stagedCode > 1) {
       return {
         ok: false,
@@ -173,6 +185,7 @@ export function preflightMutation(
         error: `Unable to inspect staged changes (git exited ${stagedCode}).`,
       };
     }
+
     if (stagedCode === 1) {
       return {
         ok: false,
@@ -194,6 +207,7 @@ export function preflightMutation(
         "--git-path",
         marker,
       ]);
+
       if (
         markerPath &&
         existsSync(
@@ -217,6 +231,7 @@ export function preflightMutation(
       "--short",
       "HEAD",
     ]);
+
     if (!branch.ok) {
       return {
         ok: false,
@@ -224,12 +239,14 @@ export function preflightMutation(
         error: "The notes repository is in detached HEAD state.",
       };
     }
+
     const upstream = yield* readGitIn(cwd, [
       "rev-parse",
       "--abbrev-ref",
       "--symbolic-full-name",
       "@{upstream}",
     ]);
+
     if (!upstream) return { ok: true, text: "" };
 
     const pulled = yield* runStep(cwd, [
@@ -238,8 +255,10 @@ export function preflightMutation(
       "--no-autostash",
       "--no-edit",
     ]);
+
     if (pulled.ok) return pulled;
     yield* gitExitCode(["rebase", "--abort"], opts);
+
     return {
       ok: false,
       text: "",
@@ -258,8 +277,10 @@ export function pushBranch(
   } = {},
 ): Effect.Effect<PushOutcome, never, CommandExecutor> {
   const { cwd } = options;
+
   return Effect.gen(function* () {
     const branch = yield* readGitIn(cwd, ["branch", "--show-current"]);
+
     if (!branch) {
       return {
         ok: false,
@@ -267,20 +288,25 @@ export function pushBranch(
         error: "Cannot push from a detached HEAD.",
       };
     }
+
     const upstream = yield* readGitIn(cwd, [
       "rev-parse",
       "--abbrev-ref",
       "--symbolic-full-name",
       "@{upstream}",
     ]);
+
     if (upstream) {
       const pushed = yield* runStep(cwd, ["push"]);
+
       return pushed.ok
         ? { ok: true, message: `Pushed to ${upstream}` }
         : { ok: false, message: "", error: pushed.error };
     }
+
     const { remote } = resolveDefaultRemote(yield* readGitIn(cwd, ["remote"]));
     const pushed = yield* runStep(cwd, ["push", "-u", remote, branch]);
+
     return pushed.ok
       ? { ok: true, message: `Pushed to ${remote}/${branch} (new upstream)` }
       : { ok: false, message: "", error: pushed.error };

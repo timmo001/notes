@@ -1,10 +1,20 @@
-import { Context, Effect, Layer, Schema, Stream } from "effect";
+import {
+  Context,
+  Effect,
+  Layer,
+  Predicate,
+  Result,
+  Schema,
+  Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { resolve } from "node:path";
 import type { DaemonConfig, OpenCodeModel } from "../schema.js";
 
 const STATUS_PREFIX = /^STATUS: (success|failure)(?=\s|$)/;
+
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024;
+
 const MAX_RESULT_LENGTH = 20_000;
 
 /** Failure returned by the local OpenCode command boundary. */
@@ -35,6 +45,7 @@ export class OpenCodeClient extends Context.Service<
       Effect.gen(function* () {
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
         const command = config.opencodeCommand ?? "opencode2";
+
         return OpenCodeClient.of({
           status: Effect.try({
             try: () => {
@@ -64,6 +75,7 @@ const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
     prompt: string,
   ) {
     let lastError: OpenCodeClientError | undefined;
+
     for (const [index, model] of config.opencodeModels.entries()) {
       const result = yield* processWithModel(
         config,
@@ -71,15 +83,18 @@ const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
         prompt,
         model,
       ).pipe(Effect.result);
-      if (result._tag === "Success") {
+
+      if (Result.isSuccess(result)) {
         const response = result.success.trim();
         const status = STATUS_PREFIX.exec(response);
+
         const summary = status
           ? response
               .slice(status[0].length)
               .trim()
               .replace(/^(?:-|:|\u2014)\s*/, "")
           : "";
+
         if (status?.[1] === "success" && summary) return summary;
         lastError = new OpenCodeClientError({
           operation: "message.status",
@@ -91,12 +106,14 @@ const processWithFallback = Effect.fn("OpenCodeClient.processWithFallback")(
       } else {
         lastError = result.failure;
       }
+
       if (index < config.opencodeModels.length - 1) {
         console.warn(
           `[notes-daemon] model failed model=${modelName(model)} operation=${lastError.operation} message=${lastError.message}; trying fallback`,
         );
       }
     }
+
     return yield* new OpenCodeClientError({
       operation: "process.models",
       message: `All models failed (${config.opencodeModels.map(modelName).join(", ")}): ${lastError?.message ?? "unknown error"}`,
@@ -142,12 +159,15 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
         },
       ),
     );
+
     let bytes = 0;
     let messageId = "";
     let text = "";
+
     const output = child.stdout.pipe(
       Stream.mapEffect((chunk) => {
         bytes += chunk.byteLength;
+
         return bytes <= MAX_OUTPUT_BYTES
           ? Effect.succeed(chunk)
           : Effect.fail(
@@ -179,6 +199,7 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
                 }),
             ),
           );
+
           if (event.type === "error") {
             const error = yield* Schema.decodeUnknownEffect(
               Schema.Struct({ message: Schema.String }),
@@ -191,12 +212,15 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
                   }),
               ),
             );
+
             return yield* new OpenCodeClientError({
               operation: "command.run",
               message: error.message.slice(0, 500),
             });
           }
+
           if (event.type !== "text" && event.type !== "step_start") return;
+
           const part = yield* Schema.decodeUnknownEffect(
             Schema.Struct({
               messageID: Schema.NonEmptyString,
@@ -211,12 +235,15 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
                 }),
             ),
           );
+
           // OpenCode message IDs are ascending. Reconciliation may emit older text later.
           if (part.messageID < messageId) return;
+
           if (part.messageID !== messageId) {
             messageId = part.messageID;
             text = "";
           }
+
           if (event.type === "text") {
             if (part.text === undefined)
               return yield* new OpenCodeClientError({
@@ -224,6 +251,7 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
                 message: "OpenCode text event has no text",
               });
             text += part.text;
+
             if (text.length > MAX_RESULT_LENGTH)
               return yield* new OpenCodeClientError({
                 operation: "command.output",
@@ -233,19 +261,23 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
         }),
       ),
     );
+
     const [exitCode] = yield* Effect.all([child.exitCode, output], {
       concurrency: "unbounded",
     });
+
     if (exitCode !== 0)
       return yield* new OpenCodeClientError({
         operation: "command.exit",
         message: `OpenCode exited with code ${exitCode}`,
       });
+
     if (!text.trim())
       return yield* new OpenCodeClientError({
         operation: "message.decode",
         message: "OpenCode returned no assistant text",
       });
+
     return text;
   },
   (effect, config) =>
@@ -257,10 +289,9 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
           ? error
           : new OpenCodeClientError({
               operation: "command.run",
-              message:
-                error._tag === "TimeoutError"
-                  ? "OpenCode session timed out"
-                  : "OpenCode command could not complete",
+              message: Predicate.isTagged(error, "TimeoutError")
+                ? "OpenCode session timed out"
+                : "OpenCode command could not complete",
             }),
       ),
     ),

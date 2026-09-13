@@ -15,7 +15,9 @@ import { CommandExecutor } from "../../src/services/CommandExecutor.js";
 import { herdrFixture } from "../support/herdr.js";
 
 const temporaryDirectories: string[] = [];
+
 const fixtures: Awaited<ReturnType<typeof herdrFixture>>[] = [];
+
 const entry: NoteEntry = {
   filename: "work.md",
   filePath: "/vault/projects/example/notes/work.md",
@@ -27,19 +29,23 @@ const entry: NoteEntry = {
   priority: "high",
   mtime: 0,
 };
+
 const cursor = {
   command: "cursor",
   executable: "cursor-agent",
   label: "Cursor Agent",
 };
+
 const opencode2 = {
   command: "opencode2",
   executable: "/home/aidan/.local/bin/opencode2",
   label: "OpenCode 2",
 };
+
 const executor = CommandExecutor.of({
   run: (command, args) => {
     expect([command, ...args]).toEqual(["mise", "which", "opencode2"]);
+
     return Effect.succeed("/opt/opencode2\n");
   },
   exitCode: () => Effect.die("Unexpected subprocess"),
@@ -48,11 +54,13 @@ const executor = CommandExecutor.of({
 async function fixture(options?: Parameters<typeof herdrFixture>[0]) {
   const server = await herdrFixture(options);
   fixtures.push(server);
+
   return server;
 }
 
 afterEach(async () => {
   for (const server of fixtures.splice(0)) await server.close();
+
   for (const directory of temporaryDirectories.splice(0))
     rmSync(directory, { recursive: true, force: true });
 });
@@ -60,9 +68,11 @@ afterEach(async () => {
 describe("agent targets", () => {
   test("preserves installed target order, labels and executable overrides", async () => {
     const server = await fixture();
+
     const targets = await Effect.runPromise(
       detectAgentTargets(() => true).pipe(Effect.provide(server.layer)),
     );
+
     expect(targets).toEqual([
       opencode2,
       { command: "opencode", executable: "opencode", label: "OpenCode 1" },
@@ -83,11 +93,13 @@ describe("agent targets", () => {
     writeFileSync(executable, "#!/bin/sh\n");
     chmodSync(executable, 0o644);
     const server = await fixture();
+
     const targets = await Effect.runPromise(
       detectAgentTargets(() => isRegularExecutable(executable)).pipe(
         Effect.provide(server.layer),
       ),
     );
+
     expect(targets.map(({ command }) => command)).not.toContain("opencode2");
   });
 
@@ -137,12 +149,14 @@ describe("agent targets", () => {
       workspaceLabel: "NOTES",
       detectionFailures: 1,
     });
+
     const result = await Effect.runPromise(
       openNoteAgent(entry, "# Full body", cursor).pipe(
         Effect.provide(server.layer),
         Effect.provideService(CommandExecutor, executor),
       ),
     );
+
     expect(result).toMatchObject({
       workspaceId: "w1",
       tabId: "w1:t2",
@@ -179,9 +193,11 @@ describe("agent targets", () => {
     expect(
       server.requests.find(({ method }) => method === "agent.wait")?.params,
     ).toEqual({ target: "w1:p2", timeout_ms: 30_000 });
+
     const prompt = server.requests.find(
       ({ method }) => method === "agent.prompt",
     )?.params;
+
     expect(prompt).toMatchObject({
       target: "w1:p2",
       wait: { timeout_ms: 120_000 },

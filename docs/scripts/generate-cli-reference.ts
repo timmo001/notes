@@ -6,8 +6,11 @@ import { renderHelp } from "../../src/cli/help.ts";
 import { notesCommand } from "../../src/index.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
 const outFile = path.join(root, "src/content/docs/cli/commands.md");
+
 const commands = notesCommand.subcommands.flatMap((group) => group.commands);
+
 const lines = [
   "---",
   "title: Command Reference",
@@ -34,5 +37,7 @@ for (const command of commands) {
 }
 
 await mkdir(path.dirname(outFile), { recursive: true });
+
 await writeFile(outFile, `${lines.join("\n").trimEnd()}\n`);
+
 console.log(`Wrote ${path.relative(root, outFile)}`);

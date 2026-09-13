@@ -72,6 +72,7 @@ import {
 } from "../types.js";
 
 const PROJECTS_SUBDIR = "projects";
+
 const COMMANDS_NEEDING_LIST = new Set<string>([
   "note-append",
   "notes-list",
@@ -153,23 +154,32 @@ const ErrorDetails = Schema.Struct({
   stderr: Schema.optional(Schema.String),
   message: Schema.optional(Schema.String),
 });
+
 const ErrorCode = Schema.Struct({ code: Schema.optional(Schema.String) });
 
 function errorMessage<ErrorValue>(error: ErrorValue): string {
   const text = Option.getOrUndefined(
     Schema.decodeUnknownOption(Schema.String)(error),
   );
+
   if (text !== undefined) return text;
+
   const nativeError = Option.getOrUndefined(
     Schema.decodeUnknownOption(Schema.instanceOf(Error))(error),
   );
+
   if (nativeError !== undefined) return nativeError.message;
+
   const details = Option.getOrUndefined(
     Schema.decodeUnknownOption(ErrorDetails)(error),
   );
+
   if (details?.stderr?.trim()) return details.stderr.trim();
+
   if (details?.message?.trim()) return details.message.trim();
+
   if (error === null || error === undefined) return "Unknown error";
+
   return String(error);
 }
 
@@ -196,6 +206,7 @@ function listNoteEntries(
   projectDir?: string,
 ): readonly NoteEntry[] {
   if (!existsSync(notesPath)) return [];
+
   const physicalNotesPath = resolveRepositoryNotesDirectory(
     projectsRoot,
     notesPath,
@@ -207,11 +218,13 @@ function listNoteEntries(
     .map((filename) => {
       const filePath = join(physicalNotesPath, filename);
       const stat = lstatSync(filePath);
+
       if (stat.isSymbolicLink() || !stat.isFile()) {
         throw new Error(
           `Note path is not a physical regular file: ${filePath}`,
         );
       }
+
       return {
         filename,
         filePath,
@@ -235,6 +248,7 @@ function listNoteRepoSections(
 ): readonly NoteRepoSection[] {
   try {
     const rootStat = lstatSync(projectsRoot);
+
     if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
       throw new Error(
         `Projects root is not a physical directory: ${projectsRoot}`,
@@ -246,12 +260,15 @@ function listNoteRepoSections(
   }
 
   const sections: NoteRepoSection[] = [];
+
   for (const owner of sortedDirectories(projectsRoot)) {
     const ownerPath = join(projectsRoot, owner.name);
+
     for (const repo of sortedDirectories(ownerPath)) {
       const repoSlug = `${owner.name}/${repo.name}`;
       const notesPath = join(ownerPath, repo.name);
       const entries = listNoteEntries(projectsRoot, notesPath, repoSlug);
+
       if (entries.length > 0) sections.push({ repoSlug, notesPath, entries });
     }
   }
@@ -275,6 +292,7 @@ function formatTag(
   const body = [`Description: ${description}`, ...lines.filter(Boolean)]
     .join("\n")
     .trim();
+
   return [`<${name}>`, body || "(empty)", `</${name}>`].join("\n");
 }
 
@@ -300,6 +318,7 @@ function payloadToContextBlock(payload: NoteContextPayload): string {
   }
 
   const repository = payload.repository;
+
   const parts = [
     "<repo-note-context>",
     formatTag("metadata", "How this context was generated.", [
@@ -328,6 +347,7 @@ function payloadToContextBlock(payload: NoteContextPayload): string {
         : payload.notesExist
           ? ["(no .md files found in notes directory)"]
           : ["(notes directory does not exist yet)"];
+
     parts.push(
       formatTag(
         "existing-notes",
@@ -342,6 +362,7 @@ function payloadToContextBlock(payload: NoteContextPayload): string {
       "<note-contents>",
       "Description: Full content of all note files for this repository.",
     ];
+
     for (const note of payload.contents) {
       contentParts.push(
         `<note file="${note.filename}">`,
@@ -349,6 +370,7 @@ function payloadToContextBlock(payload: NoteContextPayload): string {
         "</note>",
       );
     }
+
     contentParts.push("</note-contents>");
     parts.push(contentParts.join("\n"));
   }
@@ -364,14 +386,17 @@ function payloadToContextBlock(payload: NoteContextPayload): string {
   }
 
   parts.push("</repo-note-context>");
+
   return parts.join("\n\n");
 }
 
 function commitOutputLine(result: NoteCommitResult, message: string): string[] {
   if (result.ok && result.committed)
     return ["", `Committed to git: \`${message}\``];
+
   if (!result.ok)
     return ["", `Git commit failed (saved locally): ${result.error}`];
+
   return [];
 }
 
@@ -426,15 +451,19 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
 
       const resolveIdentity = Effect.fn("Notes.resolveIdentity")(function* () {
         const warnings: string[] = [];
+
         const gitRoot = yield* commandResult(
           "git",
           ["rev-parse", "--show-toplevel"],
           { cwd: config.projectDir },
         );
+
         const identityRoot = gitRoot.ok ? gitRoot.text : config.projectDir;
+
         const remotesResult = gitRoot.ok
           ? yield* commandResult("git", ["remote"], { cwd: config.projectDir })
           : { ok: true as const, text: "" };
+
         const remotes = remotesResult.ok
           ? remotesResult.text
               .split(/\r?\n/g)
@@ -451,14 +480,17 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           : remotes.includes("origin")
             ? "origin"
             : remotes[0];
+
         if (remote) {
           const remoteUrl = yield* commandResult(
             "git",
             ["remote", "get-url", remote],
             { cwd: config.projectDir },
           );
+
           if (remoteUrl.ok) {
             const parsed = parseRepositoryRemoteUrl(remoteUrl.text);
+
             if (parsed) {
               return {
                 identity: {
@@ -471,6 +503,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 warnings,
               };
             }
+
             warnings.push(
               `Could not parse owner/repo from remote URL; using local project identity: ${remoteUrl.text}`,
             );
@@ -486,11 +519,13 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         }
 
         const project = basename(identityRoot);
+
         if (!isSafeRepositorySegment(project)) {
           return yield* fail(
             `Unable to derive a safe local project name from: ${identityRoot}`,
           );
         }
+
         return {
           identity: {
             source: "local" as const,
@@ -505,6 +540,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
       const currentNotesPath = Effect.fn("Notes.currentNotesPath")(
         function* () {
           const { identity } = yield* resolveIdentity();
+
           return join(projectsRoot, identity.owner, identity.repo);
         },
       );
@@ -532,13 +568,16 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
 
       const prepareMutation = Effect.fn("Notes.prepareMutation")(function* () {
         const init = yield* withExecutor(ensureRepo(notesRoot));
+
         if (!init.ok) {
           return yield* fail(
             "Unable to prepare the notes repository.",
             init.error,
           );
         }
+
         const preflight = yield* withExecutor(preflightMutation(notesRoot));
+
         if (!preflight.ok) {
           return yield* fail(
             "The notes repository is not ready for a mutation.",
@@ -560,8 +599,10 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               "The notes repository gained staged changes before the note could be committed. The note was saved locally and nothing new was staged.",
           };
         }
+
         const relativePath = relative(notesRoot, filePath);
         const init = yield* withExecutor(ensureRepo(notesRoot));
+
         if (!init.ok) {
           return {
             ok: false as const,
@@ -570,12 +611,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             error: `git init failed: ${init.error ?? "unknown error"}`,
           };
         }
+
         const staged = yield* withExecutor(
           stageIn(
             { mode: "paths", paths: [relativePath] },
             { cwd: notesRoot, io: "capture" },
           ),
         );
+
         if (!staged.ok) {
           return {
             ok: false as const,
@@ -584,6 +627,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             error: `git add failed: ${staged.error ?? "unknown error"}`,
           };
         }
+
         const outcome = yield* withExecutor(
           commitIn({
             cwd: notesRoot,
@@ -594,12 +638,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             paths: [relativePath],
           }),
         );
+
         if (outcome.ok) {
           const sha = outcome.committed
             ? yield* commandResult("git", ["rev-parse", "HEAD"], {
                 cwd: notesRoot,
               })
             : undefined;
+
           return {
             ok: true as const,
             committed: outcome.committed,
@@ -607,9 +653,11 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             ...(sha?.ok && { sha: sha.text }),
           };
         }
+
         const restored = yield* withExecutor(
           unstageIn([relativePath], { cwd: notesRoot, io: "capture" }),
         );
+
         return {
           ok: false as const,
           committed: false,
@@ -632,13 +680,16 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               "The notes repository gained staged changes before the note could be committed. The note was moved locally and nothing new was staged.",
           };
         }
+
         const paths = [
           relative(notesRoot, fromPath),
           relative(notesRoot, toPath),
         ];
+
         const staged = yield* withExecutor(
           stageIn({ mode: "paths", paths }, { cwd: notesRoot, io: "capture" }),
         );
+
         if (!staged.ok) {
           return {
             ok: false as const,
@@ -647,6 +698,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             error: `git add failed: ${staged.error ?? "unknown error"}`,
           };
         }
+
         const outcome = yield* withExecutor(
           commitIn({
             cwd: notesRoot,
@@ -657,10 +709,12 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             paths,
           }),
         );
+
         if (!outcome.ok) {
           const restored = yield* withExecutor(
             unstageIn(paths, { cwd: notesRoot, io: "capture" }),
           );
+
           return {
             ok: false as const,
             committed: false,
@@ -668,11 +722,13 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             error: `git commit failed: ${outcome.error ?? "unknown error"}${restored.ok ? "" : `; index cleanup failed: ${restored.error ?? "unknown error"}`}`,
           };
         }
+
         const sha = outcome.committed
           ? yield* commandResult("git", ["rev-parse", "HEAD"], {
               cwd: notesRoot,
             })
           : undefined;
+
         return {
           ok: true as const,
           committed: outcome.committed,
@@ -688,20 +744,25 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           "rev-parse",
           "--is-inside-work-tree",
         ]);
+
         if (!isRepo.ok) return false;
+
         const remotes = yield* commandResult("git", [
           "-C",
           notesRoot,
           "remote",
         ]);
+
         return remotes.ok && remotes.text.trim().length > 0;
       });
 
       const pushNotes = Effect.fn("Notes.pushNotes")(function* () {
         if (!(yield* hasRemote())) return undefined;
+
         const outcome = yield* withExecutor(
           pushBranch({ cwd: notesRoot, io: "capture" }),
         );
+
         return {
           ok: outcome.ok,
           message: outcome.message,
@@ -715,6 +776,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
       ) {
         const outcome = yield* commitNote(filePath, message);
         const push = outcome.committed ? yield* pushNotes() : undefined;
+
         return { commit: toNoteCommitResult(outcome), push };
       });
 
@@ -727,18 +789,21 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           try: () => readNoteFile(projectsRoot, filePath),
           catch: (error) => fail(errorMessage(error)),
         });
+
         const entry: NoteEntry = {
           filename: basename(before.path),
           filePath: before.path,
           mtime: before.mtime,
           ...readNoteFrontmatter(projectsRoot, before.path),
         };
+
         yield* Effect.tryPromise({
           try: () => runEditor(entry),
           catch: (error) =>
             fail(`Editor failed for ${filePath}: ${errorMessage(error)}`),
         });
         const resolvedPath = resolveOptionalNotePath(projectsRoot, filePath);
+
         if (!existsSync(resolvedPath)) {
           if (create) {
             return {
@@ -749,9 +814,12 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               },
             };
           }
+
           const message = `notes: delete ${basename(resolvedPath)}`;
+
           return yield* commitAndPush(resolvedPath, message);
         }
+
         yield* Effect.try({
           try: () =>
             validateNoteContent(
@@ -762,6 +830,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         });
         const filename = basename(resolvedPath);
         const message = `notes: ${create ? "create" : "edit"} ${filename}`;
+
         return yield* commitAndPush(resolvedPath, message);
       });
 
@@ -775,6 +844,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
       ) {
         const slug = slugifyName(name) || "note";
         const now = new Date(yield* Clock.currentTimeMillis);
+
         const draftContent = renderDraft(
           kind,
           identity,
@@ -782,10 +852,12 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           name,
           description,
         );
+
         const content =
           body === undefined
             ? draftContent
             : `${draftContent.slice(0, draftContent.indexOf("\n---\n") + 5)}\n${body.replace(/(?:\r\n|\r|\n)+$/, "")}\n`;
+
         const filePath = yield* Effect.try({
           try: () =>
             createExclusiveNoteFile(
@@ -798,7 +870,9 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           catch: (error) =>
             fail(`createDraft: failed to write draft: ${errorMessage(error)}`),
         });
+
         const note = readNoteFile(projectsRoot, filePath);
+
         const entry: NoteEntry = {
           filename: basename(filePath),
           filePath,
@@ -806,19 +880,23 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           mtime: note.mtime,
           ...readFrontmatter(note.content),
         };
+
         const draft = { entry, content } satisfies NoteCreateDraft;
         const git = yield* editAndCommit(filePath, runEditor, true);
+
         return { draft, git, created: existsSync(filePath) };
       });
 
       const buildContextPayload = ({ command }: NoteContextOptions) =>
         Effect.gen(function* () {
           const generatedAt = new Date().toISOString();
+
           const resolved = yield* resolveIdentity().pipe(
             Effect.catch((error: NotesError) =>
               Effect.succeed({ error } as const),
             ),
           );
+
           if ("error" in resolved) {
             return {
               generatedAt,
@@ -840,9 +918,11 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             resolved.identity.owner,
             resolved.identity.repo,
           );
+
           const notesExist = existsSync(notesPath);
           const warnings = [...resolved.warnings];
           let entries: readonly NoteEntry[] = [];
+
           if (COMMANDS_NEEDING_LIST.has(command)) {
             const listed = yield* Effect.try({
               try: () => listNoteEntries(projectsRoot, notesPath),
@@ -853,14 +933,17 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 onSuccess: (value) => ({ ok: true as const, value }),
               }),
             );
+
             if (listed.ok) entries = listed.value;
             else
               warnings.push(`Unable to list existing notes: ${listed.error}`);
           }
+
           const contents =
             command === "note-reference" && entries.length > 0
               ? entries.map((entry) => {
                   let content: string;
+
                   try {
                     content = readNoteFile(
                       projectsRoot,
@@ -869,6 +952,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                   } catch (error) {
                     content = `(error reading file: ${errorMessage(error)})`;
                   }
+
                   return {
                     filename: entry.filename,
                     filePath: entry.filePath,
@@ -903,12 +987,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         list: () =>
           Effect.gen(function* () {
             const notesPath = yield* currentNotesPath();
+
             return listNoteEntries(projectsRoot, notesPath);
           }),
         listAll: () =>
           Effect.try({
             try: () => {
               const directories = readRepositoryDirectories(config.stateDir);
+
               return listNoteRepoSections(projectsRoot).map((section) => ({
                 ...section,
                 entries: section.entries.map((entry) => ({
@@ -937,8 +1023,10 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 `notes TUI: failed to remember project directory: ${errorMessage(error)}`,
               ),
           });
+
           if (identity.source === "local") {
             const directories = readRepositoryDirectories(config.stateDir);
+
             const sections = yield* Effect.try({
               try: () =>
                 listNoteRepoSections(projectsRoot).map((section) => ({
@@ -951,22 +1039,26 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               catch: (error) =>
                 fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
             });
+
             return { scope: "all" as const, repoSlug, sections };
           }
 
           const notesPath = join(projectsRoot, identity.owner, identity.repo);
+
           const entries = yield* Effect.try({
             try: () =>
               listNoteEntries(projectsRoot, notesPath, repoSlug, projectDir),
             catch: (error) =>
               fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
           });
+
           return { scope: "current" as const, repoSlug, entries };
         }),
         read: (filePath) =>
           Effect.try({
             try: () => {
               const result = readNoteFile(projectsRoot, filePath);
+
               return {
                 path: result.path,
                 content: result.content,
@@ -985,11 +1077,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               const pathParts = relative(projectsRoot, note.path).split("/");
               const owner = pathParts[0];
               const repo = pathParts[1];
+
               if (!owner || !repo || pathParts.length !== 3) {
                 throw new Error(`Invalid repository note path: ${filePath}`);
               }
+
               const repoSlug = `${owner}/${repo}`;
               const directories = readRepositoryDirectories(config.stateDir);
+
               return {
                 entry: {
                   filename: basename(note.path),
@@ -1011,12 +1106,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           withMutationLock(
             Effect.gen(function* () {
               yield* prepareMutation();
+
               const existing = yield* Effect.try({
                 try: () => {
                   const resolvedPath = resolveWritableNotePath(
                     projectsRoot,
                     filePath,
                   );
+
                   return existsSync(resolvedPath)
                     ? readNoteFile(projectsRoot, resolvedPath)
                     : undefined;
@@ -1026,6 +1123,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                     `Failed to inspect note file ${filePath}: ${errorMessage(error)}`,
                   ),
               });
+
               if (
                 options.expectedHash !== undefined &&
                 existing?.hash !== options.expectedHash
@@ -1035,6 +1133,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                   `Expected ${options.expectedHash}, found ${existing?.hash ?? "no existing note"}.`,
                 );
               }
+
               const stamped =
                 options.stampDate === false
                   ? content
@@ -1045,10 +1144,12 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                         new Date(yield* Clock.currentTimeMillis),
                       ),
                     );
+
               yield* Effect.try({
                 try: () => validateNoteContent(stamped),
                 catch: (error) => fail(errorMessage(error)),
               });
+
               const resolvedPath = yield* Effect.try({
                 try: () => atomicWriteNoteFile(projectsRoot, filePath, stamped),
                 catch: (error) =>
@@ -1056,13 +1157,16 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                     `Failed to write note file ${filePath}: ${errorMessage(error)}`,
                   ),
               });
+
               const dir = dirname(resolvedPath);
               const filename = basename(resolvedPath);
               const message = `notes: write ${filename}`;
+
               const { commit, push } = yield* commitAndPush(
                 resolvedPath,
                 message,
               );
+
               const output = [
                 `Written: ${resolvedPath}`,
                 "",
@@ -1093,6 +1197,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           withMutationLock(
             Effect.gen(function* () {
               yield* prepareMutation();
+
               const resolvedPath = yield* Effect.try({
                 try: () => deleteNoteFile(projectsRoot, filePath),
                 catch: (error) =>
@@ -1100,13 +1205,16 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                     `Failed to delete note file ${filePath}: ${errorMessage(error)}`,
                   ),
               });
+
               const dir = dirname(resolvedPath);
               const filename = basename(resolvedPath);
               const message = `notes: delete ${filename}`;
+
               const { commit, push } = yield* commitAndPush(
                 resolvedPath,
                 message,
               );
+
               const output = [
                 `Deleted: ${resolvedPath}`,
                 ...commitOutputLine(commit, message),
@@ -1144,6 +1252,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             Effect.gen(function* () {
               yield* prepareMutation();
               const [owner, repo, ...extra] = repoSlug.split("/");
+
               if (
                 !owner ||
                 !repo ||
@@ -1156,22 +1265,26 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                   "Expected an existing or known owner/repo scope.",
                 );
               }
+
               const targets = new Set([
                 ...listNoteRepoSections(projectsRoot).map(
                   (section) => section.repoSlug,
                 ),
                 ...Object.keys(readRepositoryDirectories(config.stateDir)),
               ]);
+
               if (!targets.has(repoSlug)) {
                 return yield* fail(
                   `Unknown move destination: ${repoSlug}`,
                   "Use `notes list --all` or the TUI move picker to see existing destinations.",
                 );
               }
+
               const fromPath = yield* Effect.try({
                 try: () => resolveExistingNotePath(projectsRoot, filePath),
                 catch: (error) => fail(errorMessage(error)),
               });
+
               const toPath = yield* Effect.try({
                 try: () =>
                   resolveWritableNotePath(
@@ -1180,24 +1293,30 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                   ),
                 catch: (error) => fail(errorMessage(error)),
               });
+
               if (toPath === fromPath) {
                 return yield* fail(`Note is already in ${repoSlug}`);
               }
+
               if (existsSync(toPath)) {
                 return yield* fail(
                   `A note named ${basename(toPath)} already exists in ${repoSlug}`,
                 );
               }
+
               yield* Effect.try({
                 try: () => renameSync(fromPath, toPath),
                 catch: (error) =>
                   fail(`Failed to move note: ${errorMessage(error)}`),
               });
               const message = `notes: move ${basename(toPath)} to ${repoSlug}`;
+
               const commit = toNoteCommitResult(
                 yield* commitMovedNote(fromPath, toPath, message),
               );
+
               const push = commit.committed ? yield* pushNotes() : undefined;
+
               return {
                 from: fromPath,
                 path: toPath,
@@ -1212,6 +1331,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             Effect.gen(function* () {
               yield* prepareMutation();
               const { identity } = yield* resolveIdentity();
+
               return yield* createNote(
                 identity,
                 kind,
@@ -1226,6 +1346,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           withMutationLock(
             Effect.gen(function* () {
               const [owner, repo, ...extra] = repository.split("/");
+
               if (
                 !owner ||
                 !repo ||
@@ -1238,7 +1359,9 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                   "Expected owner/repo with safe path segments.",
                 );
               }
+
               yield* prepareMutation();
+
               return yield* createNote(
                 { owner, repo },
                 kind,
@@ -1253,6 +1376,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           withMutationLock(
             Effect.gen(function* () {
               yield* prepareMutation();
+
               return yield* editAndCommit(filePath, runEditor, create);
             }),
           ),
@@ -1260,6 +1384,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           withMutationLock(
             Effect.gen(function* () {
               yield* prepareMutation();
+
               const note = yield* Effect.try({
                 try: () => readNoteFile(projectsRoot, filePath),
                 catch: (error) =>
@@ -1267,11 +1392,13 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                     `setPriority: failed to read file ${filePath}: ${errorMessage(error)}`,
                   ),
               });
+
               const updated = yield* Effect.try({
                 try: () =>
                   setFrontmatterField(note.content, "priority", priority),
                 catch: (error) => fail(errorMessage(error)),
               });
+
               yield* Effect.try({
                 try: () =>
                   atomicWriteNoteFile(projectsRoot, note.path, updated),
@@ -1282,6 +1409,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               });
               const filename = basename(note.path);
               const message = `notes: set priority ${filename}`;
+
               return yield* commitAndPush(note.path, message);
             }),
           ),

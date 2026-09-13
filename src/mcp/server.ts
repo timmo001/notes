@@ -6,6 +6,7 @@ import { registerNotesResources } from "./resources/notes.js";
 import { registerNotesTools } from "./tools/notes.js";
 
 const SERVER_NAME = "notes";
+
 const SERVER_VERSION = "0.1.0";
 
 const registerAll = Effect.gen(function* () {

@@ -69,6 +69,7 @@ export class Dialog {
         wrapMode: "none",
       }),
     );
+
     if (options.description) {
       this.popup.add(
         new TextRenderable(renderer, {
@@ -81,6 +82,7 @@ export class Dialog {
         }),
       );
     }
+
     this.body = new BoxRenderable(renderer, {
       id: `${options.id}-body`,
       flexDirection: "column",
@@ -96,6 +98,7 @@ export class Dialog {
     this.resizeHandler = () => {
       if (this.visible) this.measure();
     };
+
     renderer.keyInput.prependListener("keypress", this.keyHandler);
     renderer.on(CliRenderEvents.RESIZE, this.resizeHandler);
   }
@@ -106,8 +109,10 @@ export class Dialog {
 
   static handleTopmostKey(key: KeyEvent): boolean {
     const dialog = Dialog.stack.at(-1);
+
     if (!dialog) return false;
     dialog.handleKey(key);
+
     return true;
   }
 
@@ -121,6 +126,7 @@ export class Dialog {
     this.focusables = initial
       ? [initial, ...targets.filter((target) => target !== initial)]
       : [...targets];
+
     if (this.visible) this.liveFocusables()[0]?.focus();
   }
 
@@ -135,6 +141,7 @@ export class Dialog {
   hide(restoreFocus = true): void {
     this.root.visible = false;
     Dialog.stack = Dialog.stack.filter((dialog) => dialog !== this);
+
     if (restoreFocus) this.previousFocus?.focus();
   }
 
@@ -152,13 +159,17 @@ export class Dialog {
 
   private handleKey(key: KeyEvent): void {
     if (!this.visible || Dialog.stack.at(-1) !== this) return;
+
     if (key.name === "escape") {
       key.preventDefault();
       key.stopPropagation();
       this.dismiss();
+
       return;
     }
+
     const focusables = this.liveFocusables();
+
     if (key.name !== "tab" || focusables.length === 0) return;
     key.preventDefault();
     key.stopPropagation();
@@ -176,6 +187,7 @@ export class Dialog {
         current = current.parent
       )
         if (!current.visible) return false;
+
       return true;
     });
   }
@@ -185,10 +197,12 @@ export class Dialog {
       1,
       Math.min(this.options.width ?? 58, this.renderer.width - 4),
     );
+
     const height = Math.max(
       1,
       Math.min(this.options.height ?? 14, this.renderer.height - 2),
     );
+
     this.popup.width = width;
     this.popup.height = height;
     this.popup.left = Math.max(

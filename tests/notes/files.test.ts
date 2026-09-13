@@ -21,6 +21,7 @@ const temporaryDirectories: string[] = [];
 function temporaryVault() {
   const root = mkdtempSync(join(tmpdir(), "notes-files-"));
   temporaryDirectories.push(root);
+
   return { root, projects: join(root, "projects") };
 }
 
@@ -42,6 +43,7 @@ describe("note files", () => {
 
   test("creates unique draft names without overwriting", () => {
     const { projects } = temporaryVault();
+
     const first = createExclusiveNoteFile(
       projects,
       "owner",
@@ -49,6 +51,7 @@ describe("note files", () => {
       "draft",
       "first",
     );
+
     const second = createExclusiveNoteFile(
       projects,
       "owner",
@@ -56,6 +59,7 @@ describe("note files", () => {
       "draft",
       "second",
     );
+
     expect(first).toEndWith("draft.md");
     expect(second).toEndWith("draft-2.md");
     expect(readNoteFile(projects, first).content).toBe("first");

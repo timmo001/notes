@@ -34,11 +34,13 @@ export class DeleteNoteDialog {
       truncate: true,
       content: "",
     });
+
     const actions = new BoxRenderable(renderer, {
       flexDirection: "row",
       height: 1,
       gap: 1,
     });
+
     const remove = new Button(renderer, {
       id: "delete-note-confirm",
       theme,
@@ -49,12 +51,14 @@ export class DeleteNoteDialog {
         onConfirm();
       },
     });
+
     const cancel = new Button(renderer, {
       id: "delete-note-cancel",
       theme,
       label: "Cancel",
       onPress: () => this.dialog.dismiss(),
     });
+
     actions.add(remove);
     actions.add(cancel);
     this.dialog.body.add(this.file);

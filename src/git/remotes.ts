@@ -22,6 +22,7 @@ export function parseRepositoryRemoteUrl(
 ): { readonly owner: string; readonly repo: string } | null {
   let path: string;
   const scpMatch = remoteUrl.match(/^[^@\s]+@[^:\s]+:(.+)$/);
+
   if (scpMatch?.[1]) {
     path = scpMatch[1];
   } else {
@@ -33,15 +34,19 @@ export function parseRepositoryRemoteUrl(
   }
 
   let decoded: string;
+
   try {
     decoded = decodeURIComponent(path);
   } catch {
     return null;
   }
+
   const parts = decoded.split("/");
+
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
   const owner = parts[0];
   const repo = parts[1].replace(/\.git$/, "");
+
   return isSafeRepositorySegment(owner) && isSafeRepositorySegment(repo)
     ? { owner, repo }
     : null;
@@ -53,18 +58,22 @@ export function resolveDefaultRemote(remotesOutput: string): ResolvedRemote {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+
   const remote = remotes.includes("upstream")
     ? "upstream"
     : remotes.includes("origin")
       ? "origin"
       : remotes[0] || "origin";
+
   return { remote, remotes };
 }
 
 /** Parse `git symbolic-ref refs/remotes/<remote>/HEAD` output. */
 export function parseDefaultBranch(ref: string, remote: string): string {
   const prefix = `refs/remotes/${remote}/`;
+
   if (ref.startsWith(prefix)) return ref.slice(prefix.length);
   const parts = ref.split("/");
+
   return parts[parts.length - 1] || "main";
 }

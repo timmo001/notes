@@ -23,8 +23,10 @@ const config = DaemonConfig.make({
   consecutiveFailureLimit: 3,
   pollIntervalSeconds: 30,
 });
+
 const textEvent = (text: string, messageID = "msg_2") =>
   JSON.stringify({ type: "text", part: { messageID, text } }) + "\n";
+
 const output = (value: string) =>
   Stream.succeed(new TextEncoder().encode(value));
 
@@ -35,14 +37,16 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
   const commands: ChildProcess.StandardCommand[] = [];
   const spawned = yield* Deferred.make<void>();
   let releases = 0;
+
   const spawner = Layer.succeed(
     ChildProcessSpawner.ChildProcessSpawner,
     ChildProcessSpawner.make((command) =>
       Effect.acquireRelease(
         Effect.sync(() => {
-          if (command._tag !== "StandardCommand")
+          if (!ChildProcess.isStandardCommand(command))
             throw new Error("Expected a standard command");
           commands.push(command);
+
           return ChildProcessSpawner.makeHandle({
             pid: ChildProcessSpawner.ProcessId(1),
             exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
@@ -62,6 +66,7 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
       ),
     ),
   );
+
   const client = yield* OpenCodeClient.pipe(
     Effect.provide(
       OpenCodeClient.layer({ ...config, ...overrides }).pipe(
@@ -69,6 +74,7 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
       ),
     ),
   );
+
   return { client, commands, spawned, releases: () => releases };
 });
 
@@ -86,6 +92,7 @@ describe("OpenCodeClient command boundary", () => {
             opencodeArgs: ["--limit", "two words", "--"],
           },
         );
+
         expect(
           yield* fake.client.process("--prompt 'quoted'\n$(literal)"),
         ).toBe("Saved note abc123");
@@ -133,6 +140,7 @@ describe("OpenCodeClient command boundary", () => {
         textEvent("abc123") +
         textEvent("older reconciliation", "msg_1"),
     );
+
     await Effect.runPromise(
       Effect.gen(function* () {
         const fake = yield* fixture(() => ({
@@ -140,6 +148,7 @@ describe("OpenCodeClient command boundary", () => {
             Array.from(encoded, (byte) => Uint8Array.of(byte)),
           ),
         }));
+
         expect(yield* fake.client.process("prompt")).toBe("Saved café abc123");
         expect(fake.commands[0]?.command).toBe("opencode2");
       }),
@@ -172,6 +181,7 @@ describe("OpenCodeClient command boundary", () => {
                 }
               : {},
           );
+
           expect(yield* fake.client.process("prompt")).toBe(
             "Saved note abc123",
           );
@@ -188,6 +198,7 @@ describe("OpenCodeClient command boundary", () => {
         const fake = yield* fixture(() => ({
           stdout: output(textEvent("x".repeat(20_001))),
         }));
+
         const error = yield* fake.client.process("prompt").pipe(Effect.flip);
         expect(error.operation).toBe("process.models");
         expect(error.message).toContain("provider/primary, other/fallback#low");
@@ -203,9 +214,11 @@ describe("OpenCodeClient command boundary", () => {
         const fake = yield* fixture((attempt) =>
           attempt === 1 ? { stdout: Stream.never, exitCode: Effect.never } : {},
         );
+
         const fiber = yield* fake.client
           .process("prompt")
           .pipe(Effect.forkChild);
+
         yield* Deferred.await(fake.spawned);
         yield* TestClock.adjust("30 seconds");
         expect(yield* Fiber.join(fiber)).toBe("Saved note abc123");
@@ -222,9 +235,11 @@ describe("OpenCodeClient command boundary", () => {
           stdout: Stream.never,
           exitCode: Effect.never,
         }));
+
         const fiber = yield* fake.client
           .process("prompt")
           .pipe(Effect.forkChild);
+
         yield* Deferred.await(fake.spawned);
         yield* Fiber.interrupt(fiber);
         expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
@@ -240,11 +255,14 @@ describe("OpenCodeClient command boundary", () => {
         const available = yield* fixture(() => ({}), {
           opencodeCommand: process.execPath,
         });
+
         yield* available.client.status;
         expect(available.commands).toHaveLength(0);
+
         const missing = yield* fixture(() => ({}), {
           opencodeCommand: "/nonexistent/notes-processor",
         });
+
         expect((yield* missing.client.status.pipe(Effect.flip)).operation).toBe(
           "command.status",
         );

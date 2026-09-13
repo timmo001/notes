@@ -14,6 +14,7 @@ const temporaryDirectories: string[] = [];
 
 function git(cwd: string, ...args: string[]): void {
   const result = Bun.spawnSync(["git", ...args], { cwd });
+
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
 }
 
@@ -23,12 +24,15 @@ function temporaryRepository(): string {
   git(directory, "init");
   git(directory, "config", "user.name", "Notes Test");
   git(directory, "config", "user.email", "notes@example.invalid");
+
   return directory;
 }
 
 function gitOutput(cwd: string, ...args: string[]): string {
   const result = Bun.spawnSync(["git", ...args], { cwd });
+
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+
   return result.stdout.toString().trim();
 }
 
@@ -36,6 +40,7 @@ function temporaryBareRepository(): string {
   const directory = mkdtempSync(join(tmpdir(), "notes-git-remote-"));
   temporaryDirectories.push(directory);
   git(directory, "init", "--bare");
+
   return directory;
 }
 
@@ -49,18 +54,22 @@ describe("preflightMutation", () => {
     const directory = temporaryRepository();
     writeFileSync(join(directory, "staged.txt"), "unfinished");
     git(directory, "add", "staged.txt");
+
     const result = await Effect.runPromise(
       preflightMutation(directory).pipe(Effect.provide(CommandExecutor.layer)),
     );
+
     expect(result.ok).toBeFalse();
     expect(result.error).toContain("staged changes");
   });
 
   test("allows a repository with an empty index", async () => {
     const directory = temporaryRepository();
+
     const result = await Effect.runPromise(
       preflightMutation(directory).pipe(Effect.provide(CommandExecutor.layer)),
     );
+
     expect(result.ok).toBeTrue();
   });
 
@@ -70,21 +79,25 @@ describe("preflightMutation", () => {
     git(directory, "add", "tracked.txt");
     git(directory, "commit", "-m", "Initial commit");
     git(directory, "checkout", "--detach");
+
     const result = await Effect.runPromise(
       preflightMutation(directory).pipe(Effect.provide(CommandExecutor.layer)),
     );
+
     expect(result.ok).toBeFalse();
     expect(result.error).toContain("detached HEAD");
   });
 
   test("refuses an in-progress Git operation", async () => {
     const directory = temporaryRepository();
+
     const marker = gitOutput(
       directory,
       "rev-parse",
       "--git-path",
       "MERGE_HEAD",
     );
+
     writeFileSync(join(directory, marker), "0".repeat(40));
 
     const result = await Effect.runPromise(

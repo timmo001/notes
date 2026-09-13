@@ -68,6 +68,7 @@ type RGB = [r: number, g: number, b: number];
 
 function hexToRgb(hex: string): RGB {
   const h = hex.replace("#", "");
+
   return [
     Number.parseInt(h.slice(0, 2), 16),
     Number.parseInt(h.slice(2, 4), 16),
@@ -77,22 +78,27 @@ function hexToRgb(hex: string): RGB {
 
 function rgbToHex([r, g, b]: RGB): string {
   const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+
   return `#${clamp(r).toString(16).padStart(2, "0")}${clamp(g).toString(16).padStart(2, "0")}${clamp(b).toString(16).padStart(2, "0")}`;
 }
 
 function mix(a: string, b: string, t: number): string {
   const [ar, ag, ab] = hexToRgb(a);
   const [br, bg, bb] = hexToRgb(b);
+
   return rgbToHex([ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t]);
 }
 
 function luminance(hex: string): number {
   const channelLuminance = (c: number) => {
     const s = c / 255;
+
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   };
+
   const [red, green, blue] = hexToRgb(hex);
   const [r, g, b] = [red, green, blue].map(channelLuminance);
+
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
@@ -106,18 +112,23 @@ function pickAccentFg(
   const bl = luminance(bgColor);
   const fgRatio = (Math.max(al, fl) + 0.05) / (Math.min(al, fl) + 0.05);
   const bgRatio = (Math.max(al, bl) + 0.05) / (Math.min(al, bl) + 0.05);
+
   return fgRatio >= bgRatio ? fgColor : bgColor;
 }
 
 function parseColorsToml(content: string) {
   const result: Record<string, string> = {};
+
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
+
     if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("["))
       continue;
     const match = trimmed.match(/^(\w+)\s*=\s*"([^"]+)"/);
+
     if (match) result[match[1]] = match[2];
   }
+
   return result;
 }
 
@@ -125,6 +136,7 @@ function deriveTheme(c: Record<string, string>): Theme {
   const bg = c.background ?? FALLBACK.bg;
   const fgColor = c.foreground ?? FALLBACK.fg;
   const accent = c.accent ?? FALLBACK.accent;
+
   return {
     bg,
     bgElevated: mix(bg, fgColor, 0.05),
@@ -155,5 +167,6 @@ export const loadTheme: Effect.Effect<Theme> = Effect.gen(function* () {
     try: () => readFileSync(COLORS_TOML_PATH, "utf-8"),
     catch: (error) => new ThemeLoadError({ message: String(error) }),
   });
+
   return deriveTheme(parseColorsToml(raw));
 }).pipe(Effect.orElseSucceed(() => FALLBACK));

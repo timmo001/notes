@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 export interface AccessIdentity {
@@ -16,20 +16,24 @@ export async function verifyAccessRequest(
   config: AccessConfig,
 ): Promise<AccessIdentity> {
   const token = request.headers.get("Cf-Access-Jwt-Assertion");
+
   if (!token || config.audience === "configure-after-access-app-creation") {
     throw new Error("Cloudflare Access authentication is not configured");
   }
 
   const issuer = `https://${config.teamDomain}`;
   const keys = createRemoteJWKSet(new URL(`${issuer}/cdn-cgi/access/certs`));
+
   const { payload } = await jwtVerify(token, keys, {
     audience: config.audience,
     issuer,
   });
+
   if (!payload.sub) throw new Error("Cloudflare Access token has no subject");
 
   const email = Schema.decodeUnknownOption(Schema.String)(payload.email);
-  return email._tag === "Some"
+
+  return Option.isSome(email)
     ? { subject: payload.sub, email: email.value }
     : { subject: payload.sub };
 }

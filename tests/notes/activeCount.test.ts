@@ -12,10 +12,12 @@ import { Config } from "../../src/services/Config.js";
 import { herdrFixture } from "../support/herdr.js";
 
 const directories: string[] = [];
+
 const servers: Awaited<ReturnType<typeof herdrFixture>>[] = [];
 
 afterEach(async () => {
   for (const server of servers.splice(0)) await server.close();
+
   for (const directory of directories.splice(0))
     rmSync(directory, { recursive: true, force: true });
 });
@@ -32,9 +34,11 @@ test.each([
   servers.push(server);
   const notesDir = mkdtempSync(join(tmpdir(), "notes-active-count-"));
   directories.push(notesDir);
+
   for (const repo of ["active", "other"]) {
     const directory = join(notesDir, "projects/example", repo);
     mkdirSync(directory, { recursive: true });
+
     for (const kind of ["note", "handoff"] as const)
       writeFileSync(
         join(directory, `${kind}.md`),
@@ -47,6 +51,7 @@ test.each([
         ),
       );
   }
+
   const result = await Effect.runPromise(
     activeNoteCount().pipe(
       Effect.provide(Notes.layer),
@@ -62,8 +67,11 @@ test.each([
           run: (command, args, input) => {
             expect(command).toBe("git");
             expect(input?.cwd).toBe(options.cwd);
+
             if (args[0] === "rev-parse") return Effect.succeed("/repos/active");
+
             if (args.length === 1) return Effect.succeed("origin");
+
             return Effect.succeed("https://github.com/example/active.git");
           },
           exitCode: () => Effect.die("Unexpected command"),
@@ -71,6 +79,7 @@ test.each([
       ),
     ),
   );
+
   expect(result).toMatchObject({
     workspaceId: herdrIds.workspace("w1"),
     paneId: herdrIds.pane("w1:p2"),
@@ -90,6 +99,7 @@ test.each([
 ])("returns no count without a focused pane directory: %j", async (options) => {
   const server = await herdrFixture(options);
   servers.push(server);
+
   const result = await Effect.runPromise(
     activeNoteCount().pipe(
       Effect.provide(server.layer),
@@ -107,5 +117,6 @@ test.each([
       ),
     ),
   );
+
   expect(result).toBeNull();
 });

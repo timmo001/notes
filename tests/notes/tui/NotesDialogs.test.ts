@@ -18,12 +18,14 @@ describe("Notes dialogs", () => {
     const setup = await createTestRenderer({ width: 80, height: 24 });
     renderer = setup.renderer;
     let result: unknown;
+
     const dialog = new CreateNoteDialog(
       renderer,
       TEST_THEME,
       (value) => (result = value),
       () => {},
     );
+
     dialog.show(false);
     setup.mockInput.pressArrow("down");
     setup.mockInput.pressEnter();
@@ -44,12 +46,14 @@ describe("Notes dialogs", () => {
   test("direct handoff create focuses the visible name input", async () => {
     const setup = await createTestRenderer({ width: 80, height: 24 });
     renderer = setup.renderer;
+
     const dialog = new CreateNoteDialog(
       renderer,
       TEST_THEME,
       () => {},
       () => {},
     );
+
     dialog.show(true);
     await setup.flush();
     expect(renderer.currentFocusedRenderable?.id).toBe("create-note-name");
@@ -65,12 +69,14 @@ describe("Notes dialogs", () => {
     const setup = await createTestRenderer({ width: 80, height: 24 });
     renderer = setup.renderer;
     let moved = "";
+
     const dialog = new MoveNoteDialog(
       renderer,
       TEST_THEME,
       (repo) => (moved = repo),
       () => {},
     );
+
     dialog.show(["owner/one", "owner/two"], "note.md");
     setup.mockInput.pressArrow("down");
     setup.mockInput.pressEnter();
@@ -84,12 +90,14 @@ describe("Notes dialogs", () => {
     const setup = await createTestRenderer({ width: 80, height: 24 });
     renderer = setup.renderer;
     let selected = "";
+
     const dialog = new AgentDialog(
       renderer,
       TEST_THEME,
       (target) => (selected = target.command),
       () => {},
     );
+
     dialog.show(
       [
         { command: "opencode", executable: "opencode", label: "OpenCode" },
@@ -109,10 +117,12 @@ describe("Notes dialogs", () => {
     const setup = await createTestRenderer({ width: 80, height: 24 });
     renderer = setup.renderer;
     let selected = "";
+
     const dialog = new PriorityDialog(renderer, TEST_THEME, {
       onApply: (value) => (selected = value),
       onDismiss: () => {},
     });
+
     dialog.show("high", "Note");
     setup.mockInput.pressTab();
     setup.mockInput.pressEnter();
@@ -124,22 +134,26 @@ describe("Notes dialogs", () => {
   test("Help groups commands and topmost Escape restores focus", async () => {
     const setup = await createTestRenderer({ width: 80, height: 24 });
     renderer = setup.renderer;
+
     const restoredTarget = new BoxRenderable(renderer, {
       id: "restore-target",
       focusable: true,
       width: 1,
       height: 1,
     });
+
     renderer.root.add(restoredTarget);
     restoredTarget.focus();
     const help = new HelpDialog(renderer, TEST_THEME, () => {});
     let deleted = false;
+
     const remove = new DeleteNoteDialog(
       renderer,
       TEST_THEME,
       () => (deleted = true),
       () => {},
     );
+
     help.show();
     remove.show("owner/repo/note.md");
     await setup.flush();

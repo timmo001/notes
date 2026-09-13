@@ -36,11 +36,13 @@ export class CommandExecutor extends Context.Service<
       Effect.tryPromise({
         try: async (signal) => {
           const fullCmd = [cmd, ...args];
+
           const proc = Bun.spawn(fullCmd, {
             stdout: "pipe",
             stderr: "pipe",
             cwd: opts?.cwd,
           });
+
           if (signal.aborted) proc.kill();
           signal.addEventListener("abort", () => proc.kill(), { once: true });
 
@@ -48,7 +50,9 @@ export class CommandExecutor extends Context.Service<
             new Response(proc.stdout).text(),
             new Response(proc.stderr).text(),
           ]);
+
           const exitCode = await proc.exited;
+
           if (exitCode !== 0) {
             throw new CommandError({
               command: fullCmd.join(" "),
@@ -56,6 +60,7 @@ export class CommandExecutor extends Context.Service<
               stderr: stderr.trim(),
             });
           }
+
           return stdout;
         },
         catch: (error) =>
@@ -75,8 +80,10 @@ export class CommandExecutor extends Context.Service<
             stderr: "ignore",
             cwd: opts?.cwd,
           });
+
           if (signal.aborted) proc.kill();
           signal.addEventListener("abort", () => proc.kill(), { once: true });
+
           return await proc.exited;
         },
         catch: () => 1,

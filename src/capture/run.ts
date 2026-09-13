@@ -14,6 +14,7 @@ export const captureStatus = Effect.fn("NotesCapture.status")(function* (
 ) {
   const client = yield* captureClient(configPath);
   yield* client.status;
+
   return { available: true as const };
 });
 
@@ -24,12 +25,15 @@ export const processLocalCapture = Effect.fn("NotesCapture.process")(function* (
 ) {
   const capture = yield* Effect.try(() => decodeCapture(input));
   const client = yield* captureClient(configPath);
+
   const summary = yield* client.process(
     issuePrompt(captureBody(capture), 16_384, capture.repository),
   );
+
   if (!summary || summary.length > MAX_RESULT_LENGTH) {
     return yield* Effect.fail("OpenCode returned invalid result text");
   }
+
   return { status: "success" as const, requestId: capture.requestId, summary };
 });
 
@@ -37,10 +41,12 @@ const captureClient = Effect.fn("NotesCapture.client")(function* (
   configPath: string,
 ) {
   const config = yield* loadDaemonConfig(configPath);
+
   const client = yield* OpenCodeClient.pipe(
     Effect.provide(
       OpenCodeClient.layer(config).pipe(Layer.provide(NodeServices.layer)),
     ),
   );
+
   return client;
 });

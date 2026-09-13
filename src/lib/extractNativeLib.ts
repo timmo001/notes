@@ -38,10 +38,12 @@ export async function extractNativeLibIfNeeded(): Promise<string | undefined> {
   if (!isCompiledBinary()) return undefined;
 
   let embeddedLibPath: string;
+
   try {
     const nativeModule = await import(
       `@opentui/core-${process.platform}-${process.arch}`
     );
+
     embeddedLibPath = Schema.decodeUnknownSync(Schema.String)(
       nativeModule.default,
     );
@@ -75,6 +77,7 @@ export async function extractNativeLibIfNeeded(): Promise<string | undefined> {
 
   mkdirSync(dir, { recursive: true });
   const tmpPath = `${destPath}.tmp-${process.pid}-${Date.now()}`;
+
   try {
     writeFileSync(tmpPath, readFileSync(embeddedLibPath), { mode: 0o755 });
     renameSync(tmpPath, destPath);
@@ -84,6 +87,7 @@ export async function extractNativeLibIfNeeded(): Promise<string | undefined> {
     } catch {
       // Best-effort cleanup.
     }
+
     throw error;
   }
 

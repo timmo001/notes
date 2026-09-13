@@ -13,12 +13,14 @@ export function noteGitOutcome(result: NoteGitResult): NoteGitOutcome {
       detail: `saved locally but git commit failed: ${result.commit.error ?? "unknown error"}`,
     };
   }
+
   if (result.push && !result.push.ok) {
     return {
       complete: false,
       detail: `committed locally but push failed: ${result.push.error ?? "unknown error"}`,
     };
   }
+
   return {
     complete: true,
     detail: result.push?.message ?? "saved locally",
