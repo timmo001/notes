@@ -11,6 +11,7 @@
     "servers": {
       "github": {
         "type": "remote",
+        "disabled": false,
         "url": "https://api.githubcopilot.com/mcp/x/all/readonly",
         "oauth": false,
         "codemode": false,
@@ -20,12 +21,14 @@
       },
       "exa": {
         "type": "remote",
+        "disabled": false,
         "url": "https://mcp.exa.ai/mcp",
         "oauth": false,
         "codemode": false
       },
       "notes": {
         "type": "local",
+        "disabled": false,
         "command": ["notes", "mcp"],
         "codemode": false
       }

@@ -3,7 +3,7 @@ title: Capture processor
 description: Process queued or direct captures through the OpenCode CLI.
 ---
 
-The notes daemon polls a private GitHub issue queue, claims each issue with a temporary processing label, runs its captured text through a standalone OpenCode command, and posts the result before closing the issue.
+The notes daemon polls a private GitHub issue queue, claims each issue with a temporary processing label, runs its captured text through the OpenCode V2 CLI, and posts the result before closing the issue.
 
 The same processor also accepts a capture directly, without the web app or GitHub queue:
 
@@ -60,13 +60,19 @@ pollIntervalSeconds: 30
 
 The GitHub CLI must be authenticated with issue and repository write access. Each daemon process claims an issue with a visible `agent:processing:<workerId>:<id>` label and deletes that temporary label when processing finishes. A process proceeds only while its label is the sole processing label on the issue.
 
-`opencodeCommand` is an optional executable name or path, defaulting to `opencode2`. `opencodeArgs` is an optional argv prefix, defaulting to `[]`. Notes appends `run --standalone --format json --agent notes-daemon --model provider/model#variant --title ... -- prompt` and uses `opencodeDirectory` as the working directory. Arguments are passed literally without a shell; only a leading `~` in the executable path is expanded. A configured wrapper can supply isolated OpenCode configuration or additional process limits. Readiness checks only that executable, not its prefix arguments or model access.
+`opencodeCommand` is an optional executable name or path, defaulting to `opencode2`. `opencodeArgs` is an optional argv prefix, defaulting to `[]`. Notes appends `run --format json --agent notes-daemon --model provider/model#variant --title ... -- prompt` and uses `opencodeDirectory` as the working directory. Arguments are passed literally without a shell; only a leading `~` in the executable path is expanded. Readiness checks only that executable, not its prefix arguments or model access.
 
-The host owns the dedicated `notes-daemon` agent and its OpenCode configuration. Configure its read paths, tools, model credentials, and isolation before processing captures.
+Captures use the default OpenCode V2 server through the CLI. Notes does not request standalone execution or call OpenCode API endpoints. Hosts that require an already-running server should use a launcher that checks `opencode2 service status`, fails if it is stopped, and passes the returned address to `run --server`.
 
-`opencodeModels` is an ordered fallback chain. Each model gets a fresh standalone OpenCode process. Notes reads final assistant text from stdout JSON events and keeps stderr separate. A model result must explicitly report success after writing the note; a reported failure, malformed result, command failure, or timeout advances to the next model. `sessionTimeoutSeconds` applies to each model attempt, so `passTimeoutSeconds` must leave enough time for every configured attempt and cleanup.
+Notes supplies the dedicated `notes-daemon` agent and base configuration under `.opencode-daemon/`. The host installs these as project configuration in the capture working directory, with its `allowedReadPaths`. A launcher may prepare that directory and change into it before running the CLI. The existing server loads the capture agent and tools for that location, while retaining its own credentials and global configuration. Setting isolated XDG paths on a client does not isolate an already-running server.
 
-The dedicated agent fails closed for unknown tools. It allows built-in read/search operations, Exa search, authenticated read-only GitHub tools, and Notes MCP list/read/write. External filesystem reads are denied except for `allowedReadPaths`; write/edit/patch tools remain denied for every path. It also denies questions, delegation, planning mode, shell execution, browser control, Chrome DevTools, and note deletion. Any unexpected permission or question request aborts the job instead of waiting for input.
+`opencodeModels` is an ordered fallback chain. Each model gets a fresh session through the CLI. Notes reads final assistant text from stdout JSON events and keeps stderr separate. A model result must explicitly report success after writing the note; a reported failure, malformed result, command failure, or timeout advances to the next model. `sessionTimeoutSeconds` applies to each model attempt, so `passTimeoutSeconds` must leave enough time for every configured attempt and cleanup.
+
+The supplied capture configuration defaults to deny. Its agent allows read/glob/grep, web research, GitHub and Exa tools, and Notes MCP list/read/write, with explicit sensitive-file read denials. The host grants external directory access through `allowedReadPaths`. Shell, direct filesystem edits, questions, delegation, browser tools and note deletion remain denied. OpenCode 2.0.3 has no native CLI option to attach and verify a separate per-session ruleset; captures rely on the server's resolved configuration and agent policy.
+
+The supplied configuration uses a read-only GitHub MCP endpoint. Keep that endpoint and credential isolation: the `github_*` permission itself does not distinguish reads from writes. MCP permissions use resource `*`, so Notes write permission cannot enforce exactly one call or restrict repository arguments. Those remain agent instructions and MCP service responsibilities.
+
+Native grep remains enabled for repository research. In OpenCode 2.0.3 it checks the search root and query, but does not apply file-read denials to matched contents. Sensitive-file read denials therefore do not prevent those files appearing in grep results within authorised search roots. Hosts requiring that stronger boundary should deny grep in the agent policy.
 
 The agent must investigate before writing. Notes record the repository paths or primary sources inspected, evidence-based findings, and the requested output, such as an implementation plan. A capture cannot complete by merely paraphrasing its issue text; if the available read tools cannot support the investigation, the daemon leaves the issue open as failed.
 

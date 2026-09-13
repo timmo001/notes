@@ -27,7 +27,7 @@ export class OpenCodeClientError extends Schema.TaggedError<OpenCodeClientError>
 export interface OpenCodeClientService {
   /** Check executable availability without starting OpenCode. */
   readonly status: Effect.Effect<void, OpenCodeClientError>;
-  /** Run a fresh standalone session and return bounded final text. */
+  /** Run a fresh session through the OpenCode V2 CLI and return bounded final text. */
   readonly process: (
     prompt: string,
   ) => Effect.Effect<string, OpenCodeClientError>;
@@ -134,7 +134,6 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
         [
           ...(config.opencodeArgs ?? []),
           "run",
-          "--standalone",
           "--format",
           "json",
           "--agent",

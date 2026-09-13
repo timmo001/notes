@@ -102,7 +102,6 @@ describe("OpenCodeClient command boundary", () => {
           "two words",
           "--",
           "run",
-          "--standalone",
           "--format",
           "json",
           "--agent",
