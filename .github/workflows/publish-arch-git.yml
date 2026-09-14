@@ -27,7 +27,7 @@ concurrency:
 jobs:
   publish:
     name: Publish Arch package (repo-notes-git)
-    uses: timmo001/workflows/.github/workflows/build-arch-package.yml@ff1183decb99b9bd7cea4fe7f1ce6c8f5f10f43b # master
+    uses: timmo001/workflows/.github/workflows/build-arch-package.yml@3d5608761e2468512c581fbe499737869c4c8f38 # master
     with:
       package-name: repo-notes-git
     secrets:
