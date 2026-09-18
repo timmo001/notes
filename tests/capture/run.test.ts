@@ -87,14 +87,14 @@ function writeConfig() {
     }
     if (process.argv[2] === "api") {
       const path = process.argv[6];
-      if (path.startsWith("/api/plugin/await-activation?")) process.exit(0);
-      if (path.startsWith("/api/agent/")) {
-        console.log(JSON.stringify({ location: { directory: process.cwd() }, data: {
+      if (path.startsWith("/api/plugin/await-activation?")) process.exit(1);
+      if (path.startsWith("/api/agent?")) {
+        console.log(JSON.stringify({ location: { directory: process.cwd() }, data: [{
           id: "notes-daemon", permissions: [
             { action: "*", resource: "*", effect: "deny" },
             { action: "notes_note_write", resource: "*", effect: "allow" },
           ],
-        } }));
+        }] }));
         process.exit(0);
       }
       if (process.argv[5] === "post") {

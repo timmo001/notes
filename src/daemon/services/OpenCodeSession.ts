@@ -1,4 +1,4 @@
-import { Effect, Redacted, Schema, Stream } from "effect";
+import { Effect, Redacted, Schedule, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { resolve } from "node:path";
 import type { DaemonConfig } from "../schema.js";
@@ -11,9 +11,9 @@ const Rules = Schema.Array(
   }),
 );
 
-const Agent = Schema.Struct({
+const Agents = Schema.Struct({
   location: Schema.Struct({ directory: Schema.String }),
-  data: Schema.Struct({ id: Schema.String, permissions: Rules }),
+  data: Schema.Array(Schema.Struct({ id: Schema.String, permissions: Rules })),
 });
 
 const Session = Schema.Struct({
@@ -79,9 +79,16 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
       args: readonly string[],
       password?: Redacted.Redacted<string>,
     ) {
-      const child = yield* spawner.spawn(
-        openCodeCommand(config, args, password),
-      );
+      const child = yield* spawner
+        .spawn(openCodeCommand(config, args, password))
+        .pipe(
+          Effect.mapError(
+            (error) =>
+              new OpenCodeSessionError({
+                message: `Could not start OpenCode session setup command (${error.reason._tag})`,
+              }),
+          ),
+        );
 
       let bytes = 0;
 
@@ -136,17 +143,33 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
     const directory = resolve(config.opencodeDirectory);
     const location = `?location[directory]=${encodeURIComponent(directory)}`;
 
-    yield* api(["post", `/api/plugin/await-activation${location}`]);
+    const agent = yield* Effect.gen(function* () {
+      const agents = yield* Schema.decodeEffect(Schema.fromJsonString(Agents))(
+        yield* api(["get", `/api/agent${location}`]),
+      ).pipe(
+        Effect.mapError(
+          () =>
+            new OpenCodeSessionError({
+              message: "OpenCode returned invalid agent permissions",
+            }),
+        ),
+      );
 
-    const agent = yield* Schema.decodeEffect(Schema.fromJsonString(Agent))(
-      yield* api(["get", `/api/agent/${config.opencodeAgent}${location}`]),
+      if (agents.location.directory !== directory)
+        return yield* new OpenCodeSessionError({
+          message: "OpenCode returned agents from a different location",
+        });
+
+      return agents.data.find((entry) => entry.id === config.opencodeAgent);
+    }).pipe(
+      Effect.repeat({
+        while: (agent) => agent === undefined,
+        schedule: Schedule.spaced("1 second"),
+        times: config.commandTimeoutSeconds,
+      }),
     );
 
-    if (
-      agent.data.id !== config.opencodeAgent ||
-      agent.location.directory !== directory ||
-      agent.data.permissions.length === 0
-    )
+    if (!agent || agent.permissions.length === 0)
       return yield* new OpenCodeSessionError({
         message:
           "Cannot resolve the Notes capture agent permissions at the requested location",
@@ -156,7 +179,7 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
       { action: "*", resource: "*", effect: "deny" },
       // Session rules override agent rules. Replay restrictions and exceptions
       // in their original order, without granting unrelated capabilities.
-      ...agent.data.permissions
+      ...agent.permissions
         .filter(
           (rule) =>
             rule.effect !== "allow" ||
@@ -182,10 +205,24 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
           permissions,
         }),
       ]),
+    ).pipe(
+      Effect.mapError(
+        () =>
+          new OpenCodeSessionError({
+            message: "OpenCode returned an invalid created session",
+          }),
+      ),
     );
 
     const stored = yield* Schema.decodeEffect(Schema.fromJsonString(Session))(
       yield* api(["get", `/api/session/${created.data.id}`]),
+    ).pipe(
+      Effect.mapError(
+        () =>
+          new OpenCodeSessionError({
+            message: "OpenCode returned an invalid stored session",
+          }),
+      ),
     );
 
     if (

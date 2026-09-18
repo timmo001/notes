@@ -5,6 +5,7 @@ import {
   Exit,
   Fiber,
   Layer,
+  PlatformError,
   Schema,
   Sink,
   Stream,
@@ -42,11 +43,14 @@ const output = (value: string) =>
 const fixture = Effect.fn("test.openCodeFixture")(function* (
   respond: (attempt: number) => Partial<ChildProcessSpawner.ChildProcessHandle>,
   overrides: Partial<DaemonConfig> = {},
+  agentReadyAfter = 0,
 ) {
   const commands: ChildProcess.StandardCommand[] = [];
   const spawned = yield* Deferred.make<void>();
+  const queried = yield* Deferred.make<void>();
   let releases = 0;
   let attempts = 0;
+  let agentQueries = 0;
   let session = "";
 
   const spawner = Layer.succeed(
@@ -60,6 +64,7 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
 
           const args = command.args.slice(overrides.opencodeArgs?.length ?? 0);
           const isRun = args[0] === "run";
+          const isAgentQuery = args[4]?.startsWith("/api/agent?");
           let response: Partial<ChildProcessSpawner.ChildProcessHandle> = {};
 
           if (isRun) {
@@ -73,24 +78,36 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
               ),
             };
           } else if (args[4]?.startsWith("/api/plugin/await-activation?")) {
-            response = { stdout: Stream.empty };
-          } else if (args[4]?.startsWith("/api/agent/")) {
+            response = {
+              stdout: Stream.empty,
+              exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(1)),
+            };
+          } else if (isAgentQuery) {
             response = {
               stdout: output(
                 JSON.stringify({
                   location: { directory: config.opencodeDirectory },
-                  data: {
-                    id: "notes-daemon",
-                    permissions: [
-                      { action: "*", resource: "*", effect: "deny" },
-                      { action: "read", resource: "*", effect: "allow" },
-                      {
-                        action: "notes_note_write",
-                        resource: "*",
-                        effect: "allow",
-                      },
-                    ],
-                  },
+                  data:
+                    ++agentQueries > agentReadyAfter
+                      ? [
+                          {
+                            id: "notes-daemon",
+                            permissions: [
+                              { action: "*", resource: "*", effect: "deny" },
+                              {
+                                action: "read",
+                                resource: "*",
+                                effect: "allow",
+                              },
+                              {
+                                action: "notes_note_write",
+                                resource: "*",
+                                effect: "allow",
+                              },
+                            ],
+                          },
+                        ]
+                      : [],
                 }),
               ),
             };
@@ -116,6 +133,7 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
 
           return {
             isRun,
+            isAgentQuery,
             handle: ChildProcessSpawner.makeHandle({
               pid: ChildProcessSpawner.ProcessId(1),
               exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
@@ -135,6 +153,9 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
           Effect.tap(({ isRun }) =>
             isRun ? Deferred.succeed(spawned, undefined) : Effect.void,
           ),
+          Effect.tap(({ isAgentQuery }) =>
+            isAgentQuery ? Deferred.succeed(queried, undefined) : Effect.void,
+          ),
           Effect.map(({ handle }) => handle),
         ),
         () => Effect.sync(() => releases++),
@@ -150,10 +171,54 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
     ),
   );
 
-  return { client, commands, spawned, releases: () => releases };
+  return { client, commands, spawned, queried, releases: () => releases };
 });
 
 describe("OpenCodeClient command boundary", () => {
+  test("waits for the capture agent to appear on a cold workspace", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fake = yield* fixture(() => ({}), {}, 1);
+
+        const fiber = yield* fake.client
+          .process("prompt")
+          .pipe(Effect.forkChild);
+
+        yield* Deferred.await(fake.queried);
+        expect(fake.commands.some((command) => command.args[0] === "run")).toBe(
+          false,
+        );
+        yield* TestClock.adjust("1 second");
+        expect(yield* Fiber.join(fiber)).toBe("Saved note abc123");
+        expect(fake.commands).toHaveLength(7);
+        expect(fake.releases()).toBe(7);
+      }).pipe(Effect.provide(TestClock.layer())),
+    );
+  });
+
+  test("bounds waiting for a missing capture agent without creating a session", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const fake = yield* fixture(() => ({}), {}, Infinity);
+
+        const fiber = yield* fake.client
+          .process("prompt")
+          .pipe(Effect.flip, Effect.forkChild);
+
+        yield* Deferred.await(fake.queried);
+        yield* TestClock.adjust("10 seconds");
+        expect((yield* Fiber.join(fiber)).message).toContain(
+          "Cannot resolve the Notes capture agent permissions at the requested location",
+        );
+        expect(
+          fake.commands.some((command) => command.args.includes("post")),
+        ).toBe(false);
+        expect(fake.commands).toHaveLength(16);
+        expect(fake.releases()).toBe(16);
+      }).pipe(Effect.provide(TestClock.layer())),
+    );
+  });
+
   test("preserves prefix argv and prompt, uses cwd and keeps stderr separate", async () => {
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -172,7 +237,7 @@ describe("OpenCodeClient command boundary", () => {
           yield* fake.client.process("--prompt 'quoted'\n$(literal)"),
         ).toBe("Saved note abc123");
         expect(fake.commands[0]?.command).toBe("/opt/processor");
-        expect(fake.commands[6]?.args).toEqual([
+        expect(fake.commands[5]?.args).toEqual([
           "--limit",
           "two words",
           "--",
@@ -203,8 +268,8 @@ describe("OpenCodeClient command boundary", () => {
           killSignal: "SIGTERM",
           forceKillAfter: "10 seconds",
         });
-        expect(fake.commands).toHaveLength(7);
-        expect(fake.releases()).toBe(7);
+        expect(fake.commands).toHaveLength(6);
+        expect(fake.releases()).toBe(6);
       }),
     );
   });
@@ -263,8 +328,8 @@ describe("OpenCodeClient command boundary", () => {
           expect(yield* fake.client.process("prompt")).toBe(
             "Saved note abc123",
           );
-          expect(fake.commands[13]?.args).toContain("other/fallback#low");
-          expect(fake.releases()).toBe(14);
+          expect(fake.commands[11]?.args).toContain("other/fallback#low");
+          expect(fake.releases()).toBe(12);
         }),
       );
     },
@@ -281,7 +346,7 @@ describe("OpenCodeClient command boundary", () => {
         expect(error.operation).toBe("process.models");
         expect(error.message).toContain("provider/primary, other/fallback#low");
         expect(error.message).toContain("size limit");
-        expect(fake.releases()).toBe(14);
+        expect(fake.releases()).toBe(12);
       }),
     );
   });
@@ -300,8 +365,8 @@ describe("OpenCodeClient command boundary", () => {
         yield* Deferred.await(fake.spawned);
         yield* TestClock.adjust("30 seconds");
         expect(yield* Fiber.join(fiber)).toBe("Saved note abc123");
-        expect(fake.commands).toHaveLength(14);
-        expect(fake.releases()).toBe(14);
+        expect(fake.commands).toHaveLength(12);
+        expect(fake.releases()).toBe(12);
       }).pipe(Effect.provide(TestClock.layer())),
     );
   });
@@ -321,8 +386,8 @@ describe("OpenCodeClient command boundary", () => {
         yield* Deferred.await(fake.spawned);
         yield* Fiber.interrupt(fiber);
         expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
-        expect(fake.commands).toHaveLength(7);
-        expect(fake.releases()).toBe(7);
+        expect(fake.commands).toHaveLength(6);
+        expect(fake.releases()).toBe(6);
       }),
     );
   });
@@ -346,6 +411,39 @@ describe("OpenCodeClient command boundary", () => {
         );
         expect(missing.commands).toHaveLength(0);
       }),
+    );
+  });
+
+  test("identifies a missing session setup executable without exposing command arguments", async () => {
+    const spawner = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(() =>
+        Effect.fail(
+          PlatformError.systemError({
+            // The platform error factory requires the OS error tag.
+            // oxlint-disable-next-line anti-slop-effect/no-manual-tagged-construction
+            _tag: "NotFound",
+            module: "ChildProcess",
+            method: "spawn",
+            description: "private command arguments",
+          }),
+        ),
+      ),
+    );
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const client = yield* OpenCodeClient;
+        const error = yield* client.process("prompt").pipe(Effect.flip);
+        expect(error.message).toContain(
+          "Could not start OpenCode session setup command (NotFound)",
+        );
+        expect(error.message).not.toContain("private command arguments");
+      }).pipe(
+        Effect.provide(
+          OpenCodeClient.layer(config).pipe(Layer.provide(spawner)),
+        ),
+      ),
     );
   });
 });
