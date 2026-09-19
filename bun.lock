@@ -18,7 +18,7 @@
       "devDependencies": {
         "@effect/tsgo": "^0.45.0",
         "@oxlint/plugins": "1.83.0",
-        "@timmo001/oxlint-rules": "0.3.3",
+        "@timmo001/oxlint-rules": "0.3.4",
         "@types/bun": "^1.3.14",
         "@types/proper-lockfile": "^4.1.4",
         "oxlint": "1.83.0",
@@ -142,7 +142,7 @@
 
     "@timmo001/effect-gh": ["@timmo001/effect-gh@github:timmo001/effect-gh#57f461a", { "peerDependencies": { "effect": "4.0.0-rc.116" } }, "timmo001-effect-gh-57f461a", "sha512-T+y0d9l2Tggx1FAls2wcLSiVM1Lumud/y16pm/byBEIiJfDRfmWa3rQBSxvHhtgU3C4Z/Bs/i3NGbm7l0GWYlQ=="],
 
-    "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.3.3", "", { "peerDependencies": { "@oxlint/plugins": "1.82.0", "oxlint": "1.82.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-Hshoa5LI9HV1VJRUOz7iAhdz1l12ygXB1bfp2bhYkaA1O3zvzUqAIDZa4GGuhbA9z8j3vDG1tzmxbgA7H+/cDQ=="],
+    "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.3.4", "", { "peerDependencies": { "@oxlint/plugins": "1.83.0", "oxlint": "1.83.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-m+zHYrtsJB+THRxYv0CR3EfOsFpa1g5CJraNDhHqBY0VXYkXoqQSkwbNG+iiW6GL9QOaVAKUvHrsTwud/TSOXg=="],
 
     "@tuiparts/core": ["@tuiparts/core@0.0.6", "", { "peerDependencies": { "@opentui/core": "^0.4.3" } }, "sha512-DNqtRprlpMJGUHVTm+L0R/P2Gbn392NZdzna8YSPQkgfNjyroSKpZieg1jTTnYAQn7cz5LpiwtDjw3RCUBrulw=="],
 
