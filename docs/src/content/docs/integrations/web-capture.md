@@ -27,6 +27,10 @@ mise run capture:check
 mise run capture:build
 ```
 
+Capture type-checking runs the Effect-patched TypeScript 7 compiler for `.ts` files, followed by `astro check` for Astro components. The `typescript-7` alias supplies the native compiler; `typescript` stays on TS6 because Astro's checker needs its JavaScript compiler API. The Renovate rule targets only the `typescript` dependency in `capture/package.json`, leaving the native alias free to update.
+
+The root VS Code settings select the patched native compiler for the TypeScript 7 extension and capture's TS6 SDK for the Astro extension. Run `mise run install capture:install` to install both SDKs.
+
 Local development bypasses Cloudflare Access and requires `GITHUB_TOKEN` in `capture/.dev.vars` to exercise issue creation. Never commit that file.
 
 Copy `capture/.dev.vars.example` to `capture/.dev.vars` for local configuration. Production deployment configuration stays outside this public repository: configure the Worker custom domain, `ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`, `GITHUB_OWNER`, `GITHUB_REPO`, optional `CAPTURE_REPOSITORIES`, and `QUEUE_LABEL` in Cloudflare, and store `GITHUB_TOKEN` as a Worker secret.

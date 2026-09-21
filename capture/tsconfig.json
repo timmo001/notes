@@ -1,7 +1,14 @@
 {
+  "$schema": "./node_modules/@effect/tsgo/schema.json",
   "extends": "astro/tsconfigs/strictest",
   "compilerOptions": {
-    "types": ["bun"]
+    "types": ["bun"],
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "ignoreEffectWarningsInTscExitCode": true
+      }
+    ]
   },
   "include": [".astro/types.d.ts", "worker-configuration.d.ts", "**/*"],
   "exclude": ["dist"]
