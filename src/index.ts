@@ -645,12 +645,12 @@ const describedFlag = <A>(flag: Flag.Flag<A>, description: string) =>
   flag.pipe(Flag.withDescription(description));
 
 const optionalString = (name: string, description: string) =>
-  describedFlag(Flag.string(name), description).pipe(
+  describedFlag(Flag.String(name), description).pipe(
     Flag.withDefault(undefined),
   );
 
 const booleanFlag = (name: string, description: string) =>
-  describedFlag(Flag.boolean(name), description).pipe(Flag.withDefault(false));
+  describedFlag(Flag.Boolean(name), description).pipe(Flag.withDefault(false));
 
 const requiredBooleanFlag = (name: string, description: string) =>
   booleanFlag(name, description).pipe(
@@ -663,13 +663,13 @@ const requiredBooleanFlag = (name: string, description: string) =>
 
 const pathFlag = () =>
   describedFlag(
-    Flag.path("path"),
+    Flag.Path("path"),
     "Absolute path to a note file inside the notes vault",
   );
 
 const formatFlag = (required = false) => {
   const flag = describedFlag(
-    Flag.choice("format", ["labels", "json"] as const),
+    Flag.Literals("format", ["labels", "json"] as const),
     "Output format",
   );
 
@@ -692,7 +692,7 @@ const contextCommand = Command.make(
   "context",
   {
     command: describedFlag(
-      Flag.string("command"),
+      Flag.String("command"),
       "Integration command name requesting context",
     ),
     json: booleanFlag("json", "Emit structured context JSON"),
@@ -724,7 +724,7 @@ const listCommand = Command.make(
 const searchCommand = Command.make(
   "search",
   {
-    query: describedFlag(Flag.string("query"), "Fuzzy search text"),
+    query: describedFlag(Flag.String("query"), "Fuzzy search text"),
     all: booleanFlag("all", "Show notes from every projects directory"),
     tag: optionalString("tag", "Only include notes with this tag"),
     format: formatFlag(true),
@@ -745,7 +745,7 @@ const readCommand = Command.make(
 ).pipe(Command.withDescription("Print a note file"));
 
 const expectedHashFlag = describedFlag(
-  Flag.string("expected-hash"),
+  Flag.String("expected-hash"),
   "Fail if the existing note no longer has this SHA-256 hash",
 ).pipe(
   Flag.mapTryCatch(
@@ -790,7 +790,7 @@ const moveCommand = Command.make(
   {
     path: pathFlag(),
     to: describedFlag(
-      Flag.string("to"),
+      Flag.String("to"),
       "Existing or remembered repository scope",
     ),
     json: booleanFlag("json", "Emit the complete mutation result as JSON"),
@@ -804,15 +804,15 @@ const createCommand = Command.make(
   "create",
   {
     repository: describedFlag(
-      Flag.string("repository"),
+      Flag.String("repository"),
       "Repository scope for the new note",
     ),
     kind: describedFlag(
-      Flag.choice("kind", ["note", "handoff"] as const),
+      Flag.Literals("kind", ["note", "handoff"] as const),
       "Note template kind",
     ),
-    name: describedFlag(Flag.string("name"), "Note name"),
-    description: describedFlag(Flag.string("description"), "Note description"),
+    name: describedFlag(Flag.String("name"), "Note name"),
+    description: describedFlag(Flag.String("description"), "Note description"),
     stdin: requiredBooleanFlag("stdin", "Read the note body from stdin"),
     json: booleanFlag("json", "Emit the complete create result as JSON"),
   },
@@ -849,7 +849,7 @@ const priorityCommand = Command.make(
   {
     path: pathFlag(),
     value: describedFlag(
-      Flag.choice("value", ["low", "medium", "high", "critical"] as const),
+      Flag.Literals("value", ["low", "medium", "high", "critical"] as const),
       "New priority",
     ),
     json: booleanFlag("json", "Emit the mutation result as JSON"),
@@ -861,9 +861,9 @@ const openAgentCommand = Command.make(
   "open-agent",
   {
     path: pathFlag(),
-    agent: describedFlag(Flag.string("agent"), "Command from notes agents"),
+    agent: describedFlag(Flag.String("agent"), "Command from notes agents"),
     mode: describedFlag(
-      Flag.choice("mode", ["default", "plan"] as const),
+      Flag.Literals("mode", ["default", "plan"] as const),
       "Agent opening mode",
     ).pipe(Flag.withDefault("default" as const)),
     json: requiredBooleanFlag("json", "Emit the opened workspace and tab IDs"),
@@ -900,7 +900,7 @@ const daemonCommand = Command.make(
   "daemon",
   {
     config: describedFlag(
-      Flag.path("config"),
+      Flag.Path("config"),
       "Daemon YAML configuration path",
     ),
     once: booleanFlag("once", "Process one queue snapshot and exit"),
@@ -914,7 +914,7 @@ const captureCommand = Command.make(
   "capture",
   {
     config: describedFlag(
-      Flag.path("config"),
+      Flag.Path("config"),
       "Daemon YAML configuration path",
     ),
     status: booleanFlag("status", "Check local processor availability"),
