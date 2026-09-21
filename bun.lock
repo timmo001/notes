@@ -6,7 +6,7 @@
       "name": "notes",
       "dependencies": {
         "@effect/platform-node": "4.0.0-rc.117",
-        "@herdr/sdk": "github:timmo001/herdr-ts-sdk#4fe6fb68089152a7c97f01a488470981aa234322",
+        "@herdr/sdk": "github:timmo001/herdr-ts-sdk#143613f356261e525012f5f38dfa9c28e38aa7e4",
         "@opentui/core": "^0.5.0",
         "@timmo001/effect-gh": "github:timmo001/effect-gh#d53f0d234db9fbda45f81dac847d5dfe321eaca7",
         "@tuiparts/core": "^0.0.6",
@@ -55,7 +55,7 @@
 
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.45.0", "", { "os": "win32", "cpu": "x64" }, "sha512-1Hsr/sT5dmIafoY9L0ASJo4VqGyPNzM1nwTb4Wj1Lmjq6kGuwO/PVozFg3WZZ0piChFmgiU3nx1AKZfyqgjGUw=="],
 
-    "@herdr/sdk": ["@herdr/sdk@github:timmo001/herdr-ts-sdk#4fe6fb6", { "dependencies": { "@effect/platform-node-shared": "4.0.0-rc.117", "ajv": "^8.20.0", "effect": "4.0.0-rc.117" } }, "timmo001-herdr-ts-sdk-4fe6fb6", "sha512-uFuqinUfMMYOOJ95s5sT38T91SFx7TJvBTJNyiFYQx0dXyqkRTGCVnoYV7qILn2MkTu5H+NtoTWePUgeWq99hA=="],
+    "@herdr/sdk": ["@herdr/sdk@github:timmo001/herdr-ts-sdk#143613f", { "dependencies": { "@effect/platform-node-shared": "4.0.0-rc.117", "ajv": "^8.20.0", "effect": "4.0.0-rc.117" } }, "timmo001-herdr-ts-sdk-143613f", "sha512-r3H092OeHCD4pbwm1oxaOA3vmabCrSohz9u6T7zgPFe0ZPq+gTPVN/lQaCBZIaXxkHS1TSSUPddMXr08CDV6Ig=="],
 
     "@opentui/core": ["@opentui/core@0.5.0", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.0", "@opentui/core-darwin-x64": "0.5.0", "@opentui/core-linux-arm64": "0.5.0", "@opentui/core-linux-arm64-musl": "0.5.0", "@opentui/core-linux-x64": "0.5.0", "@opentui/core-linux-x64-musl": "0.5.0", "@opentui/core-win32-arm64": "0.5.0", "@opentui/core-win32-x64": "0.5.0" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-LCHPiwB8zjvJ1KTTayQoq5nygdRwLI1ApsvWiCF06PtMPr0yP/zU+L3xk9KiFoTbAabtgA7PoBf16M2hPZR+tg=="],
 
