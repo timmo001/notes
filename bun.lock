@@ -8,7 +8,7 @@
         "@effect/platform-node": "4.0.0-rc.117",
         "@herdr/sdk": "github:timmo001/herdr-ts-sdk#835ad824804a57f4ec635930a66b0b0bc46d776b",
         "@opentui/core": "^0.5.12",
-        "@timmo001/effect-gh": "github:timmo001/effect-gh#c17708f54b7dcdf84adaf3d82983d9a168d69f52",
+        "@timmo001/effect-gh": "github:timmo001/effect-gh#5a3bbcf10c672e71a886c00361bb79e0ccbf60b9",
         "@tuiparts/core": "^0.0.6",
         "effect": "4.0.0-rc.117",
         "fuse.js": "^7.5.0",
@@ -138,7 +138,7 @@
 
     "@redis/time-series": ["@redis/time-series@6.2.1", "", { "peerDependencies": { "@redis/client": "^6.2.1" } }, "sha512-kiYniph04dJOole+L359B6C9E+jYS2uDP7hca6Onj0xF38ZIpyxARO0Iq0W4ZRn1e8Q6vqW00QFZVSMRA/2Ijw=="],
 
-    "@timmo001/effect-gh": ["@timmo001/effect-gh@github:timmo001/effect-gh#c17708f", { "peerDependencies": { "effect": "4.0.0-rc.117" } }, "timmo001-effect-gh-c17708f", "sha512-qu5BNBealXHLhhYlKMak9M0fERifGI8OiKXNslQDzsGdaV/Yz8aPum9tWc3QwzMNkJ5GLtoKSZpCpvu5DQjsUQ=="],
+    "@timmo001/effect-gh": ["@timmo001/effect-gh@github:timmo001/effect-gh#5a3bbcf", { "peerDependencies": { "effect": "4.0.0-rc.117" } }, "timmo001-effect-gh-5a3bbcf", "sha512-jgMSZInLTjjxslakAvstZMa64HugjtSYAEqSnLUHHqm4biyTdlQvLLiBmDm0dLQYz6aH66CPaFApa8i5ZjZx7Q=="],
 
     "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.3.6", "", { "peerDependencies": { "@oxlint/plugins": "1.85.0", "oxlint": "1.85.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-9fAWa2fUwo7hOgwq/BHIsoKAIxDelsAvWf0ttpDMxgRp7M70vdEshQ6RM22j9ayof2ta23yzuj6bue/hQ7pgZQ=="],
 
