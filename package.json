@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-rc.117",
-    "@herdr/sdk": "github:timmo001/herdr-ts-sdk#835ad824804a57f4ec635930a66b0b0bc46d776b",
+    "@herdr/sdk": "github:timmo001/herdr-ts-sdk#b3038529e418178e950b939a0ff078e9b315f9a9",
     "@opentui/core": "^0.5.12",
     "@timmo001/effect-gh": "github:timmo001/effect-gh#c17708f54b7dcdf84adaf3d82983d9a168d69f52",
     "@tuiparts/core": "^0.0.6",
