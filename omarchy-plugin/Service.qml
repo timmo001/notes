@@ -40,6 +40,15 @@ Item {
   property int contextGeneration: 0
   property int providerGeneration: 0
   property bool activeListPending: false
+  readonly property string stateRoot: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
+  readonly property string captureQueuePath: stateRoot + "/notes/capture-queue.json"
+  readonly property string captureFailedPath: stateRoot + "/notes/capture-failed.json"
+  property var captureQueue: []
+  property var captureFailures: []
+  property bool captureQueueReady: false
+  property var activeCapture: null
+  property bool captureAvailable: false
+  property bool captureStartPending: false
 
   onWorkspaceContextCommandChanged: {
     if (workspaceContextPath) return
@@ -64,6 +73,7 @@ Item {
 
   signal mutationCompleted(string kind, bool success, var result, string error)
   signal readCompleted(bool success)
+  signal captureCompleted(bool success, string message)
 
   function flattenSections(value) {
     if (!Array.isArray(value)) return []
@@ -217,6 +227,51 @@ Item {
   }
   function openExternal(path) {
     Quickshell.execDetached(["uwsm", "app", "--", "xdg-terminal-exec", "nvim", path])
+  }
+  function readCaptureFile(file) {
+    try {
+      var value = JSON.parse(file.text() || "[]")
+      return Array.isArray(value) ? value.filter(function(entry) { return entry && typeof entry.text === "string" }) : []
+    } catch (error) { return [] }
+  }
+  function writeCaptureQueue() { captureQueueFile.setText(JSON.stringify(captureQueue, null, 2) + "\n") }
+  function enqueueCapture(text, repository) {
+    captureQueue = captureQueue.concat([{ id: Date.now() + "-" + Math.random().toString(36).slice(2, 10),
+      text: String(text), repository: String(repository || ""), submittedAt: new Date().toISOString() }])
+    writeCaptureQueue()
+    startNextCapture()
+  }
+  function refreshCaptureStatus() {
+    if (captureStatusProcess.running) return
+    captureStatusProcess.startedSuccessfully = false
+    captureStatusProcess.running = true
+  }
+  function startNextCapture() {
+    if (!captureQueueReady || activeCapture || !captureQueue.length) return
+    captureStartPending = true
+    refreshCaptureStatus()
+  }
+  function launchCapture() {
+    if (!captureAvailable || activeCapture || !captureQueue.length) return
+    activeCapture = captureQueue[0]
+    var command = ["notes-capture-local", "--stdin", "--json"]
+    if (activeCapture.repository) command.push("--repository", activeCapture.repository)
+    captureProcess.stdinEnabled = true
+    captureProcess.command = command
+    captureProcess.running = true
+  }
+  function finishCapture(success, message) {
+    var entry = activeCapture
+    activeCapture = null
+    if (!success) {
+      captureFailures = captureFailures.concat([Object.assign({}, entry, { failedAt: new Date().toISOString() })])
+      captureFailedFile.setText(JSON.stringify(captureFailures, null, 2) + "\n")
+      captureFailureNotification.running = true
+    }
+    captureQueue = captureQueue.filter(function(queued) { return queued.id !== entry.id })
+    writeCaptureQueue()
+    captureCompleted(success, message)
+    startNextCapture()
   }
 
   Timer {
@@ -426,5 +481,56 @@ Item {
       }
     }
   }
-  Component.onCompleted: refresh()
+  FileView { id: captureQueueFile; path: root.captureQueuePath; blockLoading: true; blockWrites: true; printErrors: false }
+  FileView { id: captureFailedFile; path: root.captureFailedPath; blockLoading: true; blockWrites: true; printErrors: false }
+  Timer {
+    interval: 30000
+    running: root.captureQueueReady && root.captureQueue.length > 0 && !root.activeCapture
+    repeat: true
+    onTriggered: root.startNextCapture()
+  }
+  Process {
+    id: captureStatusProcess
+    property bool startedSuccessfully: false
+    command: ["notes-capture-local", "--status", "--json"]
+    onStarted: startedSuccessfully = true
+    onExited: function(exitCode) {
+      root.captureAvailable = exitCode === 0
+      if (root.captureStartPending) { root.captureStartPending = false; root.launchCapture() }
+    }
+    onRunningChanged: if (!running && !startedSuccessfully) {
+      root.captureAvailable = false
+      root.captureStartPending = false
+    }
+  }
+  Process {
+    id: captureProcess
+    property bool startedSuccessfully: false
+    stdinEnabled: true
+    stdout: StdioCollector { id: captureOutput; waitForEnd: true }
+    onStarted: { startedSuccessfully = true; write(root.activeCapture.text); stdinEnabled = false }
+    onExited: function(exitCode) {
+      startedSuccessfully = false
+      try {
+        var result = JSON.parse(String(captureOutput.text || "").trim())
+        if (exitCode !== 0 || result.status !== "success") throw new Error("capture failed")
+        root.finishCapture(true, String(result.summary || "Note captured"))
+      } catch (error) { root.finishCapture(false, "Capture failed, saved to failed captures") }
+    }
+    onRunningChanged: if (!running && root.activeCapture && !startedSuccessfully) {
+      root.activeCapture = null
+      root.captureAvailable = false
+    }
+  }
+  Process {
+    id: captureFailureNotification
+    command: ["omarchy", "notification", "send", "-g", "󰠮", "-u", "critical", "--app-name", "Notes", "Note capture failed", "Saved to " + root.captureFailedPath]
+  }
+  Component.onCompleted: {
+    captureQueue = readCaptureFile(captureQueueFile)
+    captureFailures = readCaptureFile(captureFailedFile)
+    captureQueueReady = true
+    startNextCapture()
+    refresh()
+  }
 }

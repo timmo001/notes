@@ -36,15 +36,15 @@ Panel {
   property var repositories: []
   property string captureRepositorySearch: ""
   property string selectedCaptureRepository: ""
-  property bool captureAvailable: false
-  property bool submitting: false
+  readonly property bool captureAvailable: service ? service.captureAvailable : false
   property string statusText: ""
-  property var activeSubmission: null
-  property var pendingSubmissions: []
-  property int resetGeneration: 0
+  readonly property string captureQueueText: {
+    var total = service ? service.captureQueue.length : 0
+    if (service && service.activeCapture) return total > 1 ? "Capturing 1 note, " + (total - 1) + " queued" : "Capturing 1 note in background"
+    return total ? total + " queued" : ""
+  }
   readonly property string cacheRoot: Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")
   readonly property string draftPath: cacheRoot + "/dot/notes-capture-draft.txt"
-  readonly property string failedDraftPath: cacheRoot + "/dot/notes-capture-failed-draft.txt"
   readonly property var captureRepositories: {
     var query = captureRepositorySearch.trim().toLowerCase()
     if (!query) return repositories
@@ -60,7 +60,7 @@ Panel {
       return String(target).toLowerCase().indexOf(query) !== -1
     })
   }
-  readonly property bool canCapture: captureAvailable && captureInput.text.trim().length > 0
+  readonly property bool canCapture: !!service && captureInput.text.trim().length > 0
     && captureInput.text.trim().length <= 12000
   readonly property var workspaceNotes: {
     var entries = service?.activeNotes?.entries
@@ -402,75 +402,22 @@ Panel {
     onFileChanged: reload()
   }
   FileView { id: draftFile; path: root.draftPath; printErrors: false; onLoaded: if (!captureInput.text) captureInput.text = text() }
-  FileView { id: failedDraftFile; path: root.failedDraftPath; printErrors: false }
   Timer { id: draftSaveTimer; interval: 250; onTriggered: draftFile.setText(captureInput.text) }
-  function refreshCaptureStatus() { if (!statusProcess.running) statusProcess.running = true }
+  function refreshCaptureStatus() { if (service) service.refreshCaptureStatus() }
   function resetCapture() {
-    resetGeneration++; draftSaveTimer.stop(); captureInput.text = ""; draftFile.setText(""); failedDraftFile.setText("")
-    pendingSubmissions = []; captureRepositorySearch = ""; selectedCaptureRepository = ""; statusText = ""
+    draftSaveTimer.stop(); captureInput.text = ""; draftFile.setText("")
+    captureRepositorySearch = ""; selectedCaptureRepository = ""; statusText = ""
   }
   function submitCapture() {
     if (!canCapture) return
     draftSaveTimer.stop()
-    pendingSubmissions = pendingSubmissions.concat([{ text: captureInput.text, repository: selectedCaptureRepository, generation: resetGeneration }])
-    captureInput.text = ""; draftFile.setText(""); startNextCapture(); updateCaptureStatus(); captureInput.forceActiveFocus()
+    service.enqueueCapture(captureInput.text, selectedCaptureRepository)
+    statusText = ""
+    captureInput.text = ""; draftFile.setText(""); captureInput.forceActiveFocus()
   }
-  function updateCaptureStatus() {
-    if (submitting) statusText = pendingSubmissions.length ? "Capturing 1 note, " + pendingSubmissions.length + " queued" : "Capturing 1 note in background"
-    else if (pendingSubmissions.length) statusText = pendingSubmissions.length + " queued"
-  }
-  function startNextCapture() {
-    if (submitting || !pendingSubmissions.length) return
-    activeSubmission = pendingSubmissions[0]; pendingSubmissions = pendingSubmissions.slice(1)
-    var command = ["notes-capture-local", "--stdin", "--json"]
-    if (activeSubmission.repository) command.push("--repository", activeSubmission.repository)
-    submitting = true; captureProcess.stdinEnabled = true; captureProcess.command = command; captureProcess.running = true
-    updateCaptureStatus()
-  }
-  function finishCapture(exitCode, raw) {
-    submitting = false
-    var current = activeSubmission && activeSubmission.generation === resetGeneration
-    try {
-      var result = JSON.parse(String(raw || "").trim())
-      if (exitCode !== 0 || result.status !== "success") throw new Error("capture failed")
-      if (current) statusText = String(result.summary || "Note captured")
-    } catch (error) {
-      if (current) { failedDraftFile.setText(activeSubmission.text); statusText = "Capture failed, draft saved"; failureNotification.running = true }
-    }
-    activeSubmission = null; startNextCapture(); updateCaptureStatus()
-  }
-  Process {
-    id: statusProcess; command: ["notes-capture-local", "--status", "--json"]
-    onExited: function(exitCode) {
-      root.captureAvailable = exitCode === 0
-      if (!root.captureAvailable) root.statusText = "Local processor unavailable."
-      else if (root.statusText === "Local processor unavailable.") root.statusText = ""
-    }
-  }
-  Process {
-    id: captureProcess
-    property bool startedSuccessfully: false
-    stdinEnabled: true
-    stdout: StdioCollector { id: captureOutput; waitForEnd: true }
-    onStarted: { startedSuccessfully = true; write(root.activeSubmission.text); stdinEnabled = false }
-    onExited: function(exitCode) { startedSuccessfully = false; root.finishCapture(exitCode, captureOutput.text) }
-    onRunningChanged: {
-      if (!running && root.submitting && !startedSuccessfully) {
-        root.submitting = false
-        if (root.activeSubmission && root.activeSubmission.generation === root.resetGeneration) {
-          failedDraftFile.setText(root.activeSubmission.text)
-          root.statusText = "Capture failed, draft saved"
-          failureNotification.running = true
-        }
-        root.activeSubmission = null
-        root.startNextCapture()
-        root.updateCaptureStatus()
-      }
-    }
-  }
-  Process {
-    id: failureNotification
-    command: ["omarchy", "notification", "send", "-g", "󰠮", "-u", "critical", "--app-name", "Notes", "Note capture failed", "Draft saved to ~/.cache/dot/notes-capture-failed-draft.txt"]
+  Connections {
+    target: root.service
+    function onCaptureCompleted(success, message) { root.statusText = message }
   }
   Timer { interval: 15000; running: root.opened && root.view === "capture"; repeat: true; triggeredOnStart: true; onTriggered: root.refreshCaptureStatus() }
 
@@ -613,7 +560,7 @@ Panel {
             ScrollView { width: parent.width; height: Style.space(180); MultilineTextField { id: captureInput; placeholderText: "What should be investigated or remembered?"; foreground: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: draftSaveTimer.restart(); Keys.onPressed: function(event) { if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { root.submitCapture(); event.accepted = true } else if (event.key === Qt.Key_Escape) { root.back(); event.accepted = true } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) { captureSend.forceActiveFocus(); event.accepted = true } } } }
             Button { id: captureSend; width: parent.width; text: "Send (Ctrl+Enter)"; enabled: root.canCapture; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitCapture() }
             Button { width: parent.width; text: "Clear"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.resetCapture() }
-            Text { visible: root.statusText !== ""; width: parent.width; text: root.statusText; color: root.captureAvailable ? root.foreground : Color.urgent; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
+            Text { text: [root.captureAvailable ? root.statusText : "Local processor unavailable. Captures stay queued until it returns.", root.captureQueueText].filter(Boolean).join("\n"); visible: text !== ""; width: parent.width; color: root.captureAvailable ? root.foreground : Color.urgent; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
             PanelSeparator { foreground: root.foreground }
             TextField { id: captureRepositoryFilter; width: parent.width; placeholderText: "Search target repositories"; color: root.foreground; font.family: root.fontFamily; text: root.captureRepositorySearch; onTextChanged: root.captureRepositorySearch = text }
             Button { width: parent.width; text: root.selectedCaptureRepository === "" ? "Automatic" : "Automatic (clear selection)"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.selectedCaptureRepository = "" }

@@ -49,7 +49,7 @@ Select the Notes bar widget to open the overview. It provides:
 - guarded native editing, external editing, normal or planning agent opening,
   priority changes, moves, and confirmed deletion
 - native note and handoff creation
-- local capture with draft recovery and queued submission
+- local capture with draft recovery and a disk-backed submission queue
 
 With a workspace context provider configured, the overview lists the attached
 workspace's notes above the actions, including handoffs. Capture note appears
@@ -132,17 +132,26 @@ ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-repositories.json
 ]
 ```
 
-The current capture draft and the latest failed submission are stored as plain
-text in:
+The current capture draft is stored as plain text in:
 
 ```text
 ${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-draft.txt
-${XDG_CACHE_HOME:-$HOME/.cache}/dot/notes-capture-failed-draft.txt
 ```
 
-Drafts are not encrypted. Capture submissions run one at a time and remain
-active when the panel closes. The in-memory queue is lost if `omarchy-shell`
-restarts. A failed submission saves the text and sends a local notification.
+Every submission is written to a queue on disk before it is processed:
+
+```text
+${XDG_STATE_HOME:-$HOME/.local/state}/notes/capture-queue.json
+${XDG_STATE_HOME:-$HOME/.local/state}/notes/capture-failed.json
+```
+
+The service processes the queue one capture at a time, whether or not the panel
+is open, and removes each entry once `notes-capture-local` returns. While the
+local processor is unavailable, captures stay queued and are retried every 30
+seconds. Failed captures move to the failed file and send a local notification.
+After an `omarchy-shell` restart, the queue resumes from the oldest entry. A
+capture interrupted mid-processing is sent again, which can produce a duplicate
+note. Drafts and queue files are not encrypted.
 
 ## Settings
 
@@ -161,7 +170,7 @@ omarchy plugin remove timmo.notes
 ```
 
 Removing the plugin does not remove Notes, capture services, credentials,
-repository targets, or draft files.
+repository targets, draft files, or queued captures.
 
 ## Validate from source
 
