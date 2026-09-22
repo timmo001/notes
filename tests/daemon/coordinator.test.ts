@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, type Schema } from "effect";
 import { runProcessingPass } from "../../src/daemon/coordinator.js";
 import {
   COMPLETION_MARKER,
@@ -17,7 +17,9 @@ import {
 
 const claimLabel = "agent:processing:desktop:12345678";
 
-function issue(comments: QueueIssue["comments"] = []): QueueIssue {
+function issue(
+  comments: QueueIssue["comments"] = [],
+): Schema.Schema.Type<typeof QueueIssue> {
   return {
     number: 1,
     title: "Captured note",

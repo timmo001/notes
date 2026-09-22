@@ -21,9 +21,9 @@ afterEach(() => {
 describe("local capture", () => {
   test("checks executable availability and processes a validated capture through argv", async () => {
     const { root, configPath } = writeConfig();
-    await expect(Effect.runPromise(captureStatus(configPath))).resolves.toEqual(
-      { available: true },
-    );
+    expect(await Effect.runPromise(captureStatus(configPath))).toEqual({
+      available: true,
+    });
     expect(existsSync(join(root, "prompt"))).toBe(false);
 
     const result = await Effect.runPromise(

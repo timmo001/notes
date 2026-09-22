@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
+import { rejects } from "node:assert/strict";
 import {
   existsSync,
   mkdtempSync,
@@ -507,7 +508,7 @@ describe("Notes service", () => {
   test("rejects an unsafe explicit repository before creating a note", async () => {
     const { layer } = fixture();
 
-    await expect(
+    await rejects(
       Effect.runPromise(
         Effect.gen(function* () {
           return yield* (yield* Notes).createFromInput(
@@ -519,7 +520,8 @@ describe("Notes service", () => {
           );
         }).pipe(Effect.provide(layer)),
       ),
-    ).rejects.toThrow("Invalid repository");
+      /Invalid repository/,
+    );
   });
 
   test("resolves note metadata, content, and a remembered checkout", async () => {
@@ -579,7 +581,7 @@ describe("Notes service", () => {
         });
       }).pipe(Effect.provide(layer)),
     );
-    await expect(
+    await rejects(
       Effect.runPromise(
         Effect.gen(function* () {
           return yield* (yield* Notes).write(path, initial.content, {
@@ -587,7 +589,8 @@ describe("Notes service", () => {
           });
         }).pipe(Effect.provide(layer)),
       ),
-    ).rejects.toThrow("Note changed since it was read");
+      /Note changed since it was read/,
+    );
   });
 
   test("accepts a tilde path for guarded writes", async () => {
@@ -625,7 +628,7 @@ describe("Notes service", () => {
 
     writeFileSync(join(root, "unfinished.txt"), "unfinished");
     git(root, "add", "unfinished.txt");
-    await expect(
+    await rejects(
       Effect.runPromise(
         Effect.gen(function* () {
           return yield* (yield* Notes).write(
@@ -634,7 +637,8 @@ describe("Notes service", () => {
           );
         }).pipe(Effect.provide(layer)),
       ),
-    ).rejects.toThrow("not ready for a mutation");
+      /not ready for a mutation/,
+    );
 
     const after = await Effect.runPromise(
       Effect.gen(function* () {
@@ -679,7 +683,7 @@ describe("Notes service", () => {
 
   test("validates editor output before committing", async () => {
     const { path, layer } = fixture();
-    await expect(
+    await rejects(
       Effect.runPromise(
         Effect.gen(function* () {
           return yield* (yield* Notes).edit(
@@ -689,7 +693,8 @@ describe("Notes service", () => {
           );
         }).pipe(Effect.provide(layer)),
       ),
-    ).rejects.toThrow("Edited note is invalid");
+      /Edited note is invalid/,
+    );
   });
 
   test("allows malformed notes to be repaired in the editor", async () => {

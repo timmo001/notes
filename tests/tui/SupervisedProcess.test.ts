@@ -16,9 +16,9 @@ const ignoredIo = {
 
 describe("runSupervisedProcess", () => {
   test("resolves for a successful process", async () => {
-    await expect(
-      runSupervisedProcess(["bash", "-lc", "exit 0"], ignoredIo),
-    ).resolves.toBeUndefined();
+    expect(
+      await runSupervisedProcess(["bash", "-lc", "exit 0"], ignoredIo),
+    ).toBeUndefined();
   });
 
   test("reports a non-zero exit", async () => {

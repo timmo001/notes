@@ -40,7 +40,7 @@ run = "bun test"
 
 [tasks.lint]
 description = "Lint source with the shared Oxlint rules"
-depends = ["install"]
+depends = ["install", "capture:sync", "docs:sync"]
 run = "bun run lint"
 
 [tasks.format]
@@ -55,7 +55,7 @@ run = "bun run format:check"
 
 [tasks.check]
 description = "Test, lint, type-check and verify formatting"
-depends = ["test", "lint", "typecheck", "format:check", "capture:check"]
+depends = ["test", "lint", "typecheck", "format:check", "capture:check", "docs:typecheck"]
 
 [tasks."capture:install"]
 description = "Install capture PWA dependencies"
@@ -100,6 +100,12 @@ description = "Type-check the capture PWA"
 depends = ["capture:install"]
 dir = "capture"
 run = "bun run typecheck"
+
+[tasks."capture:sync"]
+description = "Generate capture types for type-aware linting"
+depends = ["capture:install"]
+dir = "capture"
+run = "bun run sync"
 
 [tasks."capture:format:check"]
 description = "Check capture PWA formatting"
@@ -187,4 +193,16 @@ run = "bun run gen"
 
 [tasks."docs:check"]
 description = "Regenerate and build docs"
-depends = ["docs:gen", "docs:build"]
+depends = ["docs:gen", "docs:typecheck", "docs:build"]
+
+[tasks."docs:typecheck"]
+description = "Type-check docs source and generators with TypeScript 7"
+depends = ["install", "docs:sync"]
+dir = "docs"
+run = "bun ../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json"
+
+[tasks."docs:sync"]
+description = "Generate docs types for TypeScript and Oxlint"
+depends = ["docs:install"]
+dir = "docs"
+run = "bunx astro sync"

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { rejects } from "node:assert/strict";
 import { createTestRenderer } from "@opentui/core/testing";
 import { runWithRendererSuspended } from "../../src/tui/SuspendedCommand.js";
 
@@ -57,7 +58,7 @@ describe("runWithRendererSuspended", () => {
     const events: string[] = [];
     const renderer = await rendererFixture(events);
 
-    await expect(
+    await rejects(
       runWithRendererSuspended(
         {
           renderer,
@@ -68,7 +69,8 @@ describe("runWithRendererSuspended", () => {
           throw new Error("failed work");
         },
       ),
-    ).rejects.toThrow("failed work");
+      /failed work/,
+    );
     expect(events).toEqual([
       "suspend",
       "clear",

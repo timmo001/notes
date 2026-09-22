@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { rejects } from "node:assert/strict";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -105,7 +106,7 @@ describe("agent targets", () => {
 
   test("rejects an unavailable wrapper before contacting Herdr", async () => {
     const server = await fixture();
-    await expect(
+    await rejects(
       Effect.runPromise(
         openNoteAgent(entry, "body", opencode2, {
           executableAvailable: () => false,
@@ -114,7 +115,8 @@ describe("agent targets", () => {
           Effect.provideService(CommandExecutor, executor),
         ),
       ),
-    ).rejects.toThrow("not a regular executable file");
+      /not a regular executable file/,
+    );
     expect(server.requests).toEqual([]);
   });
 
@@ -263,7 +265,7 @@ describe("agent targets", () => {
 
   test("does not prompt when foreground argv is the wrong runtime", async () => {
     const server = await fixture({ runtime: "/opt/opencode2-other" });
-    await expect(
+    await rejects(
       Effect.runPromise(
         openNoteAgent(entry, "body", opencode2, {
           executableAvailable: () => true,
@@ -272,7 +274,8 @@ describe("agent targets", () => {
           Effect.provideService(CommandExecutor, executor),
         ),
       ),
-    ).rejects.toThrow("expected runtime");
+      /expected runtime/,
+    );
     expect(
       server.requests.some(({ method }) => method === "agent.prompt"),
     ).toBe(false);
@@ -293,14 +296,15 @@ describe("agent targets", () => {
 
   test("surfaces readiness errors without submitting a prompt", async () => {
     const server = await fixture({ failMethod: "agent.wait" });
-    await expect(
+    await rejects(
       Effect.runPromise(
         openNoteAgent(entry, "body", cursor).pipe(
           Effect.provide(server.layer),
           Effect.provideService(CommandExecutor, executor),
         ),
       ),
-    ).rejects.toThrow("Fixture failure");
+      /Fixture failure/,
+    );
     expect(
       server.requests.some(({ method }) => method === "agent.prompt"),
     ).toBe(false);
@@ -308,14 +312,15 @@ describe("agent targets", () => {
 
   test("rejects an unsupported protocol before mutations", async () => {
     const server = await fixture({ protocol: 21 });
-    await expect(
+    await rejects(
       Effect.runPromise(
         openNoteAgent(entry, "body", cursor).pipe(
           Effect.provide(server.layer),
           Effect.provideService(CommandExecutor, executor),
         ),
       ),
-    ).rejects.toThrow();
+      Error,
+    );
     expect(server.requests.map(({ method }) => method)).toEqual(["ping"]);
   });
 
