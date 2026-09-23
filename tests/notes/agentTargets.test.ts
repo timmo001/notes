@@ -76,7 +76,6 @@ describe("agent targets", () => {
 
     expect(targets).toEqual([
       opencode2,
-      { command: "opencode", executable: "opencode", label: "OpenCode 1" },
       { command: "pi", executable: "pi", label: "Pi" },
       cursor,
       { command: "claude", executable: "claude", label: "Claude Code" },
@@ -211,12 +210,7 @@ describe("agent targets", () => {
   test("creates and renames a workspace's initial tab for a plan agent", async () => {
     const server = await fixture({ newWorkspace: true });
     await Effect.runPromise(
-      openNoteAgent(
-        entry,
-        "body",
-        { command: "opencode", executable: "opencode", label: "OpenCode 1" },
-        { mode: "plan" },
-      ).pipe(
+      openNoteAgent(entry, "body", cursor, { mode: "plan" }).pipe(
         Effect.provide(server.layer),
         Effect.provideService(CommandExecutor, executor),
       ),
@@ -227,15 +221,15 @@ describe("agent targets", () => {
     ).toMatchObject({ cwd: "/repos/notes", label: "notes", focus: false });
     expect(
       server.requests.find(({ method }) => method === "tab.rename")?.params,
-    ).toEqual({ tab_id: "w1:t2", label: "OpenCode 1" });
+    ).toEqual({ tab_id: "w1:t2", label: cursor.label });
     expect(
       server.requests.find(({ method }) => method === "pane.send_input")
         ?.params,
-    ).toMatchObject({ text: "opencode --agent plan", keys: ["enter"] });
+    ).toMatchObject({ text: cursor.executable, keys: ["enter"] });
     expect(
       server.requests.find(({ method }) => method === "agent.prompt")?.params
         .text,
-    ).toContain("dedicated plan agent");
+    ).toContain("implementation-ready plan");
   });
 
   test("launches the exact OpenCode 2 wrapper and verifies foreground argv before prompting", async () => {
@@ -333,6 +327,5 @@ describe("agent targets", () => {
     const plan = noteAgentPrompt(entry, "body", "plan");
     expect(plan).toContain("implementation-ready plan");
     expect(plan).toContain("load each relevant skill");
-    expect(plan).not.toContain("dedicated plan agent");
   });
 });

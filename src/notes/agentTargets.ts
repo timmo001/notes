@@ -40,7 +40,6 @@ const RepositoryPicker = Schema.Array(
 
 const TARGETS: readonly AgentTarget[] = [
   { command: "opencode2", executable: OPENCODE2, label: "OpenCode 2" },
-  { command: "opencode", executable: "opencode", label: "OpenCode 1" },
   { command: "pi", executable: "pi", label: "Pi" },
   { command: "cursor", executable: "cursor-agent", label: "Cursor Agent" },
   { command: "claude", executable: "claude", label: "Claude Code" },
@@ -147,13 +146,8 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
         ])).trim()
       : null;
 
-  const agentArgs =
-    mode === "plan" && target.command === "opencode"
-      ? [target.executable, "--agent", "plan"]
-      : [target.executable];
-
   yield* sdk.panes.sendInput(paneId, {
-    text: agentArgs.join(" "),
+    text: target.executable,
     keys: ["enter"],
   });
   yield* sdk.workspaces.focus(workspaceId);
@@ -189,7 +183,7 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
   yield* sdk.agents.prompt(
     { paneId },
     {
-      text: noteAgentPrompt(entry, content, mode, agentArgs.length > 1),
+      text: noteAgentPrompt(entry, content, mode),
       wait: { timeoutMs: 120_000 },
     },
     { requestTimeout: Duration.seconds(125) },
@@ -245,15 +239,12 @@ export function noteAgentPrompt(
   entry: NoteEntry,
   content: string,
   mode: AgentOpenMode = "default",
-  dedicatedPlanAgent = false,
 ): string {
   return [
     ...(mode === "plan"
       ? [
           "Create an implementation-ready plan for the loaded note below. Inspect the relevant implementation and tests before planning, resolve repository facts with read-only tools, and include concrete locations, change mechanics, verification, and a Files tree.",
-          dedicatedPlanAgent
-            ? "This process was launched with the dedicated plan agent. Present the plan directly without suggesting a separate planning command."
-            : "Present the plan directly without making implementation changes.",
+          "Present the plan directly without making implementation changes.",
           "Inspect the note for explicit skill names or clearly required workflows, and load each relevant skill before planning.",
           "",
         ]
