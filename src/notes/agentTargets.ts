@@ -77,7 +77,7 @@ export const detectAgentTargets = Effect.fn("detectAgentTargets")(function* (
 
   return TARGETS.filter((target) =>
     target.command === "opencode2"
-      ? installed.has("opencode") && executableAvailable(OPENCODE2)
+      ? executableAvailable(OPENCODE2)
       : installed.has(target.command),
   );
 });

@@ -121,13 +121,6 @@ export async function herdrFixture(
               state: "current",
             },
             {
-              target: "opencode",
-              label: "OpenCode",
-              command: "opencode",
-              available: true,
-              state: "current",
-            },
-            {
               target: "claude",
               label: "Claude Code",
               command: "claude",
