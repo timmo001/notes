@@ -6,7 +6,6 @@ import type { NoteEntry } from "../../../src/notes/types.js";
 import {
   opencodeNotePrompt,
   opencodeNoteDirectory,
-  planCommandTemplate,
 } from "../../../src/notes/tui/OpenCodeNote.js";
 
 const entry: NoteEntry = {
@@ -29,16 +28,11 @@ const entry: NoteEntry = {
 const noteContent = "# Example Plan\n\nFirst line.\n\nSecond line.";
 
 describe("OpenCode note prompt", () => {
-  test("injects the configured plan command with the complete note", () => {
-    const prompt = opencodeNotePrompt(
-      entry,
-      noteContent,
-      "plan",
-      "Plan this target:\n\n${ARGUMENTS}\n\nFinish with validation.",
-    );
+  test("uses portable planning instructions with the complete note", () => {
+    const prompt = opencodeNotePrompt(entry, noteContent, "plan");
 
-    expect(prompt.startsWith("Plan this target:")).toBe(true);
-    expect(prompt).not.toContain("${ARGUMENTS}");
+    expect(prompt).toContain("Create an implementation-ready plan");
+    expect(prompt).toContain("make its deletion the final implementation step");
     expect(prompt).toContain(
       "----- BEGIN LOADED NOTE: projects/timmo001/example/handoff-plan.md -----",
     );
@@ -48,31 +42,11 @@ describe("OpenCode note prompt", () => {
     );
   });
 
-  test("uses portable planning instructions when no plan command exists", () => {
-    const prompt = opencodeNotePrompt(entry, noteContent, "plan");
-
-    expect(prompt).toContain("Create an implementation-ready plan");
-    expect(prompt).toContain("make its deletion the final implementation step");
-    expect(prompt).toContain(noteContent);
-  });
-
   test("keeps default mode on the note-reference prompt path", () => {
     const prompt = opencodeNotePrompt(entry, noteContent, "default");
 
     expect(prompt.startsWith("/plan")).toBe(false);
     expect(prompt).toContain(noteContent);
-  });
-
-  test("extracts only a configured plan command template", () => {
-    expect(
-      planCommandTemplate({
-        command: { plan: { template: "Configured plan ${ARGUMENTS}" } },
-      }),
-    ).toBe("Configured plan ${ARGUMENTS}");
-    expect(planCommandTemplate({ command: {} })).toBeNull();
-    expect(
-      planCommandTemplate({ command: { plan: { template: 1 } } }),
-    ).toBeNull();
   });
 });
 

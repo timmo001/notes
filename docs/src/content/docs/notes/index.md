@@ -40,7 +40,7 @@ Useful controls:
 
 Editor actions are launched through Bash and must stay attached until editing finishes. Set `EDITOR` for terminal editing and use a waiting visual command such as `VISUAL="code --wait"` for `A` and `E`. Both modes fall back to Neovim when no editor is configured.
 
-The `o` and `O` actions require OpenCode. `O` reads the merged OpenCode configuration and injects the configured `/plan` command template when available, expanding `${ARGUMENTS}` with the full selected note context. If no plan command can be resolved, Notes uses portable built-in planning instructions instead.
+The `o` and `O` actions require OpenCode. `O` adds portable built-in planning instructions to the full selected note context.
 
 OpenCode runs from the selected note's source checkout, including when Notes was opened from another directory or with `--all`. Notes remembers exact checkout paths as machine-local state under `$XDG_STATE_HOME/notes`; paths are not written into portable note files. A local note whose remembered directory no longer exists keeps the Notes process's current directory.
 

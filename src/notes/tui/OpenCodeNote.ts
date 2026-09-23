@@ -1,5 +1,4 @@
 import type { CliRenderer } from "@opentui/core";
-import { Option, Schema } from "effect";
 import { statSync } from "node:fs";
 import type { NoteEntry } from "../types.js";
 import {
@@ -14,33 +13,11 @@ export type OpenCodeNoteMode = OpenCodeSessionMode;
 export interface OpenNoteInOpenCodeOptions {
   /** Which OpenCode agent mode to use. */
   readonly mode?: OpenCodeNoteMode;
-  /** Optional plan command loader, primarily for deterministic tests. */
-  readonly loadPlanCommand?: (cwd?: string) => Promise<string | null>;
   /** Callback to run after the TUI resumes. */
   readonly afterResume?: () => void;
 }
 
 const DEFAULT_PLAN_INSTRUCTIONS = `Create an implementation-ready plan for the loaded note below. Inspect the relevant implementation and tests before planning, resolve repository facts with read-only tools, and include concrete locations, change mechanics, verification, and a Files tree. Split out deferred stages only when they are independently reviewable. If the loaded note is a handoff or temporary plan, make its deletion the final implementation step after all tracked work and validation are complete, requiring explicit user confirmation before deletion. Do not delete it while work remains deferred, blocked, or unresolved. Make no implementation changes while planning.`;
-
-interface OpenCodeConfigInput {
-  readonly command?: {
-    readonly plan?: {
-      readonly template?: string | number;
-    };
-  };
-}
-
-const OpenCodeConfig = Schema.Struct({
-  command: Schema.optional(
-    Schema.Struct({
-      plan: Schema.optional(
-        Schema.Struct({ template: Schema.optional(Schema.String) }),
-      ),
-    }),
-  ),
-});
-
-const OpenCodeConfigJson = Schema.fromJsonString(OpenCodeConfig);
 
 /** Suspend the TUI, launch a full OpenCode session for a note, then resume. */
 export async function openNoteInOpenCode(
@@ -52,15 +29,9 @@ export async function openNoteInOpenCode(
   const mode = options.mode ?? "default";
   const cwd = opencodeNoteDirectory(entry);
 
-  const planCommand =
-    mode === "plan"
-      ? await (options.loadPlanCommand ?? loadConfiguredPlanCommand)(cwd)
-      : null;
-
   await openOpenCodeSession(renderer, {
-    mode,
     cwd,
-    prompt: opencodeNotePrompt(entry, noteContent, mode, planCommand),
+    prompt: opencodeNotePrompt(entry, noteContent, mode),
     afterResume: options.afterResume,
   });
 }
@@ -70,7 +41,6 @@ export function opencodeNotePrompt(
   entry: NoteEntry,
   noteContent: string,
   mode: OpenCodeNoteMode,
-  planCommand: string | null = null,
 ): string {
   const displayPath = projectsDisplayPath(entry);
 
@@ -80,7 +50,6 @@ export function opencodeNotePrompt(
     ...(mode === "plan"
       ? [
           "",
-          "This OpenCode process was launched with --agent plan. You are already running inside the plan agent.",
           "After loading the note and relevant skills, present an execution-ready plan directly. Do not suggest entering /plan and do not stop at a single next action.",
           "If the note does not contain enough detail for a safe plan, automatically gather the missing repository context with read-only tools first, then present the plan. If the plan is still blocked after gathering context, state exactly what remains missing.",
         ]
@@ -113,45 +82,9 @@ export function opencodeNotePrompt(
     "The content is now in context. Answer follow-up questions about it directly, but do not make changes unless the user explicitly asks for them.",
   ].join("\n");
 
-  if (mode !== "plan") return notePrompt;
-
-  const instructions = planCommand?.trim() || DEFAULT_PLAN_INSTRUCTIONS;
-
-  return instructions.includes("${ARGUMENTS}")
-    ? instructions.replaceAll("${ARGUMENTS}", notePrompt)
-    : `${instructions}\n\n${notePrompt}`;
-}
-
-/** Read the configured `/plan` command template from OpenCode when available. */
-export async function loadConfiguredPlanCommand(
-  cwd?: string,
-): Promise<string | null> {
-  try {
-    const proc = Bun.spawn(["opencode", "debug", "config"], {
-      cwd,
-      stdin: "ignore",
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-
-    const [stdout, , exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
-
-    if (exitCode !== 0) return null;
-
-    return Option.match(
-      Schema.decodeUnknownOption(OpenCodeConfigJson)(stdout),
-      {
-        onNone: () => null,
-        onSome: (config) => config.command?.plan?.template ?? null,
-      },
-    );
-  } catch {
-    return null;
-  }
+  return mode === "plan"
+    ? `${DEFAULT_PLAN_INSTRUCTIONS}\n\n${notePrompt}`
+    : notePrompt;
 }
 
 /** Resolve the repository checkout in which OpenCode should run. */
@@ -172,16 +105,6 @@ export function opencodeNoteDirectory(entry: NoteEntry): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-/** Extract the plan command template from a resolved config payload. */
-export function planCommandTemplate(
-  config: OpenCodeConfigInput,
-): string | null {
-  return Option.match(Schema.decodeUnknownOption(OpenCodeConfig)(config), {
-    onNone: () => null,
-    onSome: (decoded) => decoded.command?.plan?.template ?? null,
-  });
 }
 
 function projectsDisplayPath(entry: NoteEntry): string {

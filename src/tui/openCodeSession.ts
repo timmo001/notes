@@ -9,8 +9,6 @@ export type OpenCodeSessionMode = "default" | "plan";
 export interface OpenCodeSessionOptions {
   /** Directory in which OpenCode should run. */
   readonly cwd?: string;
-  /** Which OpenCode agent mode to use. */
-  readonly mode?: OpenCodeSessionMode;
   /** Optional prompt to pass to OpenCode. */
   readonly prompt?: string;
   /** Callback to run after the TUI resumes. */
@@ -42,8 +40,7 @@ export function openCodeSessionLabel(mode: OpenCodeSessionMode): string {
 }
 
 function openCodeArgs(options: OpenCodeSessionOptions): string[] {
-  const args =
-    options.mode === "plan" ? ["opencode", "--agent", "plan"] : ["opencode"];
+  const args = ["opencode2"];
 
   if (options.prompt !== undefined) args.push("--prompt", options.prompt);
 
