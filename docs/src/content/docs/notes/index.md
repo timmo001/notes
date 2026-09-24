@@ -71,6 +71,8 @@ priority: medium
 
 `name`, `description`, `tags`, and `priority` are used for listings. Writes validate the frontmatter and refresh `date:` automatically.
 
+The body is free-form Markdown. A few paragraphs with no headings is a perfectly good note.
+
 ## Safety
 
 Read, write, and delete operations are restricted to physical Markdown files under `projects/{owner}/{repo}`. Symlinks, special files, malformed project identities, and paths elsewhere in the vault are rejected. Writes use atomic replacement, and draft creation never overwrites an existing filename.

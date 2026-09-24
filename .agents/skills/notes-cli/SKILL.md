@@ -11,6 +11,8 @@ Use the `notes` CLI for vault access. Run it from the target repository so conte
 
 Use the CLI when a note command, skill, or explicit user request calls for a note operation. Tool availability alone does not authorise note mutations.
 
+Note bodies are free-form Markdown written mostly for later agent reading. A few paragraphs with no headings is a valid note; keep `name`, `description`, and `tags` useful because listings rely on them.
+
 ## Workflow
 
 1. Resolve the absolute note directory from injected repository-note context or `notes context --command <command> --json`. The `--command` flag is required; use the active note command, or `notes-list` for discovery. Use the returned `notesPath`, including a resolved local scope, rather than constructing a vault path from owner and repository names. If no usable note path is returned, report that failure before writing.

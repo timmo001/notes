@@ -11,6 +11,8 @@ Use the Notes MCP tools for note files. Do not bypass them with filesystem or sh
 
 Clients may prefix raw tool names with the configured server key. For example, a server named `notes` exposes `note_read` as `notes_note_read`.
 
+Note bodies are free-form Markdown written mostly for later agent reading. A few paragraphs with no headings is a valid note; keep `name`, `description`, and `tags` useful because listings rely on them.
+
 ## Workflow
 
 1. Resolve the repository note context from an injected context block or the `notes://context` resource. Use the absolute notes path it provides rather than guessing the vault location. If neither source is available and the required path is not already verified, stop and ask the user for it.
