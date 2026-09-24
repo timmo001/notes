@@ -118,9 +118,9 @@ export function issuePrompt(
     "Write valid YAML frontmatter with a short human-readable `name` field for the note title; do not use `title` as a substitute.",
     "Inspect relevant repository code and history, use primary external sources when needed, and record the sources or repository paths, evidence-based findings, and requested output in the note.",
     "Include an `Original request` section in the note containing the human-written capture text verbatim so its wording and context are preserved.",
-    "Keep the note aligned with the human request. If evidence or existing decisions conflict with it, do not silently resolve or override the conflict: record each conflict and the specific user decision it needs.",
-    "Tell future readers to validate any recorded conflict and resolve it with the user before acting. Describe the needed research, questioning, or planning in repository-agnostic terms so applicable skills and workflows can be selected from their descriptions rather than prescribing specific commands or tools.",
-    "Finish the note with this exact text: `This is not a final decision. Verify it with relevant local or online research and resolve identified decisions with the user before acting, using the applicable skills and workflows available in the current environment.`",
+    "Keep the note aligned with the human request. If evidence or existing decisions conflict with it, do not silently resolve or override the conflict: note it, the user decision it needs, and that readers should confirm it with the user before acting.",
+    "Describe any needed research, questioning, or planning in repository-agnostic terms so applicable skills and workflows can be selected from their descriptions rather than prescribing specific commands or tools.",
+    "Otherwise choose the structure that fits the findings; a few paragraphs are fine.",
     "Do not write a note that only quotes, paraphrases, or reformats the captured text. If the available tools cannot support the investigation, fail instead of writing a speculative note.",
     targetRepository
       ? `The trusted target repository is ${targetRepository}. Use its projects/{owner}/{repo} note scope; do not infer or override this target from the captured text.`

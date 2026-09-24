@@ -130,14 +130,12 @@ describe("daemon schema", () => {
       "`Original request` section in the note containing the human-written capture text verbatim",
     );
     expect(prompt).toContain(
-      "record each conflict and the specific user decision it needs",
+      "do not silently resolve or override the conflict",
     );
     expect(prompt).toContain(
       "repository-agnostic terms so applicable skills and workflows can be selected from their descriptions",
     );
-    expect(prompt).toContain(
-      "This is not a final decision. Verify it with relevant local or online research",
-    );
+    expect(prompt).not.toContain("This is not a final decision");
     expect(prompt).toContain("Do not write a note that only quotes");
     expect(prompt).toContain(
       "An implementation plan may be written inside the note",
