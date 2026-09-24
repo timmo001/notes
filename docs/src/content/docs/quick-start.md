@@ -36,7 +36,7 @@ Writes validate and refresh frontmatter, create parent directories, commit the c
 
 ## Handoffs
 
-Handoffs are normal notes tagged `handoff`.
+Handoffs are normal notes tagged `handoff`, written as an instruction for the next session. `notes handoff` starts a draft with a title and a `Next` heading; use as much or as little structure as the work needs.
 
 ```bash
 notes handoffs

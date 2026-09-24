@@ -149,25 +149,7 @@ export function renderDraft(
 
   const body =
     kind === "handoff"
-      ? [
-          `# ${name}`,
-          "",
-          "## Summary",
-          "",
-          "",
-          "## Next Focus",
-          "",
-          "",
-          "## Suggested Skills",
-          "",
-          "",
-          "## Artifact References",
-          "",
-          "",
-          "## Open Threads",
-          "",
-          "",
-        ]
+      ? [`# ${name}`, "", "## Next", "", ""]
       : [`# ${name}`, "", ""];
 
   return `---\n${stringify(frontmatter).trimEnd()}\n---\n\n${body.join("\n")}`;
