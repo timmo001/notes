@@ -5,7 +5,6 @@
   "update": "disable",
   "snapshots": false,
   "formatter": false,
-  "lsp": false,
   "instructions": [],
   "mcp": {
     "servers": {
