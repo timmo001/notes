@@ -447,7 +447,7 @@ Panel {
       onRefreshRequested: root.refreshHeading("all")
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
-      Flickable {
+      PanelFlickable {
         id: panelFlick
         anchors.fill: parent; contentWidth: width; contentHeight: contentColumn.implicitHeight
         clip: true; boundsBehavior: Flickable.StopAtBounds
