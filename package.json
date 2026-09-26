@@ -22,7 +22,7 @@
     "@effect/platform-node": "4.0.0-rc.117",
     "@herdr/sdk": "github:timmo001/herdr-ts-sdk#b3038529e418178e950b939a0ff078e9b315f9a9",
     "@opentui/core": "^0.5.12",
-    "@timmo001/effect-gh": "github:timmo001/effect-gh#c70916d3d7bd6c1c2c1ceeb8bc36bfcb0d595c64",
+    "@timmo001/effect-gh": "github:timmo001/effect-gh#46e7efe4c888ebb62fd78ba7692e600bb0f43d05",
     "@tuiparts/core": "^0.0.6",
     "effect": "4.0.0-rc.117",
     "fuse.js": "^7.5.0",
