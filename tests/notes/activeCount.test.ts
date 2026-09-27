@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { herdrIds } from "@herdr/sdk";
+import { herdrIds } from "@timmo001/effect-herdr";
 import { activeNoteCount } from "../../src/notes/activeCount.js";
 import { renderDraft } from "../../src/notes/frontmatter.js";
 import { Notes } from "../../src/notes/services/Notes.js";

@@ -2,7 +2,7 @@ import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { Clock, Duration, Effect, Option, Schedule, Schema } from "effect";
-import { HerdrSdk, type PaneId, type TabId } from "@herdr/sdk";
+import { HerdrSdk, type PaneId, type TabId } from "@timmo001/effect-herdr";
 import { CommandExecutor } from "../services/CommandExecutor.js";
 import type { NoteEntry } from "./types.js";
 

@@ -1,4 +1,4 @@
-import { HerdrSdk } from "@herdr/sdk";
+import { HerdrSdk } from "@timmo001/effect-herdr";
 import { Effect, Layer, Option } from "effect";
 import { Config } from "../services/Config.js";
 import { Notes } from "./services/Notes.js";

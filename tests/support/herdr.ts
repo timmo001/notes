@@ -3,7 +3,7 @@ import { createServer, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Schema } from "effect";
-import { herdrSdkLayerFromOptions } from "@herdr/sdk";
+import { herdrSdkLayerFromOptions } from "@timmo001/effect-herdr";
 
 const Request = Schema.fromJsonString(
   Schema.Struct({
