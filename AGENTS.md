@@ -19,6 +19,12 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Keep portable Notes skills under `.agents/skills/`, with separate `notes-cli` and `notes-mcp` workflows. Keep OpenCode plugins, commands, guards, and integration-specific skills in dotfiles/opencode-config.
 - Repository notes live under `projects/{owner}/{repo}`. When no repository can be resolved, use the local scope under `projects/local/{project}`; automated captures use `projects/local/captures`.
 
+## Omarchy Plugin
+
+- `omarchy-plugin/` is the source of truth for the Notes Omarchy plugin. Edit it here, not in the published `timmo001/omarchy-notes` checkout, a dotfiles submodule, or the live plugin directory.
+- Pushing plugin changes to Notes `main` runs `.github/workflows/publish-omarchy-plugin.yml`, which validates and publishes `omarchy-plugin/` to `timmo001/omarchy-notes`. Do not push to the published repository directly.
+- Validate plugin changes with `omarchy plugin validate .` and the QML lint command in `omarchy-plugin/README.md`, run from `omarchy-plugin/`.
+
 ## Skill Ownership And Updates
 
 - This repository owns `.agents/skills/notes-cli/SKILL.md` and `.agents/skills/notes-mcp/SKILL.md`.
