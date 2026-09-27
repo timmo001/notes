@@ -31,8 +31,7 @@ jobs:
       !github.event.release.prerelease
     permissions:
       contents: write
-    uses: >- # master
-      timmo001/workflows/.github/workflows/release-bun-cli-linux.yml@89463002ce025fb5be762b11083f1f26f58d76b1
+    uses: timmo001/workflows/.github/workflows/release-bun-cli-linux.yml@0f94251168336b74fadf271a955d24d1de4de343 # 20260927.1
     with:
       binary-name: notes
       package-name: repo-notes
@@ -83,7 +82,7 @@ jobs:
   publish-arch:
     name: Publish Arch package (repo-notes-bin)
     needs: prepare-aur
-    uses: timmo001/workflows/.github/workflows/build-arch-package.yml@bb5682350cf340c8a9e95247322cb6ccf9bde8e3 # yamllint disable-line rule:line-length
+    uses: timmo001/workflows/.github/workflows/build-arch-package.yml@0f94251168336b74fadf271a955d24d1de4de343 # 20260927.1
     with:
       package-name: repo-notes-bin
       package-files-artifact-name: aur-repo-notes-bin-${{ github.run_id }}-${{ github.run_attempt }}
@@ -94,8 +93,7 @@ jobs:
   publish-aur:
     name: Publish AUR (repo-notes-bin)
     needs: prepare-aur
-    uses: >- # master
-      timmo001/workflows/.github/workflows/publish-aur.yml@a4091353aaeb94959d5d667f11adc12e2f76ce04
+    uses: timmo001/workflows/.github/workflows/publish-aur.yml@0f94251168336b74fadf271a955d24d1de4de343 # 20260927.1
     with:
       package-name: repo-notes-bin
       artifact-name: aur-repo-notes-bin-${{ github.run_id }}-${{ github.run_attempt }}
