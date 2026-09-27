@@ -96,7 +96,9 @@ Context remains visible while the terminal is attached even if another desktop
 window has focus. An empty provider or a failed context/list command hides the
 workspace section and leaves the muted Notes icon without a number. An attached
 project with zero notes keeps its workspace heading and muted icon. The icon
-and count use the same 10px font size as the Git widget.
+and count use the same 10px font size as the Git widget. For the active
+workspace, high-priority notes turn them amber and critical notes use the bar's
+urgent colour. Critical takes precedence when both are present.
 
 Type in a list or action view to filter or search. Use Up and Down to move,
 Enter to select, Escape to clear the current filter and then go back, and Tab

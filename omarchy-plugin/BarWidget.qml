@@ -28,6 +28,16 @@ BarWidget {
   readonly property string workspaceContextFile: setting("workspaceContextFile", "")
   readonly property string workspaceContextRefreshCommand: setting("workspaceContextRefreshCommand", "")
   readonly property bool hasNotes: (notesService?.activeNotes?.count ?? 0) > 0
+  readonly property color displayColor: {
+    if (!hasNotes) return "#9b9b9b"
+    var entries = notesService.activeNotes.entries
+    var hasHigh = false
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].priority === "critical") return bar ? bar.urgent : Color.urgent
+      if (entries[i].priority === "high") hasHigh = true
+    }
+    return hasHigh ? "#e5c07b" : "#b0bec5"
+  }
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property bool popoutSwitchClosing: panelLoader.item
     ? panelLoader.item.popoutSwitchClosing === true : false
@@ -121,7 +131,7 @@ BarWidget {
     bar: root.bar
     fontSize: 10
     text: "󰠮" + (root.hasNotes ? " " + root.notesService.activeNotes.count : "")
-    foreground: root.hasNotes ? "#b0bec5" : "#9b9b9b"
+    foreground: root.displayColor
     tooltipText: root.notesService?.activeNotes
       ? "Notes: " + root.notesService.activeNotes.count + " (including handoffs)\n" + root.notesService.activeNotes.cwd
       : "Notes"
