@@ -1,5 +1,5 @@
 import { Effect, Redacted, Schedule, Schema, Stream } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { resolve } from "node:path";
 import type { DaemonConfig } from "../schema.js";
 

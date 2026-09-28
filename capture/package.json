@@ -19,7 +19,7 @@
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.2",
     "astro": "^7.3.3",
-    "effect": "4.0.0-rc.117",
+    "effect": "4.0.0-rc.118",
     "jose": "^6.2.12"
   },
   "devDependencies": {

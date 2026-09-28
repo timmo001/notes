@@ -11,7 +11,7 @@ import {
   Stream,
 } from "effect";
 import { TestClock } from "effect/testing";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { OpenCodeClient } from "../../../src/daemon/services/OpenCodeClient.js";
 import { DaemonConfig } from "../../../src/daemon/schema.js";
 

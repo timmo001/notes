@@ -1,5 +1,5 @@
 import { Cause, Context, Effect, Schema } from "effect";
-import { McpSchema, McpServer, Tool } from "effect/unstable/ai";
+import { McpSchema, McpServer, Tool } from "effect/ai";
 
 /** MCP tool annotations for a read-only, closed-world, idempotent tool. */
 export const READONLY_HINTS = {

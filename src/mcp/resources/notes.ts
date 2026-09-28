@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect";
-import { McpSchema, McpServer } from "effect/unstable/ai";
+import { McpSchema, McpServer } from "effect/ai";
 import { renderHelp } from "../../cli/help.js";
 import { Notes } from "../../notes/services/Notes.js";
 
