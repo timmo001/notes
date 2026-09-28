@@ -357,6 +357,17 @@ describe("runProcessingPass", () => {
     const unexpected = new Error("private implementation detail");
     const errors: unknown[][] = [];
 
+    const client = OpenCodeClient.of({
+      status: Effect.void,
+      process: () => Effect.die("process should be replaced"),
+    });
+
+    // SAFETY: Override the mock at runtime to exercise a failure outside the
+    // service's declared error channel without pretending it is a typed error.
+    Object.defineProperty(client, "process", {
+      value: () => Effect.fail(unexpected),
+    });
+
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
         list: () => Effect.succeed([current]),
@@ -373,12 +384,7 @@ describe("runProcessingPass", () => {
           }),
         complete: () => Effect.die("complete should not run"),
       }),
-      Layer.succeed(OpenCodeClient, {
-        status: Effect.void,
-        // SAFETY: This deliberately violates the service error contract to test
-        // that the coordinator does not expose an unexpected failure.
-        process: () => Effect.fail(unexpected as never),
-      }),
+      Layer.succeed(OpenCodeClient, client),
     );
 
     const originalError = console.error;
