@@ -5,12 +5,12 @@
     "": {
       "name": "notes",
       "dependencies": {
-        "@effect/platform-node": "4.0.0-rc.117",
+        "@effect/platform-node": "4.0.0-rc.118",
         "@opentui/core": "^0.5.12",
         "@timmo001/effect-gh": "0.1.0",
         "@timmo001/effect-herdr": "0.8.2-timmo001.1",
         "@tuiparts/core": "^0.0.6",
-        "effect": "4.0.0-rc.117",
+        "effect": "4.0.0-rc.118",
         "fuse.js": "^7.5.0",
         "proper-lockfile": "^4.1.2",
         "yaml": "^2.9.1",
@@ -32,13 +32,13 @@
     "@effect/tsgo",
   ],
   "overrides": {
-    "@effect/platform-node-shared": "4.0.0-rc.117",
-    "effect": "4.0.0-rc.117",
+    "@effect/platform-node-shared": "4.0.0-rc.118",
+    "effect": "4.0.0-rc.118",
   },
   "packages": {
-    "@effect/platform-node": ["@effect/platform-node@4.0.0-rc.117", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.117", "undici": "^8.10.2" }, "peerDependencies": { "effect": "^4.0.0-rc.117", "redis": ">=5.0.0 <7.0.0" } }, "sha512-WbPcvQDkqXFnCeG6LohJ9eVNapCDhZbCpezhYKxm0IsZEk7swakRh7RkC1t2CXzd3hGmszTv2k9e/pXyZuL+wQ=="],
+    "@effect/platform-node": ["@effect/platform-node@4.0.0-rc.118", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.118", "undici": "^8.11.2" }, "peerDependencies": { "effect": "^4.0.0-rc.118", "redis": ">=5.0.0 <7.0.0" } }, "sha512-qdAxPZ+5bKxVnzkwziqcHZTHRHz2hyfFX6NhwEmm75CBpmaIzXIZR2LRqGd1/8eI3J3cOrXcAYzByhln7T1/EA=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-rc.117", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.3" }, "peerDependencies": { "effect": "^4.0.0-rc.117" } }, "sha512-GyRkEfLBG49MwJe+/XDPiXYcQ44RA9p2z0AurlsWhR1cd1PqOUMEZU1pORL+/R5hR8aH6ZuqoJYD8lAc6h+wlA=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-rc.118", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.22.0" }, "peerDependencies": { "effect": "^4.0.0-rc.118" } }, "sha512-pNbmIlxbAUxAthUNsp2xm1NLG9kxoYecsPkoYl9mNF2oxPcKDxAvkOar7tYnLSUpXJeATm4pxYVipdZjQfqO4Q=="],
 
     "@effect/tsgo": ["@effect/tsgo@0.46.1", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.46.1", "@effect/tsgo-darwin-x64": "0.46.1", "@effect/tsgo-linux-arm": "0.46.1", "@effect/tsgo-linux-arm64": "0.46.1", "@effect/tsgo-linux-x64": "0.46.1", "@effect/tsgo-win32-arm64": "0.46.1", "@effect/tsgo-win32-x64": "0.46.1" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-DMcBCg5nWLufejRlyqFEkXmbtaLUJ56NKny6L1LTtimvz0U3VNj9H6ZUXV4WeeWvJzVyL0y7G2wsCBAFUgy1jw=="],
 
@@ -206,7 +206,7 @@
 
     "diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
-    "effect": ["effect@4.0.0-rc.117", "", {}, "sha512-UUyi9QiOW4nySFIBM3KnYbNMd9EZliOdKfBcyLD0mPMPheO2fkuXS5y0opjWc9oqzlJxPQICEGm8gGw3kh9j/w=="],
+    "effect": ["effect@4.0.0-rc.118", "", {}, "sha512-hxhpCd+swzrtu9lnyPpEFre2ODQzJ9qxgyL1oHIEY8NKnW4PxTbM1XzplMZXiAsLD62HO+KJc41Nqxr9T791ZQ=="],
 
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
