@@ -1,6 +1,6 @@
 import { Effect, Layer, Logger } from "effect";
 import { NodeStdio } from "@effect/platform-node";
-import { McpProtocol, McpServer } from "effect/unstable/ai";
+import { McpProtocol, McpServer } from "effect/ai";
 import { Notifier } from "./services/Notifier.js";
 import { registerNotesResources } from "./resources/notes.js";
 import { registerNotesTools } from "./tools/notes.js";

@@ -1,7 +1,7 @@
 import { Cause, Console, Effect, Layer, Schema } from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { herdrSdkLayer } from "@timmo001/effect-herdr";
-import { CliError, Command, Flag } from "effect/unstable/cli";
+import { CliError, Command, Flag } from "effect/cli";
 import { basename } from "node:path";
 import { detectAgentTargets, openNoteAgent } from "./notes/agentTargets.js";
 import { activeNoteCount } from "./notes/activeCount.js";

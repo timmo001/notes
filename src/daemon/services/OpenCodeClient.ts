@@ -7,7 +7,7 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import type { DaemonConfig, OpenCodeModel } from "../schema.js";
 import {
   createOpenCodeSession,
