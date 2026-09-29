@@ -1,22 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
-  closeSync,
-  constants,
-  existsSync,
-  fstatSync,
-  fsyncSync,
-  linkSync,
-  lstatSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  statSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
-import {
   basename,
   dirname,
   isAbsolute,
@@ -25,11 +8,19 @@ import {
   resolve,
   sep,
 } from "node:path";
-import { Option, Schema } from "effect";
+import { Effect, FileSystem, Match, Option, Predicate, Schema } from "effect";
+import type { PlatformError } from "effect";
 import { isSafeRepositorySegment } from "../git/remotes.js";
 import { expandHomePath } from "../lib/paths.js";
 
-const NO_FOLLOW = constants.O_NOFOLLOW ?? 0;
+/** Domain error for note path validation and file I/O failures. */
+export class NoteFileError extends Schema.TaggedError<NoteFileError>()(
+  "NoteFileError",
+  { message: Schema.String },
+) {}
+
+/** What a path currently is, without following a leaf symlink. */
+export type PathKind = "missing" | "symlink" | "directory" | "file" | "other";
 
 export interface ReadNoteFileResult {
   readonly path: string;
@@ -45,11 +36,16 @@ interface NotePathParts {
   readonly filename: string;
 }
 
-const ErrorCode = Schema.Struct({ code: Schema.optional(Schema.String) });
+const READ_CHUNK_BYTES = 64 * 1024;
 
-function errorCode<ErrorValue>(error: ErrorValue): string | undefined {
-  return Option.getOrUndefined(Schema.decodeUnknownOption(ErrorCode)(error))
-    ?.code;
+const failWith = (message: string) => new NoteFileError({ message });
+
+function isNotFound(error: PlatformError.PlatformError): boolean {
+  return Predicate.isTagged(error.reason, "NotFound");
+}
+
+function isAlreadyExists(error: PlatformError.PlatformError): boolean {
+  return Predicate.isTagged(error.reason, "AlreadyExists");
 }
 
 function isInsideDirectory(parent: string, child: string): boolean {
@@ -61,25 +57,32 @@ function isInsideDirectory(parent: string, child: string): boolean {
   );
 }
 
-function notePathParts(projectsRoot: string, input: string): NotePathParts {
+function notePathParts(
+  projectsRoot: string,
+  input: string,
+): Effect.Effect<NotePathParts, NoteFileError> {
   const expanded = expandHomePath(input);
 
   if (!isAbsolute(expanded))
-    throw new Error(`Note path must be absolute: ${input}`);
+    return Effect.fail(failWith(`Note path must be absolute: ${input}`));
 
   const root = resolve(projectsRoot);
   const path = resolve(expanded);
   const relativePath = relative(root, path);
 
   if (!isInsideDirectory(root, path)) {
-    throw new Error(`Path is outside the repository notes directory: ${input}`);
+    return Effect.fail(
+      failWith(`Path is outside the repository notes directory: ${input}`),
+    );
   }
 
   const parts = relativePath.split(sep);
 
   if (parts.length !== 3) {
-    throw new Error(
-      `Note path must match projects/<owner>/<repo>/<note>.md: ${input}`,
+    return Effect.fail(
+      failWith(
+        `Note path must match projects/<owner>/<repo>/<note>.md: ${input}`,
+      ),
     );
   }
 
@@ -95,278 +98,330 @@ function notePathParts(projectsRoot: string, input: string): NotePathParts {
     !filename.endsWith(".md") ||
     filename === ".md"
   ) {
-    throw new Error(`Invalid repository note path: ${input}`);
+    return Effect.fail(failWith(`Invalid repository note path: ${input}`));
   }
 
-  return { path, owner, repo, filename };
+  return Effect.succeed({ path, owner, repo, filename });
 }
 
-function assertDirectory(path: string): void {
-  const stat = lstatSync(path);
+/** Classify a path without following a leaf symlink. */
+export const inspectPath = Effect.fn("notes.files.inspectPath")(function* (
+  path: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
 
-  if (stat.isSymbolicLink() || !stat.isDirectory()) {
-    throw new Error(`Note directory is not a physical directory: ${path}`);
+  const isSymlink = yield* fs.readLink(path).pipe(
+    Effect.as(true),
+    Effect.orElseSucceed(() => false),
+  );
+
+  if (isSymlink) return { kind: "symlink" as const };
+
+  const info = yield* fs.stat(path).pipe(
+    Effect.asSome,
+    Effect.catchIf(isNotFound, () => Effect.succeedNone),
+  );
+
+  if (Option.isNone(info)) return { kind: "missing" as const };
+
+  const kind = Match.value(info.value.type).pipe(
+    Match.when("Directory", (): PathKind => "directory"),
+    Match.when("File", (): PathKind => "file"),
+    Match.orElse((): PathKind => "other"),
+  );
+
+  return { kind, info: info.value };
+});
+
+const assertDirectory = Effect.fn("notes.files.assertDirectory")(function* (
+  path: string,
+) {
+  const { kind } = yield* inspectPath(path);
+
+  if (kind !== "directory") {
+    return yield* failWith(
+      `Note directory is not a physical directory: ${path}`,
+    );
   }
-}
-
-function lstatIfPresent(path: string) {
-  try {
-    return lstatSync(path);
-  } catch (error) {
-    if (errorCode(error) === "ENOENT") return undefined;
-    throw error;
-  }
-}
+});
 
 /** Create the vault root when needed and reject a symlinked root. */
-export function ensurePhysicalVaultRoot(notesRoot: string): string {
+export const ensurePhysicalVaultRoot = Effect.fn(
+  "notes.files.ensurePhysicalVaultRoot",
+)(function* (notesRoot: string) {
+  const fs = yield* FileSystem.FileSystem;
   const path = resolve(notesRoot);
 
-  if (!lstatIfPresent(path)) mkdirSync(path, { recursive: true });
-  assertDirectory(path);
+  if ((yield* inspectPath(path)).kind === "missing")
+    yield* fs.makeDirectory(path, { recursive: true });
+  yield* assertDirectory(path);
 
   return path;
-}
+});
 
-function ensurePhysicalParents(
-  projectsRoot: string,
-  owner: string,
-  repo: string,
-  create: boolean,
-): string {
-  const root = resolve(projectsRoot);
-  const notesRoot = dirname(root);
-  assertDirectory(notesRoot);
+const ensurePhysicalParents = Effect.fn("notes.files.ensurePhysicalParents")(
+  function* (
+    projectsRoot: string,
+    owner: string,
+    repo: string,
+    create: boolean,
+  ) {
+    const fs = yield* FileSystem.FileSystem;
+    const root = resolve(projectsRoot);
+    const notesRoot = dirname(root);
+    yield* assertDirectory(notesRoot);
 
-  for (const path of [root, join(root, owner), join(root, owner, repo)]) {
-    if (!lstatIfPresent(path)) {
-      if (!create) throw new Error(`Note directory does not exist: ${path}`);
-      mkdirSync(path);
+    for (const path of [root, join(root, owner), join(root, owner, repo)]) {
+      if ((yield* inspectPath(path)).kind === "missing") {
+        if (!create)
+          return yield* failWith(`Note directory does not exist: ${path}`);
+        yield* fs.makeDirectory(path);
+      }
+
+      yield* assertDirectory(path);
     }
 
-    assertDirectory(path);
-  }
+    const physicalRoot = yield* fs.realPath(root);
+    const parent = join(root, owner, repo);
+    const physicalParent = yield* fs.realPath(parent);
 
-  const physicalRoot = realpathSync(root);
-  const parent = join(root, owner, repo);
-  const physicalParent = realpathSync(parent);
+    if (!isInsideDirectory(physicalRoot, physicalParent)) {
+      return yield* failWith(
+        `Note directory resolves outside projects: ${parent}`,
+      );
+    }
 
-  if (!isInsideDirectory(physicalRoot, physicalParent)) {
-    throw new Error(`Note directory resolves outside projects: ${parent}`);
-  }
+    return parent;
+  },
+);
 
-  return parent;
-}
+const assertRegularTarget = Effect.fn("notes.files.assertRegularTarget")(
+  function* (path: string, allowMissing: boolean) {
+    const { kind } = yield* inspectPath(path);
 
-function assertRegularTarget(path: string, allowMissing: boolean): void {
-  const stat = lstatIfPresent(path);
+    if (kind === "missing") {
+      if (allowMissing) return;
 
-  if (!stat) {
-    if (allowMissing) return;
-    throw new Error(`Note file does not exist: ${path}`);
-  }
+      return yield* failWith(`Note file does not exist: ${path}`);
+    }
 
-  if (stat.isSymbolicLink() || !stat.isFile()) {
-    throw new Error(`Note path is not a physical regular file: ${path}`);
-  }
-}
+    if (kind !== "file") {
+      return yield* failWith(
+        `Note path is not a physical regular file: ${path}`,
+      );
+    }
+  },
+);
 
 /** Resolve and validate one physical repository notes directory. */
-export function resolveRepositoryNotesDirectory(
-  projectsRoot: string,
-  input: string,
-): string {
+export const resolveRepositoryNotesDirectory = Effect.fn(
+  "notes.files.resolveRepositoryNotesDirectory",
+)(function* (projectsRoot: string, input: string) {
   const root = resolve(projectsRoot);
   const path = resolve(input);
   const parts = relative(root, path).split(sep);
+  const [owner, repo] = parts;
 
   if (
     !isInsideDirectory(root, path) ||
     parts.length !== 2 ||
-    !parts[0] ||
-    !parts[1] ||
-    !isSafeRepositorySegment(parts[0]) ||
-    !isSafeRepositorySegment(parts[1])
+    !owner ||
+    !repo ||
+    !isSafeRepositorySegment(owner) ||
+    !isSafeRepositorySegment(repo)
   ) {
-    throw new Error(`Invalid repository notes directory: ${input}`);
+    return yield* failWith(`Invalid repository notes directory: ${input}`);
   }
 
-  return ensurePhysicalParents(root, parts[0], parts[1], false);
-}
+  return yield* ensurePhysicalParents(root, owner, repo, false);
+});
 
-/** Resolve a valid note path whether or not its leaf currently exists. */
-export function resolveOptionalNotePath(
-  projectsRoot: string,
-  input: string,
-): string {
-  return prepareNotePath(projectsRoot, input, {
-    createParents: false,
-    allowMissing: true,
-  });
-}
-
-function prepareNotePath(
+const prepareNotePath = Effect.fn("notes.files.prepareNotePath")(function* (
   projectsRoot: string,
   input: string,
   options: { readonly createParents: boolean; readonly allowMissing: boolean },
-): string {
-  const parts = notePathParts(projectsRoot, input);
-  ensurePhysicalParents(
+) {
+  const parts = yield* notePathParts(projectsRoot, input);
+
+  yield* ensurePhysicalParents(
     projectsRoot,
     parts.owner,
     parts.repo,
     options.createParents,
   );
-  assertRegularTarget(parts.path, options.allowMissing);
+  yield* assertRegularTarget(parts.path, options.allowMissing);
 
   return parts.path;
-}
+});
+
+/** Resolve a valid note path whether or not its leaf currently exists. */
+export const resolveOptionalNotePath = (projectsRoot: string, input: string) =>
+  prepareNotePath(projectsRoot, input, {
+    createParents: false,
+    allowMissing: true,
+  });
 
 export function hashNoteContent(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
 /** Resolve and validate a note path for an existing physical file. */
-export function resolveExistingNotePath(
-  projectsRoot: string,
-  input: string,
-): string {
-  return prepareNotePath(projectsRoot, input, {
+export const resolveExistingNotePath = (projectsRoot: string, input: string) =>
+  prepareNotePath(projectsRoot, input, {
     createParents: false,
     allowMissing: false,
   });
-}
 
 /** Resolve and validate a note path that may be created. */
-export function resolveWritableNotePath(
-  projectsRoot: string,
-  input: string,
-): string {
-  return prepareNotePath(projectsRoot, input, {
+export const resolveWritableNotePath = (projectsRoot: string, input: string) =>
+  prepareNotePath(projectsRoot, input, {
     createParents: true,
     allowMissing: true,
   });
-}
 
-/** Read a regular note without following a leaf symlink. */
-export function readNoteFile(
+const readAll = Effect.fn("notes.files.readAll")(function* (
+  file: FileSystem.File,
+) {
+  const chunks: Uint8Array[] = [];
+
+  for (;;) {
+    const chunk = yield* file.readAlloc(READ_CHUNK_BYTES);
+
+    if (Option.isNone(chunk)) break;
+    chunks.push(chunk.value);
+  }
+
+  return new TextDecoder().decode(Buffer.concat(chunks));
+});
+
+/**
+ * Read a regular note, rejecting a leaf that was swapped for another file
+ * between validation and open.
+ */
+export const readNoteFile = Effect.fn("notes.files.readNoteFile")(function* (
   projectsRoot: string,
   input: string,
-): ReadNoteFileResult {
-  const path = resolveExistingNotePath(projectsRoot, input);
-  const fd = openSync(path, constants.O_RDONLY | NO_FOLLOW);
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* resolveExistingNotePath(projectsRoot, input);
+  const before = yield* fs.stat(path);
 
-  try {
-    const stat = fstatSync(fd);
+  return yield* Effect.scoped(
+    Effect.gen(function* () {
+      const file = yield* fs.open(path, { flag: "r" });
+      const stat = yield* file.stat;
 
-    if (!stat.isFile())
-      throw new Error(`Note path is not a regular file: ${path}`);
-    const content = readFileSync(fd, "utf8");
+      if (
+        stat.type !== "File" ||
+        stat.dev !== before.dev ||
+        Option.getOrUndefined(stat.ino) !== Option.getOrUndefined(before.ino)
+      ) {
+        return yield* failWith(`Note path is not a regular file: ${path}`);
+      }
 
-    return {
-      path,
-      content,
-      hash: hashNoteContent(content),
-      mtime: stat.mtimeMs / 1000,
-    };
-  } finally {
-    closeSync(fd);
-  }
-}
+      const content = yield* readAll(file);
 
-function writeTemporaryFile(
-  path: string,
-  content: string,
-  mode: number,
-): string {
-  const temporary = join(
-    dirname(path),
-    `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`,
+      return {
+        path,
+        content,
+        hash: hashNoteContent(content),
+        mtime: Option.match(stat.mtime, {
+          onNone: () => 0,
+          onSome: (mtime) => mtime.getTime() / 1000,
+        }),
+      } satisfies ReadNoteFileResult;
+    }),
   );
+});
 
-  const fd = openSync(
-    temporary,
-    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | NO_FOLLOW,
-    mode,
-  );
+const writeTemporaryFile = Effect.fn("notes.files.writeTemporaryFile")(
+  function* (path: string, content: string, mode: number) {
+    const fs = yield* FileSystem.FileSystem;
 
-  try {
-    writeFileSync(fd, content, "utf8");
-    fsyncSync(fd);
-  } catch (error) {
-    closeSync(fd);
-    unlinkSync(temporary);
-    throw error;
-  }
+    const temporary = join(
+      dirname(path),
+      `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`,
+    );
 
-  closeSync(fd);
+    yield* Effect.scoped(
+      Effect.gen(function* () {
+        const file = yield* fs.open(temporary, { flag: "wx", mode });
+        yield* file.writeAll(new TextEncoder().encode(content));
+        yield* file.sync;
+      }),
+    ).pipe(Effect.tapError(() => Effect.ignore(fs.remove(temporary))));
 
-  return temporary;
-}
+    return temporary;
+  },
+);
 
 /** Atomically replace or create a validated note file. */
-export function atomicWriteNoteFile(
-  projectsRoot: string,
-  input: string,
-  content: string,
-): string {
-  const path = resolveWritableNotePath(projectsRoot, input);
-  const mode = existsSync(path) ? statSync(path).mode & 0o777 : 0o666;
-  const temporary = writeTemporaryFile(path, content, mode);
+export const atomicWriteNoteFile = Effect.fn("notes.files.atomicWriteNoteFile")(
+  function* (projectsRoot: string, input: string, content: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* resolveWritableNotePath(projectsRoot, input);
 
-  try {
-    resolveWritableNotePath(projectsRoot, path);
-    renameSync(temporary, path);
-  } catch (error) {
-    if (existsSync(temporary)) unlinkSync(temporary);
-    throw error;
-  }
+    const mode = (yield* fs.exists(path))
+      ? (yield* fs.stat(path)).mode & 0o777
+      : 0o666;
 
-  return path;
-}
+    const temporary = yield* writeTemporaryFile(path, content, mode);
+
+    yield* Effect.gen(function* () {
+      yield* resolveWritableNotePath(projectsRoot, path);
+      yield* fs.rename(temporary, path);
+    }).pipe(Effect.tapError(() => Effect.ignore(fs.remove(temporary))));
+
+    return path;
+  },
+);
 
 /** Create a complete draft without ever replacing an existing filename. */
-export function createExclusiveNoteFile(
+export const createExclusiveNoteFile = Effect.fn(
+  "notes.files.createExclusiveNoteFile",
+)(function* (
   projectsRoot: string,
   owner: string,
   repo: string,
   slug: string,
   content: string,
-): string {
+) {
+  const fs = yield* FileSystem.FileSystem;
+
   if (!isSafeRepositorySegment(owner) || !isSafeRepositorySegment(repo)) {
-    throw new Error(`Invalid repository identity: ${owner}/${repo}`);
+    return yield* failWith(`Invalid repository identity: ${owner}/${repo}`);
   }
 
-  ensurePhysicalParents(projectsRoot, owner, repo, true);
+  yield* ensurePhysicalParents(projectsRoot, owner, repo, true);
   const directory = join(projectsRoot, owner, repo);
 
   for (let suffix = 1; ; suffix += 1) {
     const filename = suffix === 1 ? `${slug}.md` : `${slug}-${suffix}.md`;
 
-    const path = resolveWritableNotePath(
+    const path = yield* resolveWritableNotePath(
       projectsRoot,
       join(directory, filename),
     );
 
-    const temporary = writeTemporaryFile(path, content, 0o666);
+    const temporary = yield* writeTemporaryFile(path, content, 0o666);
 
-    try {
-      linkSync(temporary, path);
-      unlinkSync(temporary);
+    const linked = yield* fs.link(temporary, path).pipe(
+      Effect.as(true),
+      Effect.catchIf(isAlreadyExists, () => Effect.succeed(false)),
+      Effect.ensuring(Effect.ignore(fs.remove(temporary))),
+    );
 
-      return path;
-    } catch (error) {
-      unlinkSync(temporary);
-
-      if (errorCode(error) !== "EEXIST") throw error;
-    }
+    if (linked) return path;
   }
-}
+});
 
 /** Delete a validated physical note file. */
-export function deleteNoteFile(projectsRoot: string, input: string): string {
-  const path = resolveExistingNotePath(projectsRoot, input);
-  unlinkSync(path);
+export const deleteNoteFile = Effect.fn("notes.files.deleteNoteFile")(
+  function* (projectsRoot: string, input: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* resolveExistingNotePath(projectsRoot, input);
+    yield* fs.remove(path);
 
-  return path;
-}
+    return path;
+  },
+);

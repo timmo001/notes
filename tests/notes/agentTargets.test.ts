@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { rejects } from "node:assert/strict";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { Effect } from "effect";
 import {
@@ -14,6 +13,13 @@ import {
 import type { NoteEntry } from "../../src/notes/types.js";
 import { CommandExecutor } from "../../src/services/CommandExecutor.js";
 import { herdrFixture } from "../support/herdr.js";
+import {
+  chmodPath,
+  createTempDirectory,
+  removePath,
+  runScoped,
+  writeTextFile,
+} from "../support/platform.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -63,15 +69,17 @@ afterEach(async () => {
   for (const server of fixtures.splice(0)) await server.close();
 
   for (const directory of temporaryDirectories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
+    await removePath(directory);
 });
 
 describe("agent targets", () => {
   test("preserves installed target order, labels and executable overrides", async () => {
     const server = await fixture();
 
-    const targets = await Effect.runPromise(
-      detectAgentTargets(() => true).pipe(Effect.provide(server.layer)),
+    const targets = await runScoped(
+      detectAgentTargets(() => Effect.succeed(true)).pipe(
+        Effect.provide(server.layer),
+      ),
     );
 
     expect(targets).toEqual([
@@ -87,14 +95,14 @@ describe("agent targets", () => {
   });
 
   test("does not advertise OpenCode 2 for a non-executable file", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "notes-agent-target-"));
+    const directory = await createTempDirectory("notes-agent-target-");
     temporaryDirectories.push(directory);
     const executable = join(directory, "opencode2");
-    writeFileSync(executable, "#!/bin/sh\n");
-    chmodSync(executable, 0o644);
+    await writeTextFile(executable, "#!/bin/sh\n");
+    await chmodPath(executable, 0o644);
     const server = await fixture();
 
-    const targets = await Effect.runPromise(
+    const targets = await runScoped(
       detectAgentTargets(() => isRegularExecutable(executable)).pipe(
         Effect.provide(server.layer),
       ),
@@ -106,9 +114,9 @@ describe("agent targets", () => {
   test("rejects an unavailable wrapper before contacting Herdr", async () => {
     const server = await fixture();
     await rejects(
-      Effect.runPromise(
+      runScoped(
         openNoteAgent(entry, "body", opencode2, {
-          executableAvailable: () => false,
+          executableAvailable: () => Effect.succeed(false),
         }).pipe(
           Effect.provide(server.layer),
           Effect.provideService(CommandExecutor, executor),
@@ -120,26 +128,24 @@ describe("agent targets", () => {
   });
 
   test("uses an optional repository picker name for the workspace label", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "notes-agent-target-"));
+    const directory = await createTempDirectory("notes-agent-target-");
     temporaryDirectories.push(directory);
     const pickerCache = join(directory, "repo-picker.json");
-    writeFileSync(
+    await writeTextFile(
       pickerCache,
       JSON.stringify([{ name: "[HA] Frontend", path: "/repos/frontend" }]),
     );
     expect(
-      await Effect.runPromise(
+      await runScoped(
         workspaceLabelForDirectory("/repos/frontend", pickerCache),
       ),
     ).toBe("[HA] Frontend");
     expect(
-      await Effect.runPromise(
-        workspaceLabelForDirectory("/repos/notes", pickerCache),
-      ),
+      await runScoped(workspaceLabelForDirectory("/repos/notes", pickerCache)),
     ).toBe("notes");
-    writeFileSync(pickerCache, "invalid");
+    await writeTextFile(pickerCache, "invalid");
     expect(
-      await Effect.runPromise(
+      await runScoped(
         workspaceLabelForDirectory("/repos/frontend", pickerCache),
       ),
     ).toBe("frontend");
@@ -151,7 +157,7 @@ describe("agent targets", () => {
       detectionFailures: 1,
     });
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       openNoteAgent(entry, "# Full body", cursor).pipe(
         Effect.provide(server.layer),
         Effect.provideService(CommandExecutor, executor),
@@ -209,7 +215,7 @@ describe("agent targets", () => {
 
   test("creates and renames a workspace's initial tab for a plan agent", async () => {
     const server = await fixture({ newWorkspace: true });
-    await Effect.runPromise(
+    await runScoped(
       openNoteAgent(entry, "body", cursor, { mode: "plan" }).pipe(
         Effect.provide(server.layer),
         Effect.provideService(CommandExecutor, executor),
@@ -234,10 +240,10 @@ describe("agent targets", () => {
 
   test("launches the exact OpenCode 2 wrapper and verifies foreground argv before prompting", async () => {
     const server = await fixture();
-    await Effect.runPromise(
+    await runScoped(
       openNoteAgent(entry, "body", opencode2, {
         mode: "plan",
-        executableAvailable: () => true,
+        executableAvailable: () => Effect.succeed(true),
       }).pipe(
         Effect.provide(server.layer),
         Effect.provideService(CommandExecutor, executor),
@@ -260,9 +266,9 @@ describe("agent targets", () => {
   test("does not prompt when foreground argv is the wrong runtime", async () => {
     const server = await fixture({ runtime: "/opt/opencode2-other" });
     await rejects(
-      Effect.runPromise(
+      runScoped(
         openNoteAgent(entry, "body", opencode2, {
-          executableAvailable: () => true,
+          executableAvailable: () => Effect.succeed(true),
         }).pipe(
           Effect.provide(server.layer),
           Effect.provideService(CommandExecutor, executor),
@@ -277,7 +283,7 @@ describe("agent targets", () => {
 
   test("uses home when no source checkout is known", async () => {
     const server = await fixture({ workspaceLabel: basename(homedir()) });
-    await Effect.runPromise(
+    await runScoped(
       openNoteAgent({ ...entry, projectDir: undefined }, "body", cursor).pipe(
         Effect.provide(server.layer),
         Effect.provideService(CommandExecutor, executor),
@@ -291,7 +297,7 @@ describe("agent targets", () => {
   test("surfaces readiness errors without submitting a prompt", async () => {
     const server = await fixture({ failMethod: "agent.wait" });
     await rejects(
-      Effect.runPromise(
+      runScoped(
         openNoteAgent(entry, "body", cursor).pipe(
           Effect.provide(server.layer),
           Effect.provideService(CommandExecutor, executor),
@@ -307,7 +313,7 @@ describe("agent targets", () => {
   test("rejects an unsupported protocol before mutations", async () => {
     const server = await fixture({ protocol: 21 });
     await rejects(
-      Effect.runPromise(
+      runScoped(
         openNoteAgent(entry, "body", cursor).pipe(
           Effect.provide(server.layer),
           Effect.provideService(CommandExecutor, executor),

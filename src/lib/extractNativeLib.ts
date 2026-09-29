@@ -1,13 +1,4 @@
-import { Schema } from "effect";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { Effect, FileSystem, Option, Schema } from "effect";
 import { basename, join } from "node:path";
 import { envString, ENV } from "./env.js";
 import { HOME_DIR } from "./paths.js";
@@ -34,62 +25,61 @@ function cacheDir(): string {
 }
 
 /** Extract the OpenTUI native library from Bun's virtual filesystem when compiled. */
-export async function extractNativeLibIfNeeded(): Promise<string | undefined> {
-  if (!isCompiledBinary()) return undefined;
+export const extractNativeLibIfNeeded = Effect.fn("notes.extractNativeLib")(
+  function* () {
+    if (!isCompiledBinary()) return undefined;
 
-  let embeddedLibPath: string;
+    const fs = yield* FileSystem.FileSystem;
 
-  try {
-    const nativeModule = await import(
-      `@opentui/core-${process.platform}-${process.arch}`
+    const embeddedLibPath = yield* Effect.tryPromise(
+      () => import(`@opentui/core-${process.platform}-${process.arch}`),
+    ).pipe(
+      Effect.flatMap((nativeModule) =>
+        Schema.decodeUnknownEffect(Schema.String)(nativeModule.default),
+      ),
+      Effect.option,
     );
 
-    embeddedLibPath = Schema.decodeUnknownSync(Schema.String)(
-      nativeModule.default,
-    );
-  } catch {
-    return undefined;
-  }
+    if (Option.isNone(embeddedLibPath)) return undefined;
 
-  if (!isBunfsPath(embeddedLibPath)) return embeddedLibPath;
+    if (!isBunfsPath(embeddedLibPath.value)) return embeddedLibPath.value;
 
-  const libFileName = basename(embeddedLibPath);
-  const dir = cacheDir();
-  const destPath = join(dir, libFileName);
+    const libFileName = basename(embeddedLibPath.value);
+    const dir = cacheDir();
+    const destPath = join(dir, libFileName);
 
-  if (existsSync(destPath)) return destPath;
+    if (yield* fs.exists(destPath)) return destPath;
 
-  try {
-    if (existsSync(dir)) {
-      for (const file of readdirSync(dir)) {
+    // Stale cache files are non-fatal.
+    yield* Effect.gen(function* () {
+      if (!(yield* fs.exists(dir))) return;
+
+      for (const file of yield* fs.readDirectory(dir)) {
         if (
           file.startsWith("libopentui") &&
           file.endsWith(".so") &&
           file !== libFileName
         ) {
-          unlinkSync(join(dir, file));
+          yield* fs.remove(join(dir, file));
         }
       }
-    }
-  } catch {
-    // Stale cache files are non-fatal.
-  }
+    }).pipe(Effect.ignore);
 
-  mkdirSync(dir, { recursive: true });
-  const tmpPath = `${destPath}.tmp-${process.pid}-${Date.now()}`;
+    yield* fs.makeDirectory(dir, { recursive: true });
+    const tmpPath = `${destPath}.tmp-${process.pid}-${Date.now()}`;
 
-  try {
-    writeFileSync(tmpPath, readFileSync(embeddedLibPath), { mode: 0o755 });
-    renameSync(tmpPath, destPath);
-  } catch (error) {
-    try {
-      if (existsSync(tmpPath)) unlinkSync(tmpPath);
-    } catch {
-      // Best-effort cleanup.
-    }
+    yield* Effect.gen(function* () {
+      yield* fs.writeFile(tmpPath, yield* fs.readFile(embeddedLibPath.value), {
+        mode: 0o755,
+      });
+      yield* fs.rename(tmpPath, destPath);
+    }).pipe(
+      Effect.tapError(() =>
+        // Best-effort cleanup.
+        Effect.ignore(fs.remove(tmpPath, { force: true })),
+      ),
+    );
 
-    throw error;
-  }
-
-  return destPath;
-}
+    return destPath;
+  },
+);

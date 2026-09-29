@@ -1,5 +1,4 @@
-import { Effect, Schema } from "effect";
-import { readFile } from "node:fs/promises";
+import { Effect, FileSystem, Schema } from "effect";
 import { parse } from "yaml";
 import { expandHomePath } from "../lib/paths.js";
 import {
@@ -11,9 +10,8 @@ import {
 export const loadDaemonConfig = Effect.fn("NotesDaemon.loadConfig")(function* (
   filePath: string,
 ) {
-  const content = yield* Effect.promise(() =>
-    readFile(expandHomePath(filePath), "utf8"),
-  );
+  const fs = yield* FileSystem.FileSystem;
+  const content = yield* fs.readFileString(expandHomePath(filePath));
 
   const value = yield* Effect.try(() => parse(content));
   const decoded = yield* Schema.decodeUnknownEffect(DaemonConfig)(value);

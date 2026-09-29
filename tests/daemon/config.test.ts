@@ -1,23 +1,26 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { Effect } from "effect";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadDaemonConfig } from "../../src/daemon/config.js";
+import {
+  createTempDirectory,
+  readTextFile,
+  removePath,
+  runScoped,
+  writeTextFile,
+} from "../support/platform.js";
 
 const roots: string[] = [];
 
-afterEach(() => {
-  for (const root of roots.splice(0))
-    rmSync(root, { recursive: true, force: true });
+afterEach(async () => {
+  for (const root of roots.splice(0)) await removePath(root);
 });
 
 describe("loadDaemonConfig", () => {
   test("loads validated YAML", async () => {
-    const root = mkdtempSync(join(tmpdir(), "notes-daemon-config-"));
+    const root = await createTempDirectory("notes-daemon-config-");
     roots.push(root);
     const path = join(root, "daemon.yml");
-    writeFileSync(
+    await writeTextFile(
       path,
       [
         "repository: owner/repo",
@@ -40,15 +43,15 @@ describe("loadDaemonConfig", () => {
       ].join("\n"),
     );
 
-    const config = await Effect.runPromise(loadDaemonConfig(path));
+    const config = await runScoped(loadDaemonConfig(path));
     expect(config.opencodeCommand).toBe("opencode2");
     expect(config.opencodeArgs).toEqual([]);
-    writeFileSync(
+    await writeTextFile(
       path,
       "opencodeCommand: ~/.local/bin/processor\nopencodeArgs:\n  - ~/literal argument\n" +
-        (await Bun.file(path).text()),
+        (await readTextFile(path)),
     );
-    const custom = await Effect.runPromise(loadDaemonConfig(path));
+    const custom = await runScoped(loadDaemonConfig(path));
     expect(custom.opencodeCommand).toBe(
       `${process.env.HOME}/.local/bin/processor`,
     );

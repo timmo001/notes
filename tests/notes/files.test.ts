@@ -1,13 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import {
-  mkdtempSync,
-  mkdirSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
 import {
   atomicWriteNoteFile,
   createExclusiveNoteFile,
@@ -15,121 +8,189 @@ import {
   readNoteFile,
   resolveRepositoryNotesDirectory,
 } from "../../src/notes/files.js";
+import {
+  makeDirectory,
+  createTempDirectory,
+  removePath,
+  runScoped,
+  symlinkPath,
+  writeTextFile,
+} from "../support/platform.js";
 
 const temporaryDirectories: string[] = [];
 
-function temporaryVault() {
-  const root = mkdtempSync(join(tmpdir(), "notes-files-"));
+async function temporaryVault() {
+  const root = await createTempDirectory("notes-files-");
   temporaryDirectories.push(root);
 
   return { root, projects: join(root, "projects") };
 }
 
-afterEach(() => {
+/** Resolve with the failure message so tests can assert on it. */
+function failureMessage<A, E extends Error, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<string, never, R> {
+  return effect.pipe(
+    Effect.flip,
+    Effect.map((error) => error.message),
+    Effect.orDie,
+  );
+}
+
+afterEach(async () => {
   for (const directory of temporaryDirectories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
+    await removePath(directory);
 });
 
 describe("note files", () => {
-  test("atomically creates and replaces a note", () => {
-    const { projects } = temporaryVault();
+  test("atomically creates and replaces a note", async () => {
+    const { projects } = await temporaryVault();
     const path = join(projects, "owner", "repo", "note.md");
-    atomicWriteNoteFile(projects, path, "first");
-    const firstHash = readNoteFile(projects, path).hash;
-    atomicWriteNoteFile(projects, path, "second");
-    expect(readNoteFile(projects, path)).toMatchObject({ content: "second" });
-    expect(readNoteFile(projects, path).hash).not.toBe(firstHash);
-  });
 
-  test("creates unique draft names without overwriting", () => {
-    const { projects } = temporaryVault();
+    const { firstHash, second, secondHash } = await runScoped(
+      Effect.gen(function* () {
+        yield* atomicWriteNoteFile(projects, path, "first");
+        const first = yield* readNoteFile(projects, path);
+        yield* atomicWriteNoteFile(projects, path, "second");
+        const replaced = yield* readNoteFile(projects, path);
 
-    const first = createExclusiveNoteFile(
-      projects,
-      "owner",
-      "repo",
-      "draft",
-      "first",
+        return {
+          firstHash: first.hash,
+          second: replaced,
+          secondHash: replaced.hash,
+        };
+      }),
     );
 
-    const second = createExclusiveNoteFile(
-      projects,
-      "owner",
-      "repo",
-      "draft",
-      "second",
+    expect(second).toMatchObject({ content: "second" });
+    expect(secondHash).not.toBe(firstHash);
+  });
+
+  test("creates unique draft names without overwriting", async () => {
+    const { projects } = await temporaryVault();
+
+    const { first, second, content } = await runScoped(
+      Effect.gen(function* () {
+        const first = yield* createExclusiveNoteFile(
+          projects,
+          "owner",
+          "repo",
+          "draft",
+          "first",
+        );
+
+        const second = yield* createExclusiveNoteFile(
+          projects,
+          "owner",
+          "repo",
+          "draft",
+          "second",
+        );
+
+        return {
+          first,
+          second,
+          content: (yield* readNoteFile(projects, first)).content,
+        };
+      }),
     );
 
     expect(first).toEndWith("draft.md");
     expect(second).toEndWith("draft-2.md");
-    expect(readNoteFile(projects, first).content).toBe("first");
+    expect(content).toBe("first");
   });
 
-  test("rejects paths outside projects", () => {
-    const { root, projects } = temporaryVault();
-    expect(() =>
-      atomicWriteNoteFile(projects, join(root, "outside.md"), "content"),
-    ).toThrow("outside");
-  });
+  test("rejects paths outside projects", async () => {
+    const { root, projects } = await temporaryVault();
 
-  test("rejects symlinked parent directories", () => {
-    const { root, projects } = temporaryVault();
-    const outside = join(root, "outside");
-    mkdirSync(projects);
-    mkdirSync(outside);
-    symlinkSync(outside, join(projects, "owner"));
-    expect(() =>
-      atomicWriteNoteFile(
-        projects,
-        join(projects, "owner", "repo", "note.md"),
-        "content",
+    const message = await runScoped(
+      failureMessage(
+        atomicWriteNoteFile(projects, join(root, "outside.md"), "content"),
       ),
-    ).toThrow("physical directory");
+    );
+
+    expect(message).toContain("outside");
   });
 
-  test("rejects leaf symlinks", () => {
-    const { root, projects } = temporaryVault();
+  test("rejects symlinked parent directories", async () => {
+    const { root, projects } = await temporaryVault();
+    const outside = join(root, "outside");
+    await makeDirectory(projects);
+    await makeDirectory(outside);
+    await symlinkPath(outside, join(projects, "owner"));
+
+    const message = await runScoped(
+      failureMessage(
+        atomicWriteNoteFile(
+          projects,
+          join(projects, "owner", "repo", "note.md"),
+          "content",
+        ),
+      ),
+    );
+
+    expect(message).toContain("physical directory");
+  });
+
+  test("rejects leaf symlinks", async () => {
+    const { root, projects } = await temporaryVault();
     const directory = join(projects, "owner", "repo");
     const outside = join(root, "outside.md");
-    mkdirSync(directory, { recursive: true });
-    writeFileSync(outside, "secret");
-    symlinkSync(outside, join(directory, "note.md"));
-    expect(() => readNoteFile(projects, join(directory, "note.md"))).toThrow(
-      "physical regular file",
+    await makeDirectory(directory);
+    await writeTextFile(outside, "secret");
+    await symlinkPath(outside, join(directory, "note.md"));
+
+    const message = await runScoped(
+      failureMessage(readNoteFile(projects, join(directory, "note.md"))),
     );
+
+    expect(message).toContain("physical regular file");
   });
 
-  test("rejects dangling leaf symlinks on write", () => {
-    const { root, projects } = temporaryVault();
+  test("rejects dangling leaf symlinks on write", async () => {
+    const { root, projects } = await temporaryVault();
     const directory = join(projects, "owner", "repo");
-    mkdirSync(directory, { recursive: true });
+    await makeDirectory(directory);
     const path = join(directory, "note.md");
-    symlinkSync(join(root, "missing.md"), path);
-    expect(() => atomicWriteNoteFile(projects, path, "content")).toThrow(
-      "physical regular file",
+    await symlinkPath(join(root, "missing.md"), path);
+
+    const message = await runScoped(
+      failureMessage(atomicWriteNoteFile(projects, path, "content")),
     );
+
+    expect(message).toContain("physical regular file");
   });
 
-  test("rejects symlinked repository directories during listing validation", () => {
-    const { root, projects } = temporaryVault();
+  test("rejects symlinked repository directories during listing validation", async () => {
+    const { root, projects } = await temporaryVault();
     const outside = join(root, "outside");
-    mkdirSync(join(projects, "owner"), { recursive: true });
-    mkdirSync(outside);
-    symlinkSync(outside, join(projects, "owner", "repo"));
-    expect(() =>
-      resolveRepositoryNotesDirectory(
-        projects,
-        join(projects, "owner", "repo"),
+    await makeDirectory(join(projects, "owner"));
+    await makeDirectory(outside);
+    await symlinkPath(outside, join(projects, "owner", "repo"));
+
+    const message = await runScoped(
+      failureMessage(
+        resolveRepositoryNotesDirectory(
+          projects,
+          join(projects, "owner", "repo"),
+        ),
       ),
-    ).toThrow("physical directory");
+    );
+
+    expect(message).toContain("physical directory");
   });
 
-  test("rejects a symlinked vault root", () => {
-    const { root } = temporaryVault();
+  test("rejects a symlinked vault root", async () => {
+    const { root } = await temporaryVault();
     const outside = join(root, "outside");
     const linked = join(root, "linked");
-    mkdirSync(outside);
-    symlinkSync(outside, linked);
-    expect(() => ensurePhysicalVaultRoot(linked)).toThrow("physical directory");
+    await makeDirectory(outside);
+    await symlinkPath(outside, linked);
+
+    const message = await runScoped(
+      failureMessage(ensurePhysicalVaultRoot(linked)),
+    );
+
+    expect(message).toContain("physical directory");
   });
 });

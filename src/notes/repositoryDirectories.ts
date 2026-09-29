@@ -1,42 +1,39 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { Option, Schema } from "effect";
+import { Effect, FileSystem, Schema } from "effect";
 
 type RepositoryDirectories = Record<string, string>;
 
 const FILENAME = "repository-directories.json";
 
-const RepositoryDirectoriesFile = Schema.Record(Schema.String, Schema.String);
+const RepositoryDirectoriesFile = Schema.fromJsonString(
+  Schema.Record(Schema.String, Schema.String),
+);
 
 /** Read locally known source checkout directories by repository slug. */
-export function readRepositoryDirectories(
-  stateDir: string,
-): RepositoryDirectories {
-  try {
-    return Option.getOrElse(
-      Schema.decodeUnknownOption(RepositoryDirectoriesFile)(
-        JSON.parse(readFileSync(join(stateDir, FILENAME), "utf8")),
-      ),
-      () => ({}),
-    );
-  } catch {
-    return {};
-  }
-}
+export const readRepositoryDirectories = Effect.fn(
+  "notes.repositoryDirectories.read",
+)(function* (stateDir: string) {
+  const fs = yield* FileSystem.FileSystem;
+
+  return yield* fs.readFileString(join(stateDir, FILENAME)).pipe(
+    Effect.flatMap(Schema.decodeUnknownEffect(RepositoryDirectoriesFile)),
+    Effect.orElseSucceed((): RepositoryDirectories => ({})),
+  );
+});
 
 /** Remember the exact source checkout resolved for one repository scope. */
-export function rememberRepositoryDirectory(
-  stateDir: string,
-  repoSlug: string,
-  directory: string,
-): void {
+export const rememberRepositoryDirectory = Effect.fn(
+  "notes.repositoryDirectories.remember",
+)(function* (stateDir: string, repoSlug: string, directory: string) {
+  const fs = yield* FileSystem.FileSystem;
   const path = join(stateDir, FILENAME);
   const temporaryPath = `${path}.${process.pid}.tmp`;
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(
+  const existing = yield* readRepositoryDirectories(stateDir);
+  yield* fs.makeDirectory(dirname(path), { recursive: true });
+  yield* fs.writeFileString(
     temporaryPath,
-    `${JSON.stringify({ ...readRepositoryDirectories(stateDir), [repoSlug]: directory }, null, 2)}\n`,
+    `${JSON.stringify({ ...existing, [repoSlug]: directory }, null, 2)}\n`,
     { mode: 0o600 },
   );
-  renameSync(temporaryPath, path);
-}
+  yield* fs.rename(temporaryPath, path);
+});

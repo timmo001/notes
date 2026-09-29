@@ -6,14 +6,41 @@ import {
   restoreRepository,
 } from "./repositoryPicker.js";
 
-const form = document.querySelector<HTMLFormElement>("[data-capture-form]");
+interface Queryable {
+  querySelector(selector: string): object | null;
+  querySelectorAll(selector: string): ArrayLike<object>;
+}
 
-const textarea = document.querySelector<HTMLTextAreaElement>("#capture");
+function queryElement<T>(
+  root: Queryable,
+  selector: string,
+  type: abstract new () => T,
+): T | null {
+  const element = root.querySelector(selector);
 
-const status = document.querySelector<HTMLElement>("[data-status]");
+  return element instanceof type ? element : null;
+}
 
-const repositoryPicker = document.querySelector<HTMLElement>(
+function queryElements<T>(
+  root: Queryable,
+  selector: string,
+  type: abstract new () => T,
+): T[] {
+  return Array.from(root.querySelectorAll(selector)).flatMap((element) =>
+    element instanceof type ? [element] : [],
+  );
+}
+
+const form = queryElement(document, "[data-capture-form]", HTMLFormElement);
+
+const textarea = queryElement(document, "#capture", HTMLTextAreaElement);
+
+const status = queryElement(document, "[data-status]", HTMLElement);
+
+const repositoryPicker = queryElement(
+  document,
   "[data-repository-picker]",
+  HTMLElement,
 );
 
 if (!form || !textarea || !status) {
@@ -25,34 +52,46 @@ let preserveRepositorySelection = () => {};
 let repositoryForCapture: string | undefined;
 
 if (repositoryPicker) {
-  const repositoryValue = repositoryPicker.querySelector<HTMLInputElement>(
+  const repositoryValue = queryElement(
+    repositoryPicker,
     "[data-repository-value]",
+    HTMLInputElement,
   );
 
-  const repositoryLabel = repositoryPicker.querySelector<HTMLElement>(
+  const repositoryLabel = queryElement(
+    repositoryPicker,
     "[data-repository-label]",
+    HTMLElement,
   );
 
-  const repositoryTrigger = repositoryPicker.querySelector<HTMLButtonElement>(
+  const repositoryTrigger = queryElement(
+    repositoryPicker,
     "[data-repository-trigger]",
+    HTMLButtonElement,
   );
 
-  const popover = repositoryPicker.querySelector<HTMLElement>(
+  const popover = queryElement(
+    repositoryPicker,
     "[data-repository-popover]",
+    HTMLElement,
   );
 
-  const search = repositoryPicker.querySelector<HTMLInputElement>(
+  const search = queryElement(
+    repositoryPicker,
     "[data-repository-search]",
+    HTMLInputElement,
   );
 
-  const empty = repositoryPicker.querySelector<HTMLElement>(
+  const empty = queryElement(
+    repositoryPicker,
     "[data-repository-empty]",
+    HTMLElement,
   );
 
-  const options = Array.from(
-    repositoryPicker.querySelectorAll<HTMLButtonElement>(
-      "[data-repository-option]",
-    ),
+  const options = queryElements(
+    repositoryPicker,
+    "[data-repository-option]",
+    HTMLButtonElement,
   );
 
   if (
@@ -160,7 +199,7 @@ if (repositoryPicker) {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const submit = form.querySelector<HTMLButtonElement>("[type=submit]");
+  const submit = queryElement(form, "[type=submit]", HTMLButtonElement);
 
   if (!submit || !textarea.value.trim()) return;
 
@@ -187,7 +226,9 @@ form.addEventListener("submit", async (event) => {
     const result = await response.json();
 
     if (!response.ok) {
-      responseError = captureErrorMessage(result);
+      responseError = captureErrorMessage(
+        Option.getOrUndefined(Schema.decodeUnknownOption(Schema.Json)(result)),
+      );
       throw new Error("Capture request failed");
     }
 

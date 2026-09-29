@@ -1,4 +1,4 @@
-import { Cause, Console, Effect, Layer, Schema } from "effect";
+import { Cause, Console, Effect, FileSystem, Layer, Schema } from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { herdrSdkLayer } from "@timmo001/effect-herdr";
 import { CliError, Command, Flag } from "effect/cli";
@@ -238,7 +238,7 @@ function runList({
       const notes = yield* Notes;
 
       if (all) {
-        const sections = filterSections(yield* notes.listAll(), tag);
+        const sections = filterSections(yield* notes.listAll, tag);
 
         const output =
           format === "json"
@@ -250,7 +250,7 @@ function runList({
         return;
       }
 
-      const entries = filterEntries(yield* notes.list(), tag);
+      const entries = filterEntries(yield* notes.list, tag);
 
       const output =
         format === "json"
@@ -278,8 +278,8 @@ function runSearch({
       const notes = yield* Notes;
 
       const entries = all
-        ? (yield* notes.listAll()).flatMap((section) => section.entries)
-        : yield* notes.list();
+        ? (yield* notes.listAll).flatMap((section) => section.entries)
+        : yield* notes.list;
 
       const results = searchNoteEntries(filterEntries(entries, tag), query);
       yield* writeLine(
@@ -403,7 +403,7 @@ function runCreate({
 function runTargets({ format }: { readonly format: NotesListFormat }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const targets = yield* (yield* Notes).moveTargets();
+      const targets = yield* (yield* Notes).moveTargets;
       yield* writeLine(
         format === "json"
           ? JSON.stringify(targets, null, 2)
@@ -534,7 +534,7 @@ function runHandoffs({
       const notes = yield* Notes;
 
       if (all) {
-        const sections = filterSections(yield* notes.listAll(), "handoff");
+        const sections = filterSections(yield* notes.listAll, "handoff");
 
         const output =
           format === "json"
@@ -546,7 +546,7 @@ function runHandoffs({
         return;
       }
 
-      const entries = sortHandoffs((yield* notes.list()).filter(isHandoff));
+      const entries = sortHandoffs((yield* notes.list).filter(isHandoff));
 
       const output =
         format === "json"
@@ -564,36 +564,46 @@ async function runTui(mode: TuiMode): Promise<void> {
   const { extractNativeLibIfNeeded } =
     await import("./lib/extractNativeLib.js");
 
-  const nativeLibPath = await extractNativeLibIfNeeded();
+  const nativeLibPath = await Effect.runPromise(
+    extractNativeLibIfNeeded().pipe(Effect.provide(NodeServices.layer)),
+  );
+
   const { Renderer } = await import("./services/Renderer.js");
   const { loadTheme } = await import("./theme.js");
   const { App } = await import("./notes/tui/App.js");
   const { openNoteInEditor } = await import("./notes/tui/NoteEditor.js");
 
-  const theme = Effect.runSync(loadTheme);
+  const theme = await Effect.runPromise(
+    loadTheme.pipe(Effect.provide(NodeServices.layer)),
+  );
 
   const TuiLayers = Renderer.layer(theme, nativeLibPath).pipe(
     Layer.provideMerge(Notes.layer),
     Layer.provideMerge(CommandExecutor.layer),
     Layer.provideMerge(Config.layer),
+    Layer.provideMerge(NodeServices.layer),
   );
 
   const tuiProgram = Effect.gen(function* () {
     const notes = yield* Notes;
     const renderer = yield* Renderer;
-    const services = yield* Effect.context<CommandExecutor>();
+
+    const services = yield* Effect.context<
+      CommandExecutor | FileSystem.FileSystem
+    >();
+
     const runPromise = Effect.runPromiseWith(services);
 
     new App(
       {
         renderer,
         theme,
-        loadTuiScope: () => runPromise(notes.tuiScope()),
-        listAllNotes: () => runPromise(notes.listAll()),
+        loadTuiScope: () => runPromise(notes.tuiScope),
+        listAllNotes: () => runPromise(notes.listAll),
         readNote: (filePath) =>
           runPromise(notes.read(filePath)).then((result) => result.content),
         deleteNote: (filePath) => runPromise(notes.delete(filePath)),
-        listMoveTargets: () => runPromise(notes.moveTargets()),
+        listMoveTargets: () => runPromise(notes.moveTargets),
         moveNote: (filePath, repoSlug) =>
           runPromise(notes.move(filePath, repoSlug)),
         createNote: (kind, name, description, editorKind) =>
@@ -1005,9 +1015,10 @@ export function runCli(args: readonly string[]) {
 const CliLayers = Notes.layer.pipe(
   Layer.provideMerge(CommandExecutor.layer),
   Layer.provideMerge(Config.layer),
+  Layer.provideMerge(NodeServices.layer),
 );
 
-export const MainLayer = Layer.merge(CliLayers, NodeServices.layer);
+export const MainLayer = CliLayers;
 
 setHelpRenderer((commandName) => {
   const lines: string[] = [];

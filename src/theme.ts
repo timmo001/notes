@@ -1,5 +1,4 @@
-import { Effect, Schema } from "effect";
-import { readFileSync } from "node:fs";
+import { Effect, FileSystem } from "effect";
 import { join } from "node:path";
 import { ENV, envString } from "./lib/env.js";
 import { HOME_DIR } from "./lib/paths.js";
@@ -156,17 +155,11 @@ function deriveTheme(c: Record<string, string>): Theme {
   };
 }
 
-class ThemeLoadError extends Schema.TaggedError<ThemeLoadError>()(
-  "ThemeLoadError",
-  { message: Schema.String },
-) {}
-
 /** Load the active Omarchy theme, falling back to a dark palette. */
-export const loadTheme: Effect.Effect<Theme> = Effect.gen(function* () {
-  const raw = yield* Effect.try({
-    try: () => readFileSync(COLORS_TOML_PATH, "utf-8"),
-    catch: (error) => new ThemeLoadError({ message: String(error) }),
-  });
+export const loadTheme: Effect.Effect<Theme, never, FileSystem.FileSystem> =
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const raw = yield* fs.readFileString(COLORS_TOML_PATH);
 
-  return deriveTheme(parseColorsToml(raw));
-}).pipe(Effect.orElseSucceed(() => FALLBACK));
+    return deriveTheme(parseColorsToml(raw));
+  }).pipe(Effect.orElseSucceed(() => FALLBACK));

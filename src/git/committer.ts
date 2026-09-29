@@ -1,5 +1,4 @@
-import { Effect } from "effect";
-import { existsSync } from "node:fs";
+import { Effect, FileSystem } from "effect";
 import { isAbsolute, resolve } from "node:path";
 import { gitExitCode, gitOutput } from "../lib/git.js";
 import { CommandExecutor } from "../services/CommandExecutor.js";
@@ -24,7 +23,7 @@ function readGitIn(
 ): Effect.Effect<string, never, CommandExecutor> {
   return gitOutput(args, cwd ? { cwd } : undefined).pipe(
     Effect.map((output) => output.trim()),
-    Effect.catch(() => Effect.succeed("")),
+    Effect.orElseSucceed(() => ""),
   );
 }
 
@@ -169,10 +168,16 @@ export interface PushOutcome {
 /** Refuse a dirty index and integrate upstream changes before note I/O. */
 export function preflightMutation(
   cwd?: string,
-): Effect.Effect<GitStepResult, never, CommandExecutor> {
+): Effect.Effect<
+  GitStepResult,
+  never,
+  CommandExecutor | FileSystem.FileSystem
+> {
   const opts = cwd ? { cwd } : undefined;
 
   return Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+
     const stagedCode = yield* gitExitCode(
       ["diff", "--cached", "--quiet"],
       opts,
@@ -210,11 +215,13 @@ export function preflightMutation(
 
       if (
         markerPath &&
-        existsSync(
-          isAbsolute(markerPath)
-            ? markerPath
-            : resolve(cwd ?? process.cwd(), markerPath),
-        )
+        (yield* fs
+          .exists(
+            isAbsolute(markerPath)
+              ? markerPath
+              : resolve(cwd ?? process.cwd(), markerPath),
+          )
+          .pipe(Effect.orElseSucceed(() => false)))
       ) {
         return {
           ok: false,

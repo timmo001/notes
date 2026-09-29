@@ -1,7 +1,14 @@
-import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import { Clock, Duration, Effect, Option, Schedule, Schema } from "effect";
+import {
+  Clock,
+  Duration,
+  Effect,
+  FileSystem,
+  Option,
+  Schedule,
+  Schema,
+} from "effect";
 import { HerdrSdk, type PaneId, type TabId } from "@timmo001/effect-herdr";
 import { CommandExecutor } from "../services/CommandExecutor.js";
 import type { NoteEntry } from "./types.js";
@@ -14,9 +21,13 @@ export interface AgentTarget {
 
 export type AgentOpenMode = "default" | "plan";
 
+export type ExecutableCheck = (
+  path: string,
+) => Effect.Effect<boolean, never, FileSystem.FileSystem>;
+
 export interface OpenAgentOptions {
   readonly mode?: AgentOpenMode;
-  readonly executableAvailable?: (path: string) => boolean;
+  readonly executableAvailable?: ExecutableCheck;
 }
 
 export interface OpenAgentResult {
@@ -64,7 +75,7 @@ const TARGETS: readonly AgentTarget[] = [
 
 /** Resolve installed Herdr integrations in the timmo.git picker order. */
 export const detectAgentTargets = Effect.fn("detectAgentTargets")(function* (
-  executableAvailable: (path: string) => boolean = isRegularExecutable,
+  executableAvailable: ExecutableCheck = isRegularExecutable,
 ) {
   const sdk = yield* HerdrSdk;
   const integrations = yield* sdk.integrations.list();
@@ -75,9 +86,11 @@ export const detectAgentTargets = Effect.fn("detectAgentTargets")(function* (
       .map(({ target }) => target),
   );
 
+  const opencode2Available = yield* executableAvailable(OPENCODE2);
+
   return TARGETS.filter((target) =>
     target.command === "opencode2"
-      ? executableAvailable(OPENCODE2)
+      ? opencode2Available
       : installed.has(target.command),
   );
 });
@@ -96,7 +109,7 @@ export const openNoteAgent = Effect.fn("openNoteAgent")(function* (
 
   if (
     target.command === "opencode2" &&
-    !executableAvailable(target.executable)
+    !(yield* executableAvailable(target.executable))
   ) {
     return yield* new AgentOpenError({
       message: `${target.executable} is not a regular executable file`,
@@ -209,9 +222,9 @@ export function workspaceLabelForDirectory(
   const fallback = basename(directory);
 
   return Effect.gen(function* () {
-    const value = yield* Effect.try(() =>
-      JSON.parse(readFileSync(pickerCache, "utf8")),
-    );
+    const fs = yield* FileSystem.FileSystem;
+    const text = yield* fs.readFileString(pickerCache);
+    const value = yield* Effect.try(() => JSON.parse(text));
 
     const repositories =
       yield* Schema.decodeUnknownEffect(RepositoryPicker)(value);
@@ -224,16 +237,33 @@ export function workspaceLabelForDirectory(
 }
 
 /** Check that a path resolves to a regular file the current user can execute. */
-export function isRegularExecutable(path: string): boolean {
-  try {
-    if (!statSync(path).isFile()) return false;
-    accessSync(path, constants.X_OK);
+export const isRegularExecutable: ExecutableCheck = Effect.fn(
+  "isRegularExecutable",
+)(
+  function* (path: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const info = yield* fs.stat(path);
 
-    return true;
-  } catch {
-    return false;
-  }
-}
+    if (info.type !== "File") return false;
+
+    const uid = process.getuid?.();
+    const uidMatches = Option.exists(info.uid, (owner) => owner === uid);
+
+    const groups = new Set([
+      process.getgid?.(),
+      ...(process.getgroups?.() ?? []),
+    ]);
+
+    const gidMatches = Option.exists(info.gid, (group) => groups.has(group));
+
+    if (uid === 0) return (info.mode & 0o111) !== 0;
+
+    return (
+      (info.mode & (uidMatches ? 0o100 : gidMatches ? 0o010 : 0o001)) !== 0
+    );
+  },
+  Effect.orElseSucceed(() => false),
+);
 
 export function noteAgentPrompt(
   entry: NoteEntry,

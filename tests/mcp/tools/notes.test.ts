@@ -1,15 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer } from "effect/ai";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Notifier } from "../../../src/mcp/services/Notifier.js";
 import { registerNotesTools } from "../../../src/mcp/tools/notes.js";
@@ -17,6 +8,16 @@ import { renderDraft } from "../../../src/notes/frontmatter.js";
 import { Notes } from "../../../src/notes/services/Notes.js";
 import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
 import { Config } from "../../../src/services/Config.js";
+import {
+  git as runGit,
+  makeDirectory,
+  createTempDirectory,
+  pathExists,
+  readTextFile,
+  removePath,
+  runScoped,
+  writeTextFile,
+} from "../../support/platform.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -43,27 +44,25 @@ const client = McpSchema.McpServerClient.of({
 
 type ToolArgument = string | number | boolean | null;
 
-function git(cwd: string, ...args: string[]): void {
-  const result = Bun.spawnSync(["git", ...args], { cwd });
-
-  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+async function git(cwd: string, ...args: string[]): Promise<void> {
+  await runGit(cwd, args);
 }
 
-function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "notes-mcp-"));
+async function fixture() {
+  const root = await createTempDirectory("notes-mcp-");
   temporaryDirectories.push(root);
-  git(root, "init");
-  git(root, "config", "user.name", "Notes Test");
-  git(root, "config", "user.email", "notes@example.invalid");
+  await git(root, "init");
+  await git(root, "config", "user.name", "Notes Test");
+  await git(root, "config", "user.email", "notes@example.invalid");
   const notesPath = join(root, "projects", "timmo001", "notes");
   const path = join(notesPath, "note.md");
-  mkdirSync(notesPath, { recursive: true });
-  writeFileSync(
+  await makeDirectory(notesPath);
+  await writeTextFile(
     path,
     renderDraft("note", identity, "date", "Note", "Description"),
   );
-  git(root, "add", ".");
-  git(root, "commit", "-m", "Initial note");
+  await git(root, "add", ".");
+  await git(root, "commit", "-m", "Initial note");
 
   return { root, notesPath, path };
 }
@@ -92,7 +91,7 @@ async function callTool(
     }),
   );
 
-  return Effect.runPromise(
+  return runScoped(
     Effect.gen(function* () {
       yield* registerNotesTools;
 
@@ -107,14 +106,14 @@ function resultText(result: Awaited<ReturnType<typeof callTool>>): string {
   return result.content[0]?.type === "text" ? result.content[0].text : "";
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const directory of temporaryDirectories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
+    await removePath(directory);
 });
 
 describe("notes MCP tools", () => {
   test("note_read returns content and a revision hash", async () => {
-    const { root, path } = fixture();
+    const { root, path } = await fixture();
 
     const result = await callTool(root, "note_read", { path });
 
@@ -126,8 +125,8 @@ describe("notes MCP tools", () => {
   });
 
   test("note_list filters tags case-insensitively", async () => {
-    const { root, notesPath } = fixture();
-    writeFileSync(
+    const { root, notesPath } = await fixture();
+    await writeTextFile(
       join(notesPath, "handoff.md"),
       renderDraft("handoff", identity, "date", "Handoff", "Next work"),
     );
@@ -141,7 +140,7 @@ describe("notes MCP tools", () => {
   });
 
   test("note_write updates a guarded note and notifies", async () => {
-    const { root, path } = fixture();
+    const { root, path } = await fixture();
     const notifications: string[] = [];
     const read = await callTool(root, "note_read", { path });
 
@@ -162,12 +161,12 @@ describe("notes MCP tools", () => {
 
     expect(result.isError).toBeFalse();
     expect(resultText(result)).toContain(`Written: ${path}`);
-    expect(readFileSync(path, "utf8")).toContain("# Updated");
+    expect(await readTextFile(path)).toContain("# Updated");
     expect(notifications).toEqual(["notes: written: note.md - saved locally"]);
   });
 
   test("note_write adds a date when frontmatter omits it", async () => {
-    const { root, notesPath } = fixture();
+    const { root, notesPath } = await fixture();
     const path = join(notesPath, "without-date.md");
 
     const content = `---
@@ -184,23 +183,23 @@ tags: [test]
 
     expect(result.isError).toBeFalse();
     expect(resultText(result)).toContain(`Written: ${path}`);
-    expect(readFileSync(path, "utf8")).toMatch(
+    expect(await readTextFile(path)).toMatch(
       /^date: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/m,
     );
   });
 
   test("note_write rejects malformed and stale revision hashes", async () => {
-    const { root, path } = fixture();
+    const { root, path } = await fixture();
 
     const malformed = await callTool(root, "note_write", {
       path,
-      content: readFileSync(path, "utf8"),
+      content: await readTextFile(path),
       expectedHash: "invalid",
     });
 
     const stale = await callTool(root, "note_write", {
       path,
-      content: readFileSync(path, "utf8"),
+      content: await readTextFile(path),
       expectedHash: "0".repeat(64),
     });
 
@@ -211,13 +210,13 @@ tags: [test]
   });
 
   test("note_delete removes the note and notifies", async () => {
-    const { root, path } = fixture();
+    const { root, path } = await fixture();
     const notifications: string[] = [];
 
     const result = await callTool(root, "note_delete", { path }, notifications);
 
     expect(result.isError).toBeFalse();
-    expect(existsSync(path)).toBeFalse();
+    expect(await pathExists(path)).toBeFalse();
     expect(notifications).toEqual(["notes: deleted: note.md - saved locally"]);
   });
 });

@@ -1,9 +1,8 @@
-import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Socket } from "node:net";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Schema } from "effect";
 import { herdrSdkLayerFromOptions } from "@timmo001/effect-herdr";
+import { createTempDirectory, removePath } from "./platform.js";
 
 const Request = Schema.fromJsonString(
   Schema.Struct({
@@ -60,7 +59,7 @@ export async function herdrFixture(
     readonly foregroundCwd?: string;
   } = {},
 ) {
-  const directory = mkdtempSync(join(tmpdir(), "notes-herdr-"));
+  const directory = await createTempDirectory("notes-herdr-");
   const socketPath = join(directory, "herdr.sock");
   const requests: HerdrRequest[] = [];
   const sockets = new Set<Socket>();
@@ -230,7 +229,7 @@ export async function herdrFixture(
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
       );
-      rmSync(directory, { recursive: true, force: true });
+      await removePath(directory);
     },
   };
 }

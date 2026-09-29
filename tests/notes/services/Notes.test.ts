@@ -1,15 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect, Layer } from "effect";
 import { rejects } from "node:assert/strict";
-import {
-  existsSync,
-  mkdtempSync,
-  mkdirSync,
-  rmSync,
-  readFileSync,
-  utimesSync,
-  writeFileSync,
-} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { renderDraft } from "../../../src/notes/frontmatter.js";
@@ -17,6 +8,18 @@ import { rememberRepositoryDirectory } from "../../../src/notes/repositoryDirect
 import { Notes } from "../../../src/notes/services/Notes.js";
 import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
 import { Config } from "../../../src/services/Config.js";
+import {
+  git as runGit,
+  makeDirectory,
+  createTempDirectory,
+  pathExists,
+  readTextFile,
+  removePath,
+  runProcess,
+  runScoped,
+  utimesPath,
+  writeTextFile,
+} from "../../support/platform.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -28,32 +31,28 @@ const identity = {
   remoteUrl: "git@github.com:timmo001/notes.git",
 };
 
-function git(cwd: string, ...args: string[]): void {
-  const result = Bun.spawnSync(["git", ...args], { cwd });
-
-  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+async function git(cwd: string, ...args: string[]): Promise<void> {
+  await runGit(cwd, args);
 }
 
-function fixture(parent = tmpdir()) {
-  const root = mkdtempSync(join(parent, "notes-service-"));
+async function fixture(parent?: string) {
+  const root = await createTempDirectory("notes-service-", parent);
   temporaryDirectories.push(root);
-  git(root, "init");
-  git(root, "config", "user.name", "Notes Test");
-  git(root, "config", "user.email", "notes@example.invalid");
-  const projectDir = mkdtempSync(join(parent, "notes-project-"));
+  await git(root, "init");
+  await git(root, "config", "user.name", "Notes Test");
+  await git(root, "config", "user.email", "notes@example.invalid");
+  const projectDir = await createTempDirectory("notes-project-", parent);
   temporaryDirectories.push(projectDir);
-  git(projectDir, "init");
-  git(projectDir, "remote", "add", "origin", identity.remoteUrl);
+  await git(projectDir, "init");
+  await git(projectDir, "remote", "add", "origin", identity.remoteUrl);
   const path = join(root, "projects", "timmo001", "notes", "note.md");
-  mkdirSync(join(root, "projects", "timmo001", "notes"), {
-    recursive: true,
-  });
-  writeFileSync(
+  await makeDirectory(join(root, "projects", "timmo001", "notes"));
+  await writeTextFile(
     path,
     renderDraft("note", identity, "old", "Note", "Description"),
   );
-  git(root, "add", ".");
-  git(root, "commit", "-m", "Initial note");
+  await git(root, "add", ".");
+  await git(root, "commit", "-m", "Initial note");
 
   const layer = Notes.layer.pipe(
     Layer.provideMerge(CommandExecutor.layer),
@@ -82,16 +81,16 @@ function serviceLayer(root: string, projectDir = process.cwd()) {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const directory of temporaryDirectories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
+    await removePath(directory);
 });
 
 describe("Notes service", () => {
   test("prefers a remote identity when one can be parsed", async () => {
-    const { layer } = fixture();
+    const { layer } = await fixture();
 
-    const context = await Effect.runPromise(
+    const context = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).contextPayload({ command: "test" });
       }).pipe(Effect.provide(layer)),
@@ -103,8 +102,8 @@ describe("Notes service", () => {
   });
 
   test("prefers origin over upstream so a fork keeps its own notes", async () => {
-    const { layer, projectDir } = fixture();
-    git(
+    const { layer, projectDir } = await fixture();
+    await git(
       projectDir,
       "remote",
       "add",
@@ -112,7 +111,7 @@ describe("Notes service", () => {
       "git@github.com:dmmulroy/notes.git",
     );
 
-    const context = await Effect.runPromise(
+    const context = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).contextPayload({ command: "test" });
       }).pipe(Effect.provide(layer)),
@@ -122,12 +121,17 @@ describe("Notes service", () => {
   });
 
   test("uses the Git root name when no remote exists", async () => {
-    const { root } = fixture();
-    const projectDir = mkdtempSync(join(tmpdir(), "local-git-project-"));
-    temporaryDirectories.push(projectDir);
-    git(projectDir, "init");
+    const { root } = await fixture();
 
-    const context = await Effect.runPromise(
+    const projectDir = await createTempDirectory(
+      "local-git-project-",
+      tmpdir(),
+    );
+
+    temporaryDirectories.push(projectDir);
+    await git(projectDir, "init");
+
+    const context = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).contextPayload({ command: "test" });
       }).pipe(Effect.provide(serviceLayer(root, projectDir))),
@@ -147,11 +151,11 @@ describe("Notes service", () => {
   });
 
   test("uses the working-directory name outside Git", async () => {
-    const { root } = fixture();
-    const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
+    const { root } = await fixture();
+    const projectDir = await createTempDirectory("local-directory-", tmpdir());
     temporaryDirectories.push(projectDir);
 
-    const context = await Effect.runPromise(
+    const context = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).contextPayload({ command: "test" });
       }).pipe(Effect.provide(serviceLayer(root, projectDir))),
@@ -166,8 +170,8 @@ describe("Notes service", () => {
   });
 
   test("lists only the local project outside Git", async () => {
-    const { root } = fixture();
-    const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
+    const { root } = await fixture();
+    const projectDir = await createTempDirectory("local-directory-", tmpdir());
     temporaryDirectories.push(projectDir);
 
     const localNotesPath = join(
@@ -177,8 +181,8 @@ describe("Notes service", () => {
       basename(projectDir),
     );
 
-    mkdirSync(localNotesPath, { recursive: true });
-    writeFileSync(
+    await makeDirectory(localNotesPath);
+    await writeTextFile(
       join(localNotesPath, "local.md"),
       renderDraft(
         "note",
@@ -193,9 +197,9 @@ describe("Notes service", () => {
       ),
     );
 
-    const entries = await Effect.runPromise(
+    const entries = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).list();
+        return yield* (yield* Notes).list;
       }).pipe(Effect.provide(serviceLayer(root, projectDir))),
     );
 
@@ -203,11 +207,11 @@ describe("Notes service", () => {
   });
 
   test("uses the current repository for TUI startup when a remote resolves", async () => {
-    const { layer } = fixture();
+    const { layer } = await fixture();
 
-    const scope = await Effect.runPromise(
+    const scope = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).tuiScope();
+        return yield* (yield* Notes).tuiScope;
       }).pipe(Effect.provide(layer)),
     );
 
@@ -225,10 +229,10 @@ describe("Notes service", () => {
   });
 
   test("moves a note to an existing repository scope", async () => {
-    const { root, path, layer } = fixture();
+    const { root, path, layer } = await fixture();
     const destination = join(root, "projects", "local", "aidan");
-    mkdirSync(destination, { recursive: true });
-    writeFileSync(
+    await makeDirectory(destination);
+    await writeTextFile(
       join(destination, "existing.md"),
       renderDraft(
         "note",
@@ -239,29 +243,31 @@ describe("Notes service", () => {
       ),
     );
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).move(path, "local/aidan");
       }).pipe(Effect.provide(layer)),
     );
 
-    expect(existsSync(path)).toBeFalse();
+    expect(await pathExists(path)).toBeFalse();
     expect(result.path).toBe(join(destination, "note.md"));
-    expect(readFileSync(result.path, "utf8")).toContain("name: Note");
+    expect(await readTextFile(result.path)).toContain("name: Note");
     expect(result.commit).toMatchObject({ ok: true, committed: true });
   });
 
   test("includes remembered repositories as move targets", async () => {
-    const { root, layer } = fixture();
-    rememberRepositoryDirectory(
-      join(root, "state"),
-      "local/aidan",
-      join(root, "checkout"),
+    const { root, layer } = await fixture();
+    await runScoped(
+      rememberRepositoryDirectory(
+        join(root, "state"),
+        "local/aidan",
+        join(root, "checkout"),
+      ),
     );
 
-    const targets = await Effect.runPromise(
+    const targets = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).moveTargets();
+        return yield* (yield* Notes).moveTargets;
       }).pipe(Effect.provide(layer)),
     );
 
@@ -269,25 +275,25 @@ describe("Notes service", () => {
   });
 
   test("rejects unknown move destinations", async () => {
-    const { path, layer } = fixture();
+    const { path, layer } = await fixture();
 
-    const error = await Effect.runPromise(
+    const error = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).move(path, "local/unknown");
       }).pipe(Effect.flip, Effect.provide(layer)),
     );
 
     expect(error.message).toBe("Unknown move destination: local/unknown");
-    expect(existsSync(path)).toBeTrue();
+    expect(await pathExists(path)).toBeTrue();
   });
 
   test("does not overwrite a note at the destination", async () => {
-    const { root, path, layer } = fixture();
+    const { root, path, layer } = await fixture();
     const destination = join(root, "projects", "local", "aidan");
-    mkdirSync(destination, { recursive: true });
-    writeFileSync(join(destination, "note.md"), "existing");
+    await makeDirectory(destination);
+    await writeTextFile(join(destination, "note.md"), "existing");
 
-    const error = await Effect.runPromise(
+    const error = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).move(path, "local/aidan");
       }).pipe(Effect.flip, Effect.provide(layer)),
@@ -296,13 +302,13 @@ describe("Notes service", () => {
     expect(error.message).toBe(
       "A note named note.md already exists in local/aidan",
     );
-    expect(existsSync(path)).toBeTrue();
-    expect(readFileSync(join(destination, "note.md"), "utf8")).toBe("existing");
+    expect(await pathExists(path)).toBeTrue();
+    expect(await readTextFile(join(destination, "note.md"))).toBe("existing");
   });
 
   test("uses all repositories for TUI startup without a remote", async () => {
-    const { root } = fixture();
-    const projectDir = mkdtempSync(join(tmpdir(), "local-directory-"));
+    const { root } = await fixture();
+    const projectDir = await createTempDirectory("local-directory-", tmpdir());
     temporaryDirectories.push(projectDir);
     const repoSlug = `local/${basename(projectDir)}`;
 
@@ -313,8 +319,8 @@ describe("Notes service", () => {
       basename(projectDir),
     );
 
-    mkdirSync(localNotesPath, { recursive: true });
-    writeFileSync(
+    await makeDirectory(localNotesPath);
+    await writeTextFile(
       join(localNotesPath, "local.md"),
       renderDraft(
         "note",
@@ -325,9 +331,9 @@ describe("Notes service", () => {
       ),
     );
 
-    const scope = await Effect.runPromise(
+    const scope = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).tuiScope();
+        return yield* (yield* Notes).tuiScope;
       }).pipe(Effect.provide(serviceLayer(root, projectDir))),
     );
 
@@ -344,15 +350,20 @@ describe("Notes service", () => {
   });
 
   test("uses local TUI fallback when the remote cannot be parsed", async () => {
-    const { root } = fixture();
-    const projectDir = mkdtempSync(join(tmpdir(), "local-git-project-"));
-    temporaryDirectories.push(projectDir);
-    git(projectDir, "init");
-    git(projectDir, "remote", "add", "origin", "not-a-repository-url");
+    const { root } = await fixture();
 
-    const scope = await Effect.runPromise(
+    const projectDir = await createTempDirectory(
+      "local-git-project-",
+      tmpdir(),
+    );
+
+    temporaryDirectories.push(projectDir);
+    await git(projectDir, "init");
+    await git(projectDir, "remote", "add", "origin", "not-a-repository-url");
+
+    const scope = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).tuiScope();
+        return yield* (yield* Notes).tuiScope;
       }).pipe(Effect.provide(serviceLayer(root, projectDir))),
     );
 
@@ -363,20 +374,20 @@ describe("Notes service", () => {
   });
 
   test("retains known project directories when listing all repositories", async () => {
-    const { layer } = fixture();
+    const { layer } = await fixture();
 
-    const currentScope = await Effect.runPromise(
+    const currentScope = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).tuiScope();
+        return yield* (yield* Notes).tuiScope;
       }).pipe(Effect.provide(layer)),
     );
 
     if (currentScope.scope !== "current")
       throw new Error("Expected current repository scope");
 
-    const sections = await Effect.runPromise(
+    const sections = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).listAll();
+        return yield* (yield* Notes).listAll;
       }).pipe(Effect.provide(layer)),
     );
 
@@ -386,17 +397,17 @@ describe("Notes service", () => {
   });
 
   test("lists markdown notes newest-first with parsed metadata", async () => {
-    const { root, path, layer } = fixture();
+    const { root, path, layer } = await fixture();
     const notesPath = join(root, "projects", "timmo001", "notes");
     const malformedPath = join(notesPath, "newer.md");
-    writeFileSync(malformedPath, "not frontmatter");
-    writeFileSync(join(notesPath, "ignored.txt"), "ignored");
-    utimesSync(path, new Date(1_000), new Date(1_000));
-    utimesSync(malformedPath, new Date(2_000), new Date(2_000));
+    await writeTextFile(malformedPath, "not frontmatter");
+    await writeTextFile(join(notesPath, "ignored.txt"), "ignored");
+    await utimesPath(path, new Date(1_000), new Date(1_000));
+    await utimesPath(malformedPath, new Date(2_000), new Date(2_000));
 
-    const entries = await Effect.runPromise(
+    const entries = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).list();
+        return yield* (yield* Notes).list;
       }).pipe(Effect.provide(layer)),
     );
 
@@ -418,10 +429,10 @@ describe("Notes service", () => {
   });
 
   test("lists non-empty repositories in owner and repository order", async () => {
-    const { root, layer } = fixture();
+    const { root, layer } = await fixture();
     const otherPath = join(root, "projects", "alpha", "zeta");
-    mkdirSync(otherPath, { recursive: true });
-    writeFileSync(
+    await makeDirectory(otherPath);
+    await writeTextFile(
       join(otherPath, "other.md"),
       renderDraft(
         "note",
@@ -431,13 +442,11 @@ describe("Notes service", () => {
         "Other description",
       ),
     );
-    mkdirSync(join(root, "projects", "empty", "repo"), {
-      recursive: true,
-    });
+    await makeDirectory(join(root, "projects", "empty", "repo"));
 
-    const sections = await Effect.runPromise(
+    const sections = await runScoped(
       Effect.gen(function* () {
-        return yield* (yield* Notes).listAll();
+        return yield* (yield* Notes).listAll;
       }).pipe(Effect.provide(layer)),
     );
 
@@ -452,9 +461,9 @@ describe("Notes service", () => {
   });
 
   test("includes note contents only for note-reference context", async () => {
-    const { layer } = fixture();
+    const { layer } = await fixture();
 
-    const reference = await Effect.runPromise(
+    const reference = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).contextPayload({
           command: "note-reference",
@@ -462,7 +471,7 @@ describe("Notes service", () => {
       }).pipe(Effect.provide(layer)),
     );
 
-    const ordinary = await Effect.runPromise(
+    const ordinary = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).contextPayload({
           command: "unrelated-command",
@@ -478,9 +487,9 @@ describe("Notes service", () => {
   });
 
   test("creates a unique slug when a note filename already exists", async () => {
-    const { layer } = fixture();
+    const { layer } = await fixture();
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).create(
           "note",
@@ -497,9 +506,9 @@ describe("Notes service", () => {
   });
 
   test("creates a note in an explicit repository with stdin as its body", async () => {
-    const { root, layer } = fixture();
+    const { root, layer } = await fixture();
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).createFromInput(
           "other/project",
@@ -511,7 +520,7 @@ describe("Notes service", () => {
       }).pipe(Effect.provide(layer)),
     );
 
-    const content = readFileSync(result.draft.entry.filePath, "utf8");
+    const content = await readTextFile(result.draft.entry.filePath);
 
     expect(result.draft.entry.filePath).toBe(
       join(root, "projects", "other", "project", "continue-work.md"),
@@ -525,10 +534,10 @@ describe("Notes service", () => {
   });
 
   test("rejects an unsafe explicit repository before creating a note", async () => {
-    const { layer } = fixture();
+    const { layer } = await fixture();
 
     await rejects(
-      Effect.runPromise(
+      runScoped(
         Effect.gen(function* () {
           return yield* (yield* Notes).createFromInput(
             "../outside",
@@ -544,14 +553,16 @@ describe("Notes service", () => {
   });
 
   test("resolves note metadata, content, and a remembered checkout", async () => {
-    const { root, path, layer } = fixture();
-    rememberRepositoryDirectory(
-      join(root, "state"),
-      "timmo001/notes",
-      "/repos/notes",
+    const { root, path, layer } = await fixture();
+    await runScoped(
+      rememberRepositoryDirectory(
+        join(root, "state"),
+        "timmo001/notes",
+        "/repos/notes",
+      ),
     );
 
-    const resolved = await Effect.runPromise(
+    const resolved = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).resolveEntry(path);
       }).pipe(Effect.provide(layer)),
@@ -567,16 +578,16 @@ describe("Notes service", () => {
   });
 
   test("updates priority without changing the note body", async () => {
-    const { path, layer } = fixture();
-    const bodyBefore = readFileSync(path, "utf8").split("---\n").at(-1);
+    const { path, layer } = await fixture();
+    const bodyBefore = (await readTextFile(path)).split("---\n").at(-1);
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).setPriority(path, "critical");
       }).pipe(Effect.provide(layer)),
     );
 
-    const content = readFileSync(path, "utf8");
+    const content = await readTextFile(path);
 
     expect(result.commit).toMatchObject({ ok: true, committed: true });
     expect(content).toContain("priority: critical");
@@ -584,16 +595,16 @@ describe("Notes service", () => {
   });
 
   test("returns a revision and rejects a stale write", async () => {
-    const { path, layer } = fixture();
+    const { path, layer } = await fixture();
 
-    const initial = await Effect.runPromise(
+    const initial = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
     );
 
     const updated = initial.content.replace("# Note", "# Updated");
-    await Effect.runPromise(
+    await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(path, updated, {
           expectedHash: initial.hash,
@@ -601,7 +612,7 @@ describe("Notes service", () => {
       }).pipe(Effect.provide(layer)),
     );
     await rejects(
-      Effect.runPromise(
+      runScoped(
         Effect.gen(function* () {
           return yield* (yield* Notes).write(path, initial.content, {
             expectedHash: initial.hash,
@@ -613,9 +624,9 @@ describe("Notes service", () => {
   });
 
   test("accepts a tilde path for guarded writes", async () => {
-    const { path, layer } = fixture(process.env.HOME);
+    const { path, layer } = await fixture(process.env.HOME);
 
-    const initial = await Effect.runPromise(
+    const initial = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
@@ -623,7 +634,7 @@ describe("Notes service", () => {
 
     const homePath = path.replace(process.env.HOME ?? "", "~");
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
           homePath,
@@ -637,18 +648,18 @@ describe("Notes service", () => {
   });
 
   test("refuses staged work before touching a note", async () => {
-    const { root, path, layer } = fixture();
+    const { root, path, layer } = await fixture();
 
-    const before = await Effect.runPromise(
+    const before = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
     );
 
-    writeFileSync(join(root, "unfinished.txt"), "unfinished");
-    git(root, "add", "unfinished.txt");
+    await writeTextFile(join(root, "unfinished.txt"), "unfinished");
+    await git(root, "add", "unfinished.txt");
     await rejects(
-      Effect.runPromise(
+      runScoped(
         Effect.gen(function* () {
           return yield* (yield* Notes).write(
             path,
@@ -659,7 +670,7 @@ describe("Notes service", () => {
       /not ready for a mutation/,
     );
 
-    const after = await Effect.runPromise(
+    const after = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).read(path);
       }).pipe(Effect.provide(layer)),
@@ -669,11 +680,11 @@ describe("Notes service", () => {
   });
 
   test("restores the index after a commit failure", async () => {
-    const { root, path, layer } = fixture();
-    git(root, "config", "user.name", "");
-    git(root, "config", "user.email", "");
+    const { root, path, layer } = await fixture();
+    await git(root, "config", "user.name", "");
+    await git(root, "config", "user.email", "");
 
-    const failed = await Effect.runPromise(
+    const failed = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
           path,
@@ -683,12 +694,12 @@ describe("Notes service", () => {
     );
 
     expect(failed.commit).toMatchObject({ ok: false, committed: false });
-    git(root, "diff", "--cached", "--quiet");
+    await git(root, "diff", "--cached", "--quiet");
 
-    git(root, "config", "user.name", "Notes Test");
-    git(root, "config", "user.email", "notes@example.invalid");
+    await git(root, "config", "user.name", "Notes Test");
+    await git(root, "config", "user.email", "notes@example.invalid");
 
-    const retried = await Effect.runPromise(
+    const retried = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
           path,
@@ -701,13 +712,13 @@ describe("Notes service", () => {
   });
 
   test("validates editor output before committing", async () => {
-    const { path, layer } = fixture();
+    const { path, layer } = await fixture();
     await rejects(
-      Effect.runPromise(
+      runScoped(
         Effect.gen(function* () {
           return yield* (yield* Notes).edit(
             path,
-            async () => writeFileSync(path, "invalid"),
+            async () => await writeTextFile(path, "invalid"),
             false,
           );
         }).pipe(Effect.provide(layer)),
@@ -717,15 +728,15 @@ describe("Notes service", () => {
   });
 
   test("allows malformed notes to be repaired in the editor", async () => {
-    const { path, layer } = fixture();
-    writeFileSync(path, "malformed");
+    const { path, layer } = await fixture();
+    await writeTextFile(path, "malformed");
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).edit(
           path,
           async () =>
-            writeFileSync(
+            await writeTextFile(
               path,
               renderDraft("note", identity, "new", "Repaired", "Description"),
             ),
@@ -738,40 +749,42 @@ describe("Notes service", () => {
   });
 
   test("commits a note deleted by the editor", async () => {
-    const { root, path, layer } = fixture();
+    const { root, path, layer } = await fixture();
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).edit(
           path,
-          async () => rmSync(path),
+          async () => removePath(path),
           false,
         );
       }).pipe(Effect.provide(layer)),
     );
 
     expect(result.commit).toMatchObject({ ok: true, committed: true });
-    expect(existsSync(path)).toBeFalse();
+    expect(await pathExists(path)).toBeFalse();
 
-    const changed = Bun.spawnSync(
-      ["git", "show", "--name-status", "--format=", "HEAD"],
-      { cwd: root },
-    ).stdout.toString();
+    const changed = await runGit(root, [
+      "show",
+      "--name-status",
+      "--format=",
+      "HEAD",
+    ]);
 
     expect(changed).toContain("projects/timmo001/notes/note.md");
   });
 
   test("initializes a fresh vault before acquiring its lock", async () => {
-    const parent = mkdtempSync(join(tmpdir(), "notes-fresh-parent-"));
+    const parent = await createTempDirectory("notes-fresh-parent-", tmpdir());
     temporaryDirectories.push(parent);
     const root = join(parent, "vault");
     const path = join(root, "projects", "timmo001", "notes", "note.md");
-    mkdirSync(root);
-    git(root, "init");
-    git(root, "config", "user.name", "Notes Test");
-    git(root, "config", "user.email", "notes@example.invalid");
+    await makeDirectory(root);
+    await git(root, "init");
+    await git(root, "config", "user.name", "Notes Test");
+    await git(root, "config", "user.email", "notes@example.invalid");
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).write(
           path,
@@ -784,45 +797,45 @@ describe("Notes service", () => {
   });
 
   test("keeps draft creation and editing under one lock", async () => {
-    const { root, layer } = fixture();
-    let competitor: ReturnType<typeof Bun.spawn> | undefined;
+    const { root, layer } = await fixture();
+    let competitor: ReturnType<typeof runProcess> | undefined;
+    let competitorSettled = false;
 
-    const created = Effect.runPromise(
+    const created = runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).create(
           "note",
           "Created",
           "Description",
           async () => {
-            competitor = Bun.spawn(
-              [
-                "bun",
-                "-e",
-                `import { acquireVaultLock } from ${JSON.stringify(import.meta.dir + "/../../../src/notes/processLock.ts")}; const release = await acquireVaultLock(${JSON.stringify(root)}); await release();`,
-              ],
-              { stdout: "ignore", stderr: "pipe" },
-            );
+            competitor = runProcess("bun", [
+              "-e",
+              `import { acquireVaultLock } from ${JSON.stringify(import.meta.dir + "/../../../src/notes/processLock.ts")}; const release = await acquireVaultLock(${JSON.stringify(root)}); await release();`,
+            ]);
+            void competitor.then(() => {
+              competitorSettled = true;
+            });
             await Bun.sleep(150);
-            expect(competitor.exitCode).toBeNull();
+            expect(competitorSettled).toBeFalse();
           },
         );
       }).pipe(Effect.provide(layer)),
     );
 
     await created;
-    expect(await competitor?.exited).toBe(0);
+    expect((await competitor)?.exitCode).toBe(0);
   });
 
   test("treats deletion of a new draft as a cancelled create", async () => {
-    const { layer } = fixture();
+    const { layer } = await fixture();
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       Effect.gen(function* () {
         return yield* (yield* Notes).create(
           "note",
           "Cancelled",
           "Description",
-          async (entry) => rmSync(entry.filePath),
+          async (entry) => removePath(entry.filePath),
         );
       }).pipe(Effect.provide(layer)),
     );

@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   commitIn,
@@ -9,53 +7,54 @@ import {
   pushBranch,
 } from "../../src/git/committer.js";
 import { CommandExecutor } from "../../src/services/CommandExecutor.js";
+import {
+  git as runGit,
+  createTempDirectory,
+  removePath,
+  runScoped,
+  writeTextFile,
+} from "../support/platform.js";
 
 const temporaryDirectories: string[] = [];
 
-function git(cwd: string, ...args: string[]): void {
-  const result = Bun.spawnSync(["git", ...args], { cwd });
-
-  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+async function git(cwd: string, ...args: string[]): Promise<void> {
+  await runGit(cwd, args);
 }
 
-function temporaryRepository(): string {
-  const directory = mkdtempSync(join(tmpdir(), "notes-git-"));
+async function temporaryRepository(): Promise<string> {
+  const directory = await createTempDirectory("notes-git-");
   temporaryDirectories.push(directory);
-  git(directory, "init");
-  git(directory, "config", "user.name", "Notes Test");
-  git(directory, "config", "user.email", "notes@example.invalid");
+  await git(directory, "init");
+  await git(directory, "config", "user.name", "Notes Test");
+  await git(directory, "config", "user.email", "notes@example.invalid");
 
   return directory;
 }
 
-function gitOutput(cwd: string, ...args: string[]): string {
-  const result = Bun.spawnSync(["git", ...args], { cwd });
-
-  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
-
-  return result.stdout.toString().trim();
+async function gitOutput(cwd: string, ...args: string[]): Promise<string> {
+  return (await runGit(cwd, args)).trim();
 }
 
-function temporaryBareRepository(): string {
-  const directory = mkdtempSync(join(tmpdir(), "notes-git-remote-"));
+async function temporaryBareRepository(): Promise<string> {
+  const directory = await createTempDirectory("notes-git-remote-");
   temporaryDirectories.push(directory);
-  git(directory, "init", "--bare");
+  await git(directory, "init", "--bare");
 
   return directory;
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const directory of temporaryDirectories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
+    await removePath(directory);
 });
 
 describe("preflightMutation", () => {
   test("refuses an existing staged change", async () => {
-    const directory = temporaryRepository();
-    writeFileSync(join(directory, "staged.txt"), "unfinished");
-    git(directory, "add", "staged.txt");
+    const directory = await temporaryRepository();
+    await writeTextFile(join(directory, "staged.txt"), "unfinished");
+    await git(directory, "add", "staged.txt");
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       preflightMutation(directory).pipe(Effect.provide(CommandExecutor.layer)),
     );
 
@@ -64,9 +63,9 @@ describe("preflightMutation", () => {
   });
 
   test("allows a repository with an empty index", async () => {
-    const directory = temporaryRepository();
+    const directory = await temporaryRepository();
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       preflightMutation(directory).pipe(Effect.provide(CommandExecutor.layer)),
     );
 
@@ -74,13 +73,13 @@ describe("preflightMutation", () => {
   });
 
   test("refuses detached HEAD", async () => {
-    const directory = temporaryRepository();
-    writeFileSync(join(directory, "tracked.txt"), "tracked");
-    git(directory, "add", "tracked.txt");
-    git(directory, "commit", "-m", "Initial commit");
-    git(directory, "checkout", "--detach");
+    const directory = await temporaryRepository();
+    await writeTextFile(join(directory, "tracked.txt"), "tracked");
+    await git(directory, "add", "tracked.txt");
+    await git(directory, "commit", "-m", "Initial commit");
+    await git(directory, "checkout", "--detach");
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       preflightMutation(directory).pipe(Effect.provide(CommandExecutor.layer)),
     );
 
@@ -89,18 +88,18 @@ describe("preflightMutation", () => {
   });
 
   test("refuses an in-progress Git operation", async () => {
-    const directory = temporaryRepository();
+    const directory = await temporaryRepository();
 
-    const marker = gitOutput(
+    const marker = await gitOutput(
       directory,
       "rev-parse",
       "--git-path",
       "MERGE_HEAD",
     );
 
-    writeFileSync(join(directory, marker), "0".repeat(40));
+    await writeTextFile(join(directory, marker), "0".repeat(40));
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       preflightMutation(directory).pipe(Effect.provide(CommandExecutor.layer)),
     );
 
@@ -111,16 +110,16 @@ describe("preflightMutation", () => {
 
 describe("commitIn", () => {
   test("commits only requested paths", async () => {
-    const directory = temporaryRepository();
-    writeFileSync(join(directory, "selected.txt"), "before");
-    writeFileSync(join(directory, "unrelated.txt"), "before");
-    git(directory, "add", ".");
-    git(directory, "commit", "-m", "Initial commit");
-    writeFileSync(join(directory, "selected.txt"), "selected change");
-    writeFileSync(join(directory, "unrelated.txt"), "unrelated change");
-    git(directory, "add", ".");
+    const directory = await temporaryRepository();
+    await writeTextFile(join(directory, "selected.txt"), "before");
+    await writeTextFile(join(directory, "unrelated.txt"), "before");
+    await git(directory, "add", ".");
+    await git(directory, "commit", "-m", "Initial commit");
+    await writeTextFile(join(directory, "selected.txt"), "selected change");
+    await writeTextFile(join(directory, "unrelated.txt"), "unrelated change");
+    await git(directory, "add", ".");
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       commitIn({
         cwd: directory,
         message: "Selected change",
@@ -130,9 +129,9 @@ describe("commitIn", () => {
 
     expect(result).toMatchObject({ ok: true, committed: true });
     expect(
-      gitOutput(directory, "show", "--name-only", "--format=", "HEAD"),
+      await gitOutput(directory, "show", "--name-only", "--format=", "HEAD"),
     ).toBe("selected.txt");
-    expect(gitOutput(directory, "diff", "--cached", "--name-only")).toBe(
+    expect(await gitOutput(directory, "diff", "--cached", "--name-only")).toBe(
       "unrelated.txt",
     );
   });
@@ -140,17 +139,17 @@ describe("commitIn", () => {
 
 describe("pushBranch", () => {
   test("uses upstream before origin and installs branch tracking", async () => {
-    const directory = temporaryRepository();
-    const upstream = temporaryBareRepository();
-    const origin = temporaryBareRepository();
-    writeFileSync(join(directory, "tracked.txt"), "tracked");
-    git(directory, "add", "tracked.txt");
-    git(directory, "commit", "-m", "Initial commit");
-    git(directory, "remote", "add", "origin", origin);
-    git(directory, "remote", "add", "upstream", upstream);
-    const branch = gitOutput(directory, "branch", "--show-current");
+    const directory = await temporaryRepository();
+    const upstream = await temporaryBareRepository();
+    const origin = await temporaryBareRepository();
+    await writeTextFile(join(directory, "tracked.txt"), "tracked");
+    await git(directory, "add", "tracked.txt");
+    await git(directory, "commit", "-m", "Initial commit");
+    await git(directory, "remote", "add", "origin", origin);
+    await git(directory, "remote", "add", "upstream", upstream);
+    const branch = await gitOutput(directory, "branch", "--show-current");
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       pushBranch({ cwd: directory }).pipe(
         Effect.provide(CommandExecutor.layer),
       ),
@@ -161,10 +160,10 @@ describe("pushBranch", () => {
       message: `Pushed to upstream/${branch} (new upstream)`,
     });
     expect(
-      gitOutput(directory, "rev-parse", "--abbrev-ref", "@{upstream}"),
+      await gitOutput(directory, "rev-parse", "--abbrev-ref", "@{upstream}"),
     ).toBe(`upstream/${branch}`);
-    expect(gitOutput(upstream, "rev-parse", `refs/heads/${branch}`)).toBe(
-      gitOutput(directory, "rev-parse", "HEAD"),
+    expect(await gitOutput(upstream, "rev-parse", `refs/heads/${branch}`)).toBe(
+      await gitOutput(directory, "rev-parse", "HEAD"),
     );
   });
 });

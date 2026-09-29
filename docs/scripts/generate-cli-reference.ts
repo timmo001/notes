@@ -1,7 +1,7 @@
-import { writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { Effect } from "effect";
+import { NodeServices } from "@effect/platform-node";
+import { Effect, FileSystem } from "effect";
 import { renderHelp } from "../../src/cli/help.ts";
 import { notesCommand } from "../../src/index.ts";
 
@@ -36,8 +36,10 @@ for (const command of commands) {
   );
 }
 
-await mkdir(path.dirname(outFile), { recursive: true });
-
-await writeFile(outFile, `${lines.join("\n").trimEnd()}\n`);
+await Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  yield* fs.makeDirectory(path.dirname(outFile), { recursive: true });
+  yield* fs.writeFileString(outFile, `${lines.join("\n").trimEnd()}\n`);
+}).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
 
 console.log(`Wrote ${path.relative(root, outFile)}`);

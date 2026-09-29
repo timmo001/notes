@@ -1,8 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { herdrIds } from "@timmo001/effect-herdr";
 import { activeNoteCount } from "../../src/notes/activeCount.js";
 import { renderDraft } from "../../src/notes/frontmatter.js";
@@ -10,6 +8,13 @@ import { Notes } from "../../src/notes/services/Notes.js";
 import { CommandExecutor } from "../../src/services/CommandExecutor.js";
 import { Config } from "../../src/services/Config.js";
 import { herdrFixture } from "../support/herdr.js";
+import {
+  makeDirectory,
+  createTempDirectory,
+  removePath,
+  runScoped,
+  writeTextFile,
+} from "../support/platform.js";
 
 const directories: string[] = [];
 
@@ -18,8 +23,7 @@ const servers: Awaited<ReturnType<typeof herdrFixture>>[] = [];
 afterEach(async () => {
   for (const server of servers.splice(0)) await server.close();
 
-  for (const directory of directories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
+  for (const directory of directories.splice(0)) await removePath(directory);
 });
 
 test.each([
@@ -32,15 +36,15 @@ test.each([
 ])("counts $cwd even with the caller's Notes layer loaded", async (options) => {
   const server = await herdrFixture(options);
   servers.push(server);
-  const notesDir = mkdtempSync(join(tmpdir(), "notes-active-count-"));
+  const notesDir = await createTempDirectory("notes-active-count-");
   directories.push(notesDir);
 
   for (const repo of ["active", "other"]) {
     const directory = join(notesDir, "projects/example", repo);
-    mkdirSync(directory, { recursive: true });
+    await makeDirectory(directory);
 
     for (const kind of ["note", "handoff"] as const)
-      writeFileSync(
+      await writeTextFile(
         join(directory, `${kind}.md`),
         renderDraft(
           kind,
@@ -52,10 +56,9 @@ test.each([
       );
   }
 
-  const result = await Effect.runPromise(
+  const result = await runScoped(
     activeNoteCount().pipe(
-      Effect.provide(Notes.layer),
-      Effect.provide(server.layer),
+      Effect.provide(Layer.mergeAll(Notes.layer, server.layer)),
       Effect.provideService(Config, {
         notesDir,
         projectDir: "/wrong",
@@ -100,7 +103,7 @@ test.each([
   const server = await herdrFixture(options);
   servers.push(server);
 
-  const result = await Effect.runPromise(
+  const result = await runScoped(
     activeNoteCount().pipe(
       Effect.provide(server.layer),
       Effect.provideService(Config, {

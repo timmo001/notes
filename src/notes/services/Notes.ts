@@ -2,12 +2,12 @@ import {
   Clock,
   Context,
   Effect,
+  FileSystem,
   Layer,
   Option,
   Schema,
   Semaphore,
 } from "effect";
-import { existsSync, lstatSync, readdirSync, renameSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import {
   commitIn,
@@ -30,6 +30,8 @@ import {
   deleteNoteFile,
   ensurePhysicalVaultRoot,
   hashNoteContent,
+  inspectPath,
+  NoteFileError,
   readNoteFile,
   resolveExistingNotePath,
   resolveOptionalNotePath,
@@ -97,9 +99,9 @@ interface NotesService {
   readonly context: (
     options: NoteContextOptions,
   ) => Effect.Effect<string, NotesError>;
-  readonly list: () => Effect.Effect<readonly NoteEntry[], NotesError>;
-  readonly listAll: () => Effect.Effect<readonly NoteRepoSection[], NotesError>;
-  readonly tuiScope: () => Effect.Effect<NotesTuiScope, NotesError>;
+  readonly list: Effect.Effect<readonly NoteEntry[], NotesError>;
+  readonly listAll: Effect.Effect<readonly NoteRepoSection[], NotesError>;
+  readonly tuiScope: Effect.Effect<NotesTuiScope, NotesError>;
   readonly read: (
     filePath: string,
   ) => Effect.Effect<NoteReadResult, NotesError>;
@@ -117,7 +119,7 @@ interface NotesService {
   readonly delete: (
     filePath: string,
   ) => Effect.Effect<NoteDeleteResult, NotesError>;
-  readonly moveTargets: () => Effect.Effect<readonly string[], NotesError>;
+  readonly moveTargets: Effect.Effect<readonly string[], NotesError>;
   readonly move: (
     filePath: string,
     repoSlug: string,
@@ -155,126 +157,141 @@ const ErrorDetails = Schema.Struct({
   message: Schema.optional(Schema.String),
 });
 
-const ErrorCode = Schema.Struct({ code: Schema.optional(Schema.String) });
-
-function errorMessage<ErrorValue>(error: ErrorValue): string {
+function errorMessage(cause: unknown): string {
   const text = Option.getOrUndefined(
-    Schema.decodeUnknownOption(Schema.String)(error),
+    Schema.decodeUnknownOption(Schema.String)(cause),
   );
 
   if (text !== undefined) return text;
 
   const nativeError = Option.getOrUndefined(
-    Schema.decodeUnknownOption(Schema.instanceOf(Error))(error),
+    Schema.decodeUnknownOption(Schema.instanceOf(Error))(cause),
   );
 
   if (nativeError !== undefined) return nativeError.message;
 
   const details = Option.getOrUndefined(
-    Schema.decodeUnknownOption(ErrorDetails)(error),
+    Schema.decodeUnknownOption(ErrorDetails)(cause),
   );
 
   if (details?.stderr?.trim()) return details.stderr.trim();
 
   if (details?.message?.trim()) return details.message.trim();
 
-  if (error === null || error === undefined) return "Unknown error";
+  if (cause === null || cause === undefined) return "Unknown error";
 
-  return String(error);
+  return Schema.is(Schema.Json)(cause)
+    ? JSON.stringify(cause)
+    : "Unknown error";
 }
 
-function errorCode<ErrorValue>(error: ErrorValue): string | undefined {
-  return Option.getOrUndefined(Schema.decodeUnknownOption(ErrorCode)(error))
-    ?.code;
-}
+const EMPTY_FRONTMATTER: NoteFrontmatter = {
+  name: null,
+  description: null,
+  tags: [],
+  priority: null,
+};
 
-function readNoteFrontmatter(
-  projectsRoot: string,
-  filePath: string,
-): NoteFrontmatter {
-  try {
-    return readFrontmatter(readNoteFile(projectsRoot, filePath).content);
-  } catch {
-    return { name: null, description: null, tags: [], priority: null };
-  }
-}
+const readNoteFrontmatter = (projectsRoot: string, filePath: string) =>
+  readNoteFile(projectsRoot, filePath).pipe(
+    Effect.flatMap((note) => Effect.try(() => readFrontmatter(note.content))),
+    Effect.orElseSucceed(() => EMPTY_FRONTMATTER),
+  );
 
-function listNoteEntries(
+const listNoteEntries = Effect.fn("Notes.listNoteEntries")(function* (
   projectsRoot: string,
   notesPath: string,
   repoSlug?: string,
   projectDir?: string,
-): readonly NoteEntry[] {
-  if (!existsSync(notesPath)) return [];
+) {
+  const fs = yield* FileSystem.FileSystem;
 
-  const physicalNotesPath = resolveRepositoryNotesDirectory(
+  if (!(yield* fs.exists(notesPath))) return [];
+
+  const physicalNotesPath = yield* resolveRepositoryNotesDirectory(
     projectsRoot,
     notesPath,
   );
 
-  return readdirSync(physicalNotesPath, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => entry.name)
-    .map((filename) => {
-      const filePath = join(physicalNotesPath, filename);
-      const stat = lstatSync(filePath);
+  const filenames = (yield* fs.readDirectory(physicalNotesPath)).filter(
+    (name) => name.endsWith(".md"),
+  );
 
-      if (stat.isSymbolicLink() || !stat.isFile()) {
-        throw new Error(
-          `Note path is not a physical regular file: ${filePath}`,
-        );
-      }
+  const entries: NoteEntry[] = [];
 
-      return {
-        filename,
-        filePath,
-        repoSlug,
-        projectDir,
-        mtime: stat.mtimeMs / 1000,
-        ...readNoteFrontmatter(projectsRoot, filePath),
-      };
-    })
-    .sort((a, b) => b.mtime - a.mtime);
-}
+  for (const filename of filenames) {
+    const filePath = join(physicalNotesPath, filename);
+    const inspected = yield* inspectPath(filePath);
 
-function sortedDirectories(path: string) {
-  return readdirSync(path, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
+    if (inspected.kind === "directory" || inspected.kind === "missing")
+      continue;
 
-function listNoteRepoSections(
-  projectsRoot: string,
-): readonly NoteRepoSection[] {
-  try {
-    const rootStat = lstatSync(projectsRoot);
-
-    if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
-      throw new Error(
-        `Projects root is not a physical directory: ${projectsRoot}`,
-      );
+    if (inspected.kind !== "file") {
+      return yield* new NoteFileError({
+        message: `Note path is not a physical regular file: ${filePath}`,
+      });
     }
-  } catch (error) {
-    if (errorCode(error) === "ENOENT") return [];
-    throw error;
+
+    entries.push({
+      filename,
+      filePath,
+      repoSlug,
+      projectDir,
+      mtime: Option.match(inspected.info.mtime, {
+        onNone: () => 0,
+        onSome: (mtime) => mtime.getTime() / 1000,
+      }),
+      ...(yield* readNoteFrontmatter(projectsRoot, filePath)),
+    });
+  }
+
+  return entries.sort((a, b) => b.mtime - a.mtime);
+});
+
+const sortedDirectories = Effect.fn("Notes.sortedDirectories")(function* (
+  path: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const directories: string[] = [];
+
+  for (const name of yield* fs.readDirectory(path)) {
+    if ((yield* inspectPath(join(path, name))).kind === "directory")
+      directories.push(name);
+  }
+
+  return directories.sort((a, b) => a.localeCompare(b));
+});
+
+const listNoteRepoSections = Effect.fn("Notes.listNoteRepoSections")(function* (
+  projectsRoot: string,
+) {
+  const root = yield* inspectPath(projectsRoot);
+
+  if (root.kind === "missing") return [];
+
+  if (root.kind !== "directory") {
+    return yield* new NoteFileError({
+      message: `Projects root is not a physical directory: ${projectsRoot}`,
+    });
   }
 
   const sections: NoteRepoSection[] = [];
 
-  for (const owner of sortedDirectories(projectsRoot)) {
-    const ownerPath = join(projectsRoot, owner.name);
+  for (const owner of yield* sortedDirectories(projectsRoot)) {
+    const ownerPath = join(projectsRoot, owner);
 
-    for (const repo of sortedDirectories(ownerPath)) {
-      const repoSlug = `${owner.name}/${repo.name}`;
-      const notesPath = join(ownerPath, repo.name);
-      const entries = listNoteEntries(projectsRoot, notesPath, repoSlug);
+    for (const repo of yield* sortedDirectories(ownerPath)) {
+      const repoSlug = `${owner}/${repo}`;
+      const notesPath = join(ownerPath, repo);
+
+      const entries = yield* listNoteEntries(projectsRoot, notesPath, repoSlug);
 
       if (entries.length > 0) sections.push({ repoSlug, notesPath, entries });
     }
   }
 
   return sections;
-}
+});
 
 function slugifyName(name: string): string {
   return name
@@ -407,6 +424,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
     Effect.gen(function* () {
       const config = yield* Config;
       const executor = yield* CommandExecutor;
+      const fs = yield* FileSystem.FileSystem;
       const notesRoot = resolve(config.notesDir);
       const projectsRoot = join(notesRoot, PROJECTS_SUBDIR);
       const mutationLock = yield* Semaphore.make(1);
@@ -414,11 +432,10 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
       const withMutationLock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         mutationLock.withPermit(
           Effect.acquireUseRelease(
-            Effect.try({
-              try: () => ensurePhysicalVaultRoot(notesRoot),
-              catch: (error) =>
+            withServices(ensurePhysicalVaultRoot(notesRoot)).pipe(
+              Effect.mapError((error) =>
                 fail(`Invalid notes vault: ${errorMessage(error)}`),
-            }).pipe(
+              ),
               Effect.flatMap(() =>
                 Effect.tryPromise({
                   try: () => acquireVaultLock(notesRoot),
@@ -545,10 +562,13 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         },
       );
 
-      const withExecutor = <A, E>(
-        effect: Effect.Effect<A, E, CommandExecutor>,
+      const withServices = <A, E>(
+        effect: Effect.Effect<A, E, CommandExecutor | FileSystem.FileSystem>,
       ): Effect.Effect<A, E> =>
-        effect.pipe(Effect.provideService(CommandExecutor, executor));
+        effect.pipe(
+          Effect.provideService(CommandExecutor, executor),
+          Effect.provideService(FileSystem.FileSystem, fs),
+        );
 
       const toNoteCommitResult = (outcome: {
         readonly ok: boolean;
@@ -567,7 +587,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           : { ok: false, committed: false, error: outcome.error };
 
       const prepareMutation = Effect.fn("Notes.prepareMutation")(function* () {
-        const init = yield* withExecutor(ensureRepo(notesRoot));
+        const init = yield* withServices(ensureRepo(notesRoot));
 
         if (!init.ok) {
           return yield* fail(
@@ -576,7 +596,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           );
         }
 
-        const preflight = yield* withExecutor(preflightMutation(notesRoot));
+        const preflight = yield* withServices(preflightMutation(notesRoot));
 
         if (!preflight.ok) {
           return yield* fail(
@@ -590,7 +610,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         filePath: string,
         message: string,
       ) {
-        if (yield* withExecutor(hasStagedChanges(notesRoot))) {
+        if (yield* withServices(hasStagedChanges(notesRoot))) {
           return {
             ok: false as const,
             committed: false,
@@ -601,7 +621,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         }
 
         const relativePath = relative(notesRoot, filePath);
-        const init = yield* withExecutor(ensureRepo(notesRoot));
+        const init = yield* withServices(ensureRepo(notesRoot));
 
         if (!init.ok) {
           return {
@@ -612,7 +632,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           };
         }
 
-        const staged = yield* withExecutor(
+        const staged = yield* withServices(
           stageIn(
             { mode: "paths", paths: [relativePath] },
             { cwd: notesRoot, io: "capture" },
@@ -628,7 +648,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           };
         }
 
-        const outcome = yield* withExecutor(
+        const outcome = yield* withServices(
           commitIn({
             cwd: notesRoot,
             message,
@@ -654,7 +674,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           };
         }
 
-        const restored = yield* withExecutor(
+        const restored = yield* withServices(
           unstageIn([relativePath], { cwd: notesRoot, io: "capture" }),
         );
 
@@ -671,7 +691,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         toPath: string,
         message: string,
       ) {
-        if (yield* withExecutor(hasStagedChanges(notesRoot))) {
+        if (yield* withServices(hasStagedChanges(notesRoot))) {
           return {
             ok: false as const,
             committed: false,
@@ -686,7 +706,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           relative(notesRoot, toPath),
         ];
 
-        const staged = yield* withExecutor(
+        const staged = yield* withServices(
           stageIn({ mode: "paths", paths }, { cwd: notesRoot, io: "capture" }),
         );
 
@@ -699,7 +719,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           };
         }
 
-        const outcome = yield* withExecutor(
+        const outcome = yield* withServices(
           commitIn({
             cwd: notesRoot,
             message,
@@ -711,7 +731,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         );
 
         if (!outcome.ok) {
-          const restored = yield* withExecutor(
+          const restored = yield* withServices(
             unstageIn(paths, { cwd: notesRoot, io: "capture" }),
           );
 
@@ -759,7 +779,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
       const pushNotes = Effect.fn("Notes.pushNotes")(function* () {
         if (!(yield* hasRemote())) return undefined;
 
-        const outcome = yield* withExecutor(
+        const outcome = yield* withServices(
           pushBranch({ cwd: notesRoot, io: "capture" }),
         );
 
@@ -785,16 +805,17 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         runEditor: (entry: NoteEntry) => Promise<void>,
         create: boolean,
       ) {
-        const before = yield* Effect.try({
-          try: () => readNoteFile(projectsRoot, filePath),
-          catch: (error) => fail(errorMessage(error)),
-        });
+        const before = yield* withServices(
+          readNoteFile(projectsRoot, filePath),
+        ).pipe(Effect.mapError((error) => fail(errorMessage(error))));
 
         const entry: NoteEntry = {
           filename: basename(before.path),
           filePath: before.path,
           mtime: before.mtime,
-          ...readNoteFrontmatter(projectsRoot, before.path),
+          ...(yield* withServices(
+            readNoteFrontmatter(projectsRoot, before.path),
+          )),
         };
 
         yield* Effect.tryPromise({
@@ -802,9 +823,16 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           catch: (error) =>
             fail(`Editor failed for ${filePath}: ${errorMessage(error)}`),
         });
-        const resolvedPath = resolveOptionalNotePath(projectsRoot, filePath);
 
-        if (!existsSync(resolvedPath)) {
+        const resolvedPath = yield* withServices(
+          resolveOptionalNotePath(projectsRoot, filePath),
+        ).pipe(Effect.mapError((error) => fail(errorMessage(error))));
+
+        const resolvedExists = yield* fs
+          .exists(resolvedPath)
+          .pipe(Effect.mapError((error) => fail(errorMessage(error))));
+
+        if (!resolvedExists) {
           if (create) {
             return {
               commit: {
@@ -820,14 +848,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           return yield* commitAndPush(resolvedPath, message);
         }
 
-        yield* Effect.try({
-          try: () =>
-            validateNoteContent(
-              readNoteFile(projectsRoot, resolvedPath).content,
-            ),
-          catch: (error) =>
+        yield* withServices(readNoteFile(projectsRoot, resolvedPath)).pipe(
+          Effect.flatMap((note) =>
+            Effect.try(() => validateNoteContent(note.content)),
+          ),
+          Effect.mapError((error) =>
             fail(`Edited note is invalid: ${errorMessage(error)}`),
-        });
+          ),
+        );
         const filename = basename(resolvedPath);
         const message = `notes: ${create ? "create" : "edit"} ${filename}`;
 
@@ -858,20 +886,23 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             ? draftContent
             : `${draftContent.slice(0, draftContent.indexOf("\n---\n") + 5)}\n${body.replace(/(?:\r\n|\r|\n)+$/, "")}\n`;
 
-        const filePath = yield* Effect.try({
-          try: () =>
-            createExclusiveNoteFile(
-              projectsRoot,
-              identity.owner,
-              identity.repo,
-              slug,
-              content,
-            ),
-          catch: (error) =>
+        const filePath = yield* withServices(
+          createExclusiveNoteFile(
+            projectsRoot,
+            identity.owner,
+            identity.repo,
+            slug,
+            content,
+          ),
+        ).pipe(
+          Effect.mapError((error) =>
             fail(`createDraft: failed to write draft: ${errorMessage(error)}`),
-        });
+          ),
+        );
 
-        const note = readNoteFile(projectsRoot, filePath);
+        const note = yield* withServices(
+          readNoteFile(projectsRoot, filePath),
+        ).pipe(Effect.mapError((error) => fail(errorMessage(error))));
 
         const entry: NoteEntry = {
           filename: basename(filePath),
@@ -884,7 +915,11 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
         const draft = { entry, content } satisfies NoteCreateDraft;
         const git = yield* editAndCommit(filePath, runEditor, true);
 
-        return { draft, git, created: existsSync(filePath) };
+        const created = yield* fs
+          .exists(filePath)
+          .pipe(Effect.mapError((error) => fail(errorMessage(error))));
+
+        return { draft, git, created };
       });
 
       const buildContextPayload = ({ command }: NoteContextOptions) =>
@@ -919,15 +954,18 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             resolved.identity.repo,
           );
 
-          const notesExist = existsSync(notesPath);
+          const notesExist = yield* fs
+            .exists(notesPath)
+            .pipe(Effect.mapError((error) => fail(errorMessage(error))));
+
           const warnings = [...resolved.warnings];
           let entries: readonly NoteEntry[] = [];
 
           if (COMMANDS_NEEDING_LIST.has(command)) {
-            const listed = yield* Effect.try({
-              try: () => listNoteEntries(projectsRoot, notesPath),
-              catch: (error) => errorMessage(error),
-            }).pipe(
+            const listed = yield* withServices(
+              listNoteEntries(projectsRoot, notesPath),
+            ).pipe(
+              Effect.mapError((error) => errorMessage(error)),
               Effect.match({
                 onFailure: (error) => ({ ok: false as const, error }),
                 onSuccess: (value) => ({ ok: true as const, value }),
@@ -941,24 +979,21 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
 
           const contents =
             command === "note-reference" && entries.length > 0
-              ? entries.map((entry) => {
-                  let content: string;
-
-                  try {
-                    content = readNoteFile(
-                      projectsRoot,
-                      entry.filePath,
-                    ).content.trim();
-                  } catch (error) {
-                    content = `(error reading file: ${errorMessage(error)})`;
-                  }
-
-                  return {
-                    filename: entry.filename,
-                    filePath: entry.filePath,
-                    content,
-                  };
-                })
+              ? yield* Effect.forEach(entries, (entry) =>
+                  withServices(readNoteFile(projectsRoot, entry.filePath)).pipe(
+                    Effect.map((note) => note.content.trim()),
+                    Effect.catch((error) =>
+                      Effect.succeed(
+                        `(error reading file: ${errorMessage(error)})`,
+                      ),
+                    ),
+                    Effect.map((content) => ({
+                      filename: entry.filename,
+                      filePath: entry.filePath,
+                      content,
+                    })),
+                  ),
+                )
               : undefined;
 
           return {
@@ -976,6 +1011,41 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           } satisfies NoteContextPayload;
         });
 
+      const repoSectionsWithDirectories = () =>
+        withServices(
+          Effect.gen(function* () {
+            const directories = yield* readRepositoryDirectories(
+              config.stateDir,
+            );
+
+            return (yield* listNoteRepoSections(projectsRoot)).map(
+              (section) => ({
+                ...section,
+                entries: section.entries.map((entry) => ({
+                  ...entry,
+                  projectDir: directories[section.repoSlug],
+                })),
+              }),
+            );
+          }),
+        );
+
+      const moveTargetSlugs = () =>
+        withServices(
+          Effect.gen(function* () {
+            const sections = yield* listNoteRepoSections(projectsRoot);
+
+            const directories = yield* readRepositoryDirectories(
+              config.stateDir,
+            );
+
+            return new Set([
+              ...sections.map((section) => section.repoSlug),
+              ...Object.keys(directories),
+            ]);
+          }),
+        );
+
       return {
         root: Effect.succeed(notesRoot),
         projectsRoot: Effect.succeed(projectsRoot),
@@ -984,145 +1054,131 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           Effect.gen(function* () {
             return payloadToContextBlock(yield* buildContextPayload(options));
           }),
-        list: () =>
-          Effect.gen(function* () {
-            const notesPath = yield* currentNotesPath();
+        list: Effect.gen(function* () {
+          const notesPath = yield* currentNotesPath();
 
-            return listNoteEntries(projectsRoot, notesPath);
-          }),
-        listAll: () =>
-          Effect.try({
-            try: () => {
-              const directories = readRepositoryDirectories(config.stateDir);
-
-              return listNoteRepoSections(projectsRoot).map((section) => ({
-                ...section,
-                entries: section.entries.map((entry) => ({
-                  ...entry,
-                  projectDir: directories[section.repoSlug],
-                })),
-              }));
-            },
-            catch: (error) =>
-              fail(
-                `notes list --all: failed to list notes: ${errorMessage(error)}`,
-              ),
-          }),
-        tuiScope: Effect.fn("Notes.tuiScope")(function* () {
+          return yield* withServices(
+            listNoteEntries(projectsRoot, notesPath),
+          ).pipe(Effect.mapError((error) => fail(errorMessage(error))));
+        }),
+        listAll: repoSectionsWithDirectories().pipe(
+          Effect.mapError((error) =>
+            fail(
+              `notes list --all: failed to list notes: ${errorMessage(error)}`,
+            ),
+          ),
+        ),
+        tuiScope: Effect.gen(function* () {
           const { identity, projectDir } = yield* resolveIdentity();
           const repoSlug = `${identity.owner}/${identity.repo}`;
-          yield* Effect.try({
-            try: () =>
-              rememberRepositoryDirectory(
-                config.stateDir,
-                repoSlug,
-                projectDir,
-              ),
-            catch: (error) =>
+          yield* withServices(
+            rememberRepositoryDirectory(config.stateDir, repoSlug, projectDir),
+          ).pipe(
+            Effect.mapError((error) =>
               fail(
                 `notes TUI: failed to remember project directory: ${errorMessage(error)}`,
               ),
-          });
+            ),
+          );
 
           if (identity.source === "local") {
-            const directories = readRepositoryDirectories(config.stateDir);
-
-            const sections = yield* Effect.try({
-              try: () =>
-                listNoteRepoSections(projectsRoot).map((section) => ({
-                  ...section,
-                  entries: section.entries.map((entry) => ({
-                    ...entry,
-                    projectDir: directories[section.repoSlug],
-                  })),
-                })),
-              catch: (error) =>
+            const sections = yield* repoSectionsWithDirectories().pipe(
+              Effect.mapError((error) =>
                 fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
-            });
+              ),
+            );
 
             return { scope: "all" as const, repoSlug, sections };
           }
 
           const notesPath = join(projectsRoot, identity.owner, identity.repo);
 
-          const entries = yield* Effect.try({
-            try: () =>
-              listNoteEntries(projectsRoot, notesPath, repoSlug, projectDir),
-            catch: (error) =>
+          const entries = yield* withServices(
+            listNoteEntries(projectsRoot, notesPath, repoSlug, projectDir),
+          ).pipe(
+            Effect.mapError((error) =>
               fail(`notes TUI: failed to list notes: ${errorMessage(error)}`),
-          });
+            ),
+          );
 
           return { scope: "current" as const, repoSlug, entries };
-        }),
+        }).pipe(Effect.withSpan("Notes.tuiScope")),
         read: (filePath) =>
-          Effect.try({
-            try: () => {
-              const result = readNoteFile(projectsRoot, filePath);
-
-              return {
-                path: result.path,
-                content: result.content,
-                hash: result.hash,
-              };
-            },
-            catch: (error) =>
+          withServices(readNoteFile(projectsRoot, filePath)).pipe(
+            Effect.map((result) => ({
+              path: result.path,
+              content: result.content,
+              hash: result.hash,
+            })),
+            Effect.mapError((error) =>
               fail(
                 `Failed to read note file ${filePath}: ${errorMessage(error)}`,
               ),
-          }),
+            ),
+          ),
         resolveEntry: (filePath) =>
-          Effect.try({
-            try: () => {
-              const note = readNoteFile(projectsRoot, filePath);
-              const pathParts = relative(projectsRoot, note.path).split("/");
-              const owner = pathParts[0];
-              const repo = pathParts[1];
+          Effect.gen(function* () {
+            const note = yield* withServices(
+              readNoteFile(projectsRoot, filePath),
+            );
 
-              if (!owner || !repo || pathParts.length !== 3) {
-                throw new Error(`Invalid repository note path: ${filePath}`);
-              }
+            const pathParts = relative(projectsRoot, note.path).split("/");
+            const owner = pathParts[0];
+            const repo = pathParts[1];
 
-              const repoSlug = `${owner}/${repo}`;
-              const directories = readRepositoryDirectories(config.stateDir);
+            if (!owner || !repo || pathParts.length !== 3) {
+              return yield* new NoteFileError({
+                message: `Invalid repository note path: ${filePath}`,
+              });
+            }
 
-              return {
-                entry: {
-                  filename: basename(note.path),
-                  filePath: note.path,
-                  repoSlug,
-                  projectDir: directories[repoSlug],
-                  mtime: note.mtime,
-                  ...readFrontmatter(note.content),
-                },
-                content: note.content,
-              };
-            },
-            catch: (error) =>
+            const repoSlug = `${owner}/${repo}`;
+
+            const directories = yield* withServices(
+              readRepositoryDirectories(config.stateDir),
+            );
+
+            return {
+              entry: {
+                filename: basename(note.path),
+                filePath: note.path,
+                repoSlug,
+                projectDir: directories[repoSlug],
+                mtime: note.mtime,
+                ...(yield* Effect.try(() => readFrontmatter(note.content))),
+              },
+              content: note.content,
+            };
+          }).pipe(
+            Effect.mapError((error) =>
               fail(
                 `Failed to resolve note file ${filePath}: ${errorMessage(error)}`,
               ),
-          }),
+            ),
+          ),
         write: (filePath, content, options = {}) =>
           withMutationLock(
             Effect.gen(function* () {
               yield* prepareMutation();
 
-              const existing = yield* Effect.try({
-                try: () => {
-                  const resolvedPath = resolveWritableNotePath(
+              const existing = yield* withServices(
+                Effect.gen(function* () {
+                  const resolvedPath = yield* resolveWritableNotePath(
                     projectsRoot,
                     filePath,
                   );
 
-                  return existsSync(resolvedPath)
-                    ? readNoteFile(projectsRoot, resolvedPath)
+                  return (yield* fs.exists(resolvedPath))
+                    ? yield* readNoteFile(projectsRoot, resolvedPath)
                     : undefined;
-                },
-                catch: (error) =>
+                }),
+              ).pipe(
+                Effect.mapError((error) =>
                   fail(
                     `Failed to inspect note file ${filePath}: ${errorMessage(error)}`,
                   ),
-              });
+                ),
+              );
 
               if (
                 options.expectedHash !== undefined &&
@@ -1150,13 +1206,15 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 catch: (error) => fail(errorMessage(error)),
               });
 
-              const resolvedPath = yield* Effect.try({
-                try: () => atomicWriteNoteFile(projectsRoot, filePath, stamped),
-                catch: (error) =>
+              const resolvedPath = yield* withServices(
+                atomicWriteNoteFile(projectsRoot, filePath, stamped),
+              ).pipe(
+                Effect.mapError((error) =>
                   fail(
                     `Failed to write note file ${filePath}: ${errorMessage(error)}`,
                   ),
-              });
+                ),
+              );
 
               const dir = dirname(resolvedPath);
               const filename = basename(resolvedPath);
@@ -1198,13 +1256,15 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             Effect.gen(function* () {
               yield* prepareMutation();
 
-              const resolvedPath = yield* Effect.try({
-                try: () => deleteNoteFile(projectsRoot, filePath),
-                catch: (error) =>
+              const resolvedPath = yield* withServices(
+                deleteNoteFile(projectsRoot, filePath),
+              ).pipe(
+                Effect.mapError((error) =>
                   fail(
                     `Failed to delete note file ${filePath}: ${errorMessage(error)}`,
                   ),
-              });
+                ),
+              );
 
               const dir = dirname(resolvedPath);
               const filename = basename(resolvedPath);
@@ -1233,20 +1293,14 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
               return { path: resolvedPath, output, commit, push };
             }),
           ),
-        moveTargets: () =>
-          Effect.try({
-            try: () =>
-              [
-                ...new Set([
-                  ...listNoteRepoSections(projectsRoot).map(
-                    (section) => section.repoSlug,
-                  ),
-                  ...Object.keys(readRepositoryDirectories(config.stateDir)),
-                ]),
-              ].sort((a, b) => a.localeCompare(b)),
-            catch: (error) =>
-              fail(`Failed to list move destinations: ${errorMessage(error)}`),
-          }),
+        moveTargets: moveTargetSlugs().pipe(
+          Effect.map((targets) =>
+            [...targets].sort((a, b) => a.localeCompare(b)),
+          ),
+          Effect.mapError((error) =>
+            fail(`Failed to list move destinations: ${errorMessage(error)}`),
+          ),
+        ),
         move: (filePath, repoSlug) =>
           withMutationLock(
             Effect.gen(function* () {
@@ -1266,12 +1320,9 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 );
               }
 
-              const targets = new Set([
-                ...listNoteRepoSections(projectsRoot).map(
-                  (section) => section.repoSlug,
-                ),
-                ...Object.keys(readRepositoryDirectories(config.stateDir)),
-              ]);
+              const targets = yield* moveTargetSlugs().pipe(
+                Effect.mapError((error) => fail(errorMessage(error))),
+              );
 
               if (!targets.has(repoSlug)) {
                 return yield* fail(
@@ -1280,35 +1331,38 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 );
               }
 
-              const fromPath = yield* Effect.try({
-                try: () => resolveExistingNotePath(projectsRoot, filePath),
-                catch: (error) => fail(errorMessage(error)),
-              });
+              const fromPath = yield* withServices(
+                resolveExistingNotePath(projectsRoot, filePath),
+              ).pipe(Effect.mapError((error) => fail(errorMessage(error))));
 
-              const toPath = yield* Effect.try({
-                try: () =>
-                  resolveWritableNotePath(
-                    projectsRoot,
-                    join(projectsRoot, owner, repo, basename(fromPath)),
-                  ),
-                catch: (error) => fail(errorMessage(error)),
-              });
+              const toPath = yield* withServices(
+                resolveWritableNotePath(
+                  projectsRoot,
+                  join(projectsRoot, owner, repo, basename(fromPath)),
+                ),
+              ).pipe(Effect.mapError((error) => fail(errorMessage(error))));
 
               if (toPath === fromPath) {
                 return yield* fail(`Note is already in ${repoSlug}`);
               }
 
-              if (existsSync(toPath)) {
+              const targetExists = yield* fs
+                .exists(toPath)
+                .pipe(Effect.mapError((error) => fail(errorMessage(error))));
+
+              if (targetExists) {
                 return yield* fail(
                   `A note named ${basename(toPath)} already exists in ${repoSlug}`,
                 );
               }
 
-              yield* Effect.try({
-                try: () => renameSync(fromPath, toPath),
-                catch: (error) =>
-                  fail(`Failed to move note: ${errorMessage(error)}`),
-              });
+              yield* fs
+                .rename(fromPath, toPath)
+                .pipe(
+                  Effect.mapError((error) =>
+                    fail(`Failed to move note: ${errorMessage(error)}`),
+                  ),
+                );
               const message = `notes: move ${basename(toPath)} to ${repoSlug}`;
 
               const commit = toNoteCommitResult(
@@ -1385,13 +1439,15 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
             Effect.gen(function* () {
               yield* prepareMutation();
 
-              const note = yield* Effect.try({
-                try: () => readNoteFile(projectsRoot, filePath),
-                catch: (error) =>
+              const note = yield* withServices(
+                readNoteFile(projectsRoot, filePath),
+              ).pipe(
+                Effect.mapError((error) =>
                   fail(
                     `setPriority: failed to read file ${filePath}: ${errorMessage(error)}`,
                   ),
-              });
+                ),
+              );
 
               const updated = yield* Effect.try({
                 try: () =>
@@ -1399,14 +1455,15 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
                 catch: (error) => fail(errorMessage(error)),
               });
 
-              yield* Effect.try({
-                try: () =>
-                  atomicWriteNoteFile(projectsRoot, note.path, updated),
-                catch: (error) =>
+              yield* withServices(
+                atomicWriteNoteFile(projectsRoot, note.path, updated),
+              ).pipe(
+                Effect.mapError((error) =>
                   fail(
                     `setPriority: failed to write file ${filePath}: ${errorMessage(error)}`,
                   ),
-              });
+                ),
+              );
               const filename = basename(note.path);
               const message = `notes: set priority ${filename}`;
 

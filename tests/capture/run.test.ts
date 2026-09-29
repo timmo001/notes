@@ -1,32 +1,31 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { captureStatus, processLocalCapture } from "../../src/capture/run.js";
+import {
+  createTempDirectory,
+  pathExists,
+  readTextFile,
+  removePath,
+  runScoped,
+  writeTextFile,
+} from "../support/platform.js";
 
 const roots: string[] = [];
 
-afterEach(() => {
-  for (const root of roots.splice(0))
-    rmSync(root, { recursive: true, force: true });
+afterEach(async () => {
+  for (const root of roots.splice(0)) await removePath(root);
 });
 
 describe("local capture", () => {
   test("checks executable availability and processes a validated capture through argv", async () => {
-    const { root, configPath } = writeConfig();
-    expect(await Effect.runPromise(captureStatus(configPath))).toEqual({
+    const { root, configPath } = await writeConfig();
+    expect(await runScoped(captureStatus(configPath))).toEqual({
       available: true,
     });
-    expect(existsSync(join(root, "prompt"))).toBe(false);
+    expect(await pathExists(join(root, "prompt"))).toBe(false);
 
-    const result = await Effect.runPromise(
+    const result = await runScoped(
       processLocalCapture(configPath, {
         version: 1,
         requestId: "019c92df-71d2-7fb0-8c2e-d29f633a355b",
@@ -42,7 +41,7 @@ describe("local capture", () => {
       requestId: "019c92df-71d2-7fb0-8c2e-d29f633a355b",
       summary: "Saved note abc123",
     });
-    const prompt = readFileSync(join(root, "prompt"), "utf8");
+    const prompt = await readTextFile(join(root, "prompt"));
     expect(prompt).toContain(
       "The trusted target repository is owner/repository",
     );
@@ -52,32 +51,34 @@ describe("local capture", () => {
         "base64",
       ).toString(),
     ).toContain("- Target repository: owner/repository");
-    expect(readFileSync(join(root, "cwd"), "utf8")).toBe(root);
+    expect(await readTextFile(join(root, "cwd"))).toBe(root);
   });
 
   test("rejects invalid input before starting OpenCode", async () => {
-    const { root, configPath } = writeConfig();
+    const { root, configPath } = await writeConfig();
 
-    const result = await Effect.runPromiseExit(
-      processLocalCapture(configPath, {
-        version: 1,
-        requestId: crypto.randomUUID(),
-        text: " ",
-        capturedAt: new Date().toISOString(),
-        source: "text",
-      }),
+    const result = await runScoped(
+      Effect.exit(
+        processLocalCapture(configPath, {
+          version: 1,
+          requestId: crypto.randomUUID(),
+          text: " ",
+          capturedAt: new Date().toISOString(),
+          source: "text",
+        }),
+      ),
     );
 
     expect(result._tag).toBe("Failure");
-    expect(existsSync(join(root, "prompt"))).toBe(false);
+    expect(await pathExists(join(root, "prompt"))).toBe(false);
   });
 });
 
-function writeConfig() {
-  const root = mkdtempSync(join(tmpdir(), "notes-capture-"));
+async function writeConfig() {
+  const root = await createTempDirectory("notes-capture-");
   roots.push(root);
   const configPath = join(root, "daemon.yml");
-  writeFileSync(
+  await writeTextFile(
     join(root, "processor.js"),
     `
     const fs = require("node:fs");
@@ -112,7 +113,7 @@ function writeConfig() {
     console.log(JSON.stringify({ type: "text", part: { messageID: "msg_1", text: "STATUS: success\\nSaved note abc123" } }));
   `,
   );
-  writeFileSync(
+  await writeTextFile(
     configPath,
     [
       "repository: owner/queue",

@@ -3,25 +3,23 @@ import { Effect } from "effect";
 import { fileURLToPath } from "node:url";
 import "../../src/index.js";
 import { renderHelp } from "../../src/cli/help.js";
+import { runProcess } from "../support/platform.js";
 
 describe("notes command", () => {
   test.each([
     { args: ["root"], output: "/notes-cli-fixture" },
     { args: ["root", "--projects"], output: "/notes-cli-fixture/projects" },
     { args: ["root", "--no-projects"], output: "/notes-cli-fixture" },
-  ])("runs $args with optional boolean flags", ({ args, output }) => {
-    const result = Bun.spawnSync(
-      [
-        process.execPath,
-        fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
-        ...args,
-      ],
+  ])("runs $args with optional boolean flags", async ({ args, output }) => {
+    const result = await runProcess(
+      process.execPath,
+      [fileURLToPath(new URL("../../src/index.ts", import.meta.url)), ...args],
       { env: { ...process.env, NOTES: "/notes-cli-fixture" } },
     );
 
-    expect(result.stderr.toString()).toBe("");
+    expect(result.stderr).toBe("");
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString().trim()).toBe(output);
+    expect(result.stdout.trim()).toBe(output);
   });
 
   test.each([
@@ -43,20 +41,15 @@ describe("notes command", () => {
       ],
       flag: "json",
     },
-  ])("keeps --$flag required", ({ args, flag }) => {
-    const result = Bun.spawnSync(
-      [
-        process.execPath,
-        fileURLToPath(new URL("../../src/index.ts", import.meta.url)),
-        ...args,
-      ],
+  ])("keeps --$flag required", async ({ args, flag }) => {
+    const result = await runProcess(
+      process.execPath,
+      [fileURLToPath(new URL("../../src/index.ts", import.meta.url)), ...args],
       { env: { ...process.env, NOTES: "/notes-cli-fixture" } },
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr.toString()).toContain(
-      `Missing required flag: --${flag}`,
-    );
+    expect(result.stderr).toContain(`Missing required flag: --${flag}`);
   });
 
   test("renders root help from the Effect command tree", async () => {

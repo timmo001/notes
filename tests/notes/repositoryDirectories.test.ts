@@ -1,22 +1,28 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
 import {
   readRepositoryDirectories,
   rememberRepositoryDirectory,
 } from "../../src/notes/repositoryDirectories.js";
+import { createTempDirectory, runScoped } from "../support/platform.js";
 
 describe("repository directories", () => {
-  test("persists exact checkout paths by repository slug", () => {
-    const stateDir = mkdtempSync(join(tmpdir(), "notes-state-"));
-    const first = join(tmpdir(), "first-checkout");
-    const second = join(tmpdir(), "second-checkout");
+  test("persists exact checkout paths by repository slug", async () => {
+    const stateDir = await createTempDirectory("notes-state-");
+    const first = join(stateDir, "first-checkout");
+    const second = join(stateDir, "second-checkout");
 
-    rememberRepositoryDirectory(stateDir, "owner/first", first);
-    rememberRepositoryDirectory(stateDir, "owner/second", second);
+    const directories = await runScoped(
+      Effect.gen(function* () {
+        yield* rememberRepositoryDirectory(stateDir, "owner/first", first);
+        yield* rememberRepositoryDirectory(stateDir, "owner/second", second);
 
-    expect(readRepositoryDirectories(stateDir)).toEqual({
+        return yield* readRepositoryDirectories(stateDir);
+      }),
+    );
+
+    expect(directories).toEqual({
       "owner/first": first,
       "owner/second": second,
     });

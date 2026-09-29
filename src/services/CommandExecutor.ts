@@ -1,11 +1,12 @@
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema, Stream } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /** Domain error for command execution failures. */
 export class CommandError extends Schema.TaggedError<CommandError>()(
   "CommandError",
   {
     command: Schema.String,
-    exitCode: Schema.Number,
+    exitCode: Schema.Finite,
     stderr: Schema.String,
   },
 ) {}
@@ -26,67 +27,85 @@ export interface CommandExecutorService {
   ) => Effect.Effect<number>;
 }
 
+const decode = (chunks: readonly Uint8Array[]) =>
+  new TextDecoder().decode(Buffer.concat(chunks));
+
+const collect = (stream: Stream.Stream<Uint8Array, unknown>) =>
+  Stream.runCollect(stream).pipe(Effect.map((chunks) => decode([...chunks])));
+
 /** Effect service for executing subprocess commands. */
 export class CommandExecutor extends Context.Service<
   CommandExecutor,
   CommandExecutorService
 >()("CommandExecutor") {
-  static readonly layer = Layer.succeed(CommandExecutor, {
-    run: (cmd, args, opts) =>
-      Effect.tryPromise({
-        try: async (signal) => {
-          const fullCmd = [cmd, ...args];
+  static readonly layer = Layer.effect(
+    CommandExecutor,
+    Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
-          const proc = Bun.spawn(fullCmd, {
-            stdout: "pipe",
-            stderr: "pipe",
-            cwd: opts?.cwd,
-          });
+      return CommandExecutor.of({
+        run: (cmd, args, opts) => {
+          const command = [cmd, ...args].join(" ");
 
-          if (signal.aborted) proc.kill();
-          signal.addEventListener("abort", () => proc.kill(), { once: true });
-
-          const [stdout, stderr] = await Promise.all([
-            new Response(proc.stdout).text(),
-            new Response(proc.stderr).text(),
-          ]);
-
-          const exitCode = await proc.exited;
-
-          if (exitCode !== 0) {
-            throw new CommandError({
-              command: fullCmd.join(" "),
-              exitCode,
-              stderr: stderr.trim(),
-            });
-          }
-
-          return stdout;
-        },
-        catch: (error) =>
-          error instanceof CommandError
-            ? error
-            : new CommandError({
-                command: [cmd, ...args].join(" "),
-                exitCode: 1,
-                stderr: error instanceof Error ? error.message : String(error),
+          return Effect.gen(function* () {
+            const child = yield* spawner.spawn(
+              ChildProcess.make(cmd, [...args], {
+                cwd: opts?.cwd,
+                stdin: "ignore",
+                stdout: "pipe",
+                stderr: "pipe",
               }),
-      }),
-    exitCode: (cmd, args, opts) =>
-      Effect.tryPromise({
-        try: async (signal) => {
-          const proc = Bun.spawn([cmd, ...args], {
-            stdout: "ignore",
-            stderr: "ignore",
-            cwd: opts?.cwd,
-          });
+            );
 
-          if (signal.aborted) proc.kill();
-          signal.addEventListener("abort", () => proc.kill(), { once: true });
+            const [stdout, stderr, exitCode] = yield* Effect.all(
+              [
+                collect(child.stdout),
+                collect(child.stderr),
+                Effect.orElseSucceed(child.exitCode, () => -1),
+              ],
+              { concurrency: "unbounded" },
+            );
 
-          return await proc.exited;
+            if (exitCode !== 0) {
+              return yield* new CommandError({
+                command,
+                exitCode,
+                stderr: stderr.trim(),
+              });
+            }
+
+            return stdout;
+          }).pipe(
+            Effect.scoped,
+            Effect.mapError((error) =>
+              error instanceof CommandError
+                ? error
+                : new CommandError({
+                    command,
+                    exitCode: 1,
+                    stderr:
+                      error instanceof Error ? error.message : String(error),
+                  }),
+            ),
+          );
         },
-        catch: () => 1,
-      }).pipe(Effect.catch((code) => Effect.succeed(code))),
-  });
+        exitCode: (cmd, args, opts) =>
+          Effect.gen(function* () {
+            const child = yield* spawner.spawn(
+              ChildProcess.make(cmd, [...args], {
+                cwd: opts?.cwd,
+                stdin: "ignore",
+                stdout: "ignore",
+                stderr: "ignore",
+              }),
+            );
+
+            return yield* child.exitCode;
+          }).pipe(
+            Effect.scoped,
+            Effect.orElseSucceed(() => 1),
+          ),
+      });
+    }),
+  );
 }
