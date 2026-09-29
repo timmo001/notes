@@ -492,11 +492,31 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           warnings.push(`Unable to list git remotes: ${remotesResult.error}`);
         }
 
-        const remote = remotes.includes("origin")
-          ? "origin"
-          : remotes.includes("upstream")
-            ? "upstream"
-            : remotes[0];
+        const configuredRemote = gitRoot.ok
+          ? yield* commandResult("git", ["config", "--get", "notes.remote"], {
+              cwd: config.projectDir,
+            })
+          : undefined;
+
+        const preferredRemote =
+          configuredRemote?.ok && configuredRemote.text
+            ? configuredRemote.text
+            : undefined;
+
+        if (preferredRemote && !remotes.includes(preferredRemote)) {
+          warnings.push(
+            `Configured notes.remote "${preferredRemote}" does not exist; using the default remote`,
+          );
+        }
+
+        const remote =
+          preferredRemote && remotes.includes(preferredRemote)
+            ? preferredRemote
+            : remotes.includes("origin")
+              ? "origin"
+              : remotes.includes("upstream")
+                ? "upstream"
+                : remotes[0];
 
         if (remote) {
           const remoteUrl = yield* commandResult(

@@ -120,6 +120,30 @@ describe("Notes service", () => {
     expect(context.repository).toEqual(identity);
   });
 
+  test("uses the notes.remote Git config over origin", async () => {
+    const { layer, projectDir } = await fixture();
+    await git(
+      projectDir,
+      "remote",
+      "add",
+      "upstream",
+      "git@github.com:dmmulroy/notes.git",
+    );
+    await git(projectDir, "config", "notes.remote", "upstream");
+
+    const context = await runScoped(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({ command: "test" });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(context.repository).toMatchObject({
+      owner: "dmmulroy",
+      repo: "notes",
+      remote: "upstream",
+    });
+  });
+
   test("uses the Git root name when no remote exists", async () => {
     const { root } = await fixture();
 
