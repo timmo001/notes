@@ -1764,8 +1764,8 @@ function stripMarkdownExtension(filename: string): string {
   return filename.replace(/\.md$/i, "");
 }
 
-function errorMessage<Failure>(error: Failure): string {
-  if (error instanceof Error) return error.message;
+function errorMessage(cause: unknown): string {
+  if (cause instanceof Error) return cause.message;
 
-  return String(error);
+  return String(cause);
 }

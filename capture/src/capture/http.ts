@@ -21,10 +21,10 @@ const CaptureErrorResponse = Schema.Struct({
 const decodeCaptureErrorOption =
   Schema.decodeUnknownOption(CaptureErrorResponse);
 
-export const decodeCaptureError = <Input>(value: Input) =>
+export const decodeCaptureError = (value: Schema.Json | undefined) =>
   Option.getOrUndefined(decodeCaptureErrorOption(value))?.error;
 
-export function captureErrorMessage<Input>(value: Input): string {
+export function captureErrorMessage(value: Schema.Json | undefined): string {
   const error = decodeCaptureError(value);
 
   return error ? `${error}. Your text is still here.` : GENERIC_CAPTURE_ERROR;

@@ -73,7 +73,7 @@ export class RadioGroup<T extends string> extends BoxRenderable {
   }
 
   get value(): T {
-    return this.choices[this.selectedIndex]!.value;
+    return this.choices[this.selectedIndex].value;
   }
 
   set value(value: T) {
@@ -115,7 +115,7 @@ export class RadioGroup<T extends string> extends BoxRenderable {
 
   private refresh(): void {
     this.rows.forEach((row, index) => {
-      const choice = this.choices[index]!;
+      const choice = this.choices[index];
       const selected = index === this.selectedIndex;
       const marker = selected ? "●" : "○";
       row.content = t`${bold(fg(selected ? (choice.color ?? this.theme.accent) : this.theme.fgMuted)(`${marker} ${choice.label}`))}\n${fg(this.theme.fgSubtle)(`  ${choice.description ?? ""}`)}`;

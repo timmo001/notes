@@ -152,7 +152,7 @@ export const registerNotesTools = Effect.gen(function* () {
     handle: (params) =>
       Effect.gen(function* () {
         if (params.all) {
-          const sections = yield* notes.listAll();
+          const sections = yield* notes.listAll;
 
           const filtered = params.tag
             ? filterSectionsByTag(sections, params.tag)
@@ -161,7 +161,7 @@ export const registerNotesTools = Effect.gen(function* () {
           return JSON.stringify(filtered, null, 2);
         }
 
-        const entries = yield* notes.list();
+        const entries = yield* notes.list;
 
         const filtered = params.tag
           ? filterEntriesByTag(entries, params.tag)

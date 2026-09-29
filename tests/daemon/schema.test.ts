@@ -11,7 +11,7 @@ import {
 
 describe("daemon schema", () => {
   test("decodes daemon configuration", () => {
-    const config = Schema.decodeUnknownSync(DaemonConfig)({
+    const config = Schema.decodeSync(DaemonConfig)({
       repository: "owner/repo",
       queueLabel: "agent:ready",
       workerId: "desktop",
@@ -40,7 +40,7 @@ describe("daemon schema", () => {
     expect(config.opencodeCommand).toBe("processor");
     expect(config.opencodeArgs).toEqual(["--limit", "5m", "--"]);
     expect(() =>
-      Schema.decodeUnknownSync(DaemonConfig)({
+      Schema.decodeSync(DaemonConfig)({
         ...config,
         opencodeCommand: "",
       }),
@@ -63,7 +63,7 @@ describe("daemon schema", () => {
 
   test("rejects an empty model fallback chain", () => {
     expect(() =>
-      Schema.decodeUnknownSync(DaemonConfig)({
+      Schema.decodeSync(DaemonConfig)({
         repository: "owner/repo",
         queueLabel: "agent:ready",
         workerId: "desktop",

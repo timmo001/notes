@@ -57,7 +57,7 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
     ChildProcessSpawner.ChildProcessSpawner,
     ChildProcessSpawner.make((command) =>
       Effect.acquireRelease(
-        Effect.sync(() => {
+        Effect.gen(function* () {
           if (!ChildProcess.isStandardCommand(command))
             throw new Error("Expected a standard command");
           commands.push(command);
@@ -113,7 +113,7 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
             };
           } else {
             if (args[3] === "post") {
-              const data = Schema.decodeSync(
+              const data = yield* Schema.decodeEffect(
                 Schema.fromJsonString(
                   Schema.Struct({
                     agent: Schema.String,
@@ -121,7 +121,7 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
                     permissions: Schema.Unknown,
                   }),
                 ),
-              )(args[6] ?? "");
+              )(args[6] ?? "").pipe(Effect.orDie);
 
               session = JSON.stringify({
                 data: { ...data, id: `ses_attempt${attempts + 1}` },

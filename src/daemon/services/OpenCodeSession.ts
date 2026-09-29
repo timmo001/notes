@@ -35,7 +35,7 @@ export class OpenCodeSessionError extends Schema.TaggedError<OpenCodeSessionErro
 export function openCodeCommand(
   config: DaemonConfig,
   args: readonly string[],
-  password?: Redacted.Redacted<string>,
+  password?: Redacted.Redacted,
 ) {
   return ChildProcess.make(
     config.opencodeCommand ?? "opencode2",
@@ -77,7 +77,7 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
   ) {
     const invoke = Effect.fn("OpenCodeClient.sessionCommand")(function* (
       args: readonly string[],
-      password?: Redacted.Redacted<string>,
+      password?: Redacted.Redacted,
     ) {
       const child = yield* spawner
         .spawn(openCodeCommand(config, args, password))

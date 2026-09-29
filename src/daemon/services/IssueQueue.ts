@@ -11,7 +11,7 @@ export class IssueQueueError extends Schema.TaggedError<IssueQueueError>()(
 /** GitHub issue queue operations required by the daemon coordinator. */
 export interface IssueQueueService {
   /** List open issues carrying the configured queue label. */
-  readonly list: () => Effect.Effect<readonly QueueIssue[], IssueQueueError>;
+  readonly list: Effect.Effect<readonly QueueIssue[], IssueQueueError>;
   /** Re-read one issue before a side effect. */
   readonly get: (number: number) => Effect.Effect<QueueIssue, IssueQueueError>;
   /** Claim an issue with this worker process's visible processing label. */
@@ -89,34 +89,33 @@ export class IssueQueue extends Context.Service<
           issue.labels.filter((label) => label.startsWith("agent:processing:"));
 
         return IssueQueue.of({
-          list: () =>
-            json("list", [
-              "issue",
-              "list",
-              "--repo",
-              config.repository,
-              "--state",
-              "open",
-              "--label",
-              config.queueLabel,
-              "--limit",
-              "100",
-              "--json",
-              "number,title,body,state,labels,comments",
-            ]).pipe(
-              Effect.flatMap((value) =>
-                Schema.decodeUnknownEffect(Schema.Array(GhIssue))(value),
-              ),
-              Effect.map((issues) => issues.map(mapIssue)),
-              Effect.mapError((error) =>
-                error instanceof IssueQueueError
-                  ? error
-                  : new IssueQueueError({
-                      operation: "list.decode",
-                      message: String(error),
-                    }),
-              ),
+          list: json("list", [
+            "issue",
+            "list",
+            "--repo",
+            config.repository,
+            "--state",
+            "open",
+            "--label",
+            config.queueLabel,
+            "--limit",
+            "100",
+            "--json",
+            "number,title,body,state,labels,comments",
+          ]).pipe(
+            Effect.flatMap((value) =>
+              Schema.decodeUnknownEffect(Schema.Array(GhIssue))(value),
             ),
+            Effect.map((issues) => issues.map(mapIssue)),
+            Effect.mapError((error) =>
+              error instanceof IssueQueueError
+                ? error
+                : new IssueQueueError({
+                    operation: "list.decode",
+                    message: String(error),
+                  }),
+            ),
+          ),
           get,
           claim: (number) =>
             Effect.gen(function* () {

@@ -14,7 +14,7 @@ export interface GitHubIssueConfig {
 
 const GitHubIssueResponse = Schema.Struct({
   html_url: Schema.String,
-  number: Schema.Number,
+  number: Schema.Finite,
 });
 
 type Fetcher = (

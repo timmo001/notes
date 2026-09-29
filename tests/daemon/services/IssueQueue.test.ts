@@ -105,7 +105,7 @@ describe("IssueQueue SDK boundary", () => {
           stdout: text(JSON.stringify(args[1] === "list" ? [issue] : issue)),
         }));
 
-        const issues = yield* fake.queue.list();
+        const issues = yield* fake.queue.list;
         expect(issues).toEqual([
           {
             ...issue,
@@ -163,7 +163,7 @@ describe("IssueQueue SDK boundary", () => {
           ),
         }));
 
-        expect(yield* fake.queue.list()).toEqual([]);
+        expect(yield* fake.queue.list).toEqual([]);
         expect(yield* fake.queue.get(42)).toMatchObject({
           state: "closed",
           comments: [],
@@ -194,7 +194,7 @@ describe("IssueQueue SDK boundary", () => {
 
             const error = yield* (
               operation === "list"
-                ? fake.queue.list().pipe(Effect.asVoid)
+                ? fake.queue.list.pipe(Effect.asVoid)
                 : fake.queue.get(42).pipe(Effect.asVoid)
             ).pipe(Effect.flip);
 
@@ -395,7 +395,7 @@ describe("IssueQueue SDK boundary", () => {
           }));
 
           const error = yield* Match.value(operation).pipe(
-            Match.when("list", () => fake.queue.list()),
+            Match.when("list", () => fake.queue.list),
             Match.when("comment", () => fake.queue.comment(42, "saved")),
             Match.when("release", () => fake.queue.release("claim")),
             Match.exhaustive,

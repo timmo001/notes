@@ -191,7 +191,7 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
       Stream.filter((line) => line.trim().length > 0),
       Stream.runForEach(
         Effect.fn("OpenCodeClient.decodeEvent")(function* (line) {
-          const event = yield* Schema.decodeUnknownEffect(
+          const event = yield* Schema.decodeEffect(
             Schema.fromJsonString(
               Schema.Struct({
                 type: Schema.String,

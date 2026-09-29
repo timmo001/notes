@@ -21,10 +21,7 @@ export const DESTRUCTIVE_HINTS = {
 export type ToolHints = typeof READONLY_HINTS | typeof DESTRUCTIVE_HINTS;
 
 /** Options describing a single raw-text MCP tool registration. */
-export interface ToolRegistration<
-  S extends Schema.Codec<unknown, unknown, never, never>,
-  E,
-> {
+export interface ToolRegistration<S extends Schema.Codec<unknown, unknown>, E> {
   /** Tool name as exposed to MCP clients. */
   readonly name: string;
   /** Human-readable tool description. */
@@ -39,7 +36,7 @@ export interface ToolRegistration<
 
 /** Registers a raw-text tool on the current MCP server. */
 export interface ToolRegistrar {
-  <S extends Schema.Codec<unknown, unknown, never, never>, E>(
+  <S extends Schema.Codec<unknown, unknown>, E>(
     options: ToolRegistration<S, E>,
   ): Effect.Effect<void>;
 }

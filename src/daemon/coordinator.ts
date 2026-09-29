@@ -234,7 +234,7 @@ const processIssue = Effect.fn("NotesDaemon.processIssue")(function* (
 export const runProcessingPass = Effect.fn("NotesDaemon.runProcessingPass")(
   function* (queueLabel: string, workerActor: string) {
     const queue = yield* IssueQueue;
-    const issues = yield* queue.list();
+    const issues = yield* queue.list;
 
     const outcomes = yield* Effect.forEach(
       issues,

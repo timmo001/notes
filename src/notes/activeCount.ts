@@ -23,7 +23,7 @@ export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {
   const config = yield* Config;
 
   const entries = yield* Effect.gen(function* () {
-    return yield* (yield* Notes).list();
+    return yield* (yield* Notes).list;
   }).pipe(
     Effect.provide(
       Notes.layer.pipe(

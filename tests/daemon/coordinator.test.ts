@@ -37,7 +37,7 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed([current]),
+        list: Effect.succeed([current]),
         get: () => Effect.succeed(current),
         claim: () => Effect.succeed(claimLabel),
         owns: () => Effect.succeed(true),
@@ -83,7 +83,7 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed([current]),
+        list: Effect.succeed([current]),
         get: () => Effect.succeed(current),
         claim: () => Effect.succeed(null),
         owns: () => Effect.succeed(false),
@@ -118,7 +118,7 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed([current]),
+        list: Effect.succeed([current]),
         get: () => Effect.succeed(current),
         claim: () => Effect.succeed(claimLabel),
         owns: () => Effect.succeed(true),
@@ -155,7 +155,7 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed([current]),
+        list: Effect.succeed([current]),
         get: () => Effect.succeed(current),
         claim: () => Effect.succeed(claimLabel),
         owns: () => Effect.succeed(true),
@@ -192,8 +192,8 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed(issues),
-        get: (number) => Effect.succeed(issues[number - 1]!),
+        list: Effect.succeed(issues),
+        get: (number) => Effect.succeed(issues[number - 1]),
         claim: () => Effect.succeed(claimLabel),
         owns: () => Effect.succeed(true),
         release: () =>
@@ -205,7 +205,7 @@ describe("runProcessingPass", () => {
           ),
         comment: (number, body) =>
           Effect.sync(() => {
-            const current = issues[number - 1]!;
+            const current = issues[number - 1];
             issues[number - 1] = {
               ...current,
               comments: [...current.comments, { author: "worker", body }],
@@ -219,10 +219,8 @@ describe("runProcessingPass", () => {
       }),
     );
 
-    const result = await Effect.runPromise(
-      Effect.exit(
-        runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
-      ),
+    const result = await Effect.runPromiseExit(
+      runProcessingPass("agent:ready", "worker").pipe(Effect.provide(layer)),
     );
 
     expect(result._tag).toBe("Failure");
@@ -236,7 +234,7 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed([current]),
+        list: Effect.succeed([current]),
         get: () => Effect.succeed(current),
         claim: () => Effect.succeed(claimLabel),
         owns: () => Effect.succeed(true),
@@ -292,7 +290,7 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed([current]),
+        list: Effect.succeed([current]),
         get: () => Effect.succeed(current),
         claim: () => Effect.succeed(claimLabel),
         owns: () => Effect.succeed(true),
@@ -370,7 +368,7 @@ describe("runProcessingPass", () => {
 
     const layer = Layer.mergeAll(
       Layer.succeed(IssueQueue, {
-        list: () => Effect.succeed([current]),
+        list: Effect.succeed([current]),
         get: () => Effect.succeed(current),
         claim: () => Effect.succeed(claimLabel),
         owns: () => Effect.succeed(true),
