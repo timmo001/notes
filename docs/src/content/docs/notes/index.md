@@ -52,7 +52,7 @@ Repository notes live under:
 {vault}/projects/{owner}/{repo}/{slug}.md
 ```
 
-The `{owner}/{repo}` segment is resolved from the current Git repository's remote URL. `notes` prefers `upstream`, then `origin`, then the first remote. When no usable remote exists, notes use `projects/local/{project}`. The project name comes from the Git worktree root, or from the current directory outside Git.
+The `{owner}/{repo}` segment is resolved from the current Git repository's remote URL. `notes` prefers `origin`, then `upstream`, then the first remote, so a fork keeps its notes under its own owner. When no usable remote exists, notes use `projects/local/{project}`. The project name comes from the Git worktree root, or from the current directory outside Git.
 
 ## Frontmatter
 

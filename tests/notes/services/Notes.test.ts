@@ -66,7 +66,7 @@ function fixture(parent = tmpdir()) {
     ),
   );
 
-  return { root, path, layer };
+  return { root, path, layer, projectDir };
 }
 
 function serviceLayer(root: string, projectDir = process.cwd()) {
@@ -100,6 +100,25 @@ describe("Notes service", () => {
     expect(context.repository).toEqual(identity);
     expect(context.notesPath).toEndWith("projects/timmo001/notes");
     expect(context.repoNotesRoot).toBe(context.projectsRoot);
+  });
+
+  test("prefers origin over upstream so a fork keeps its own notes", async () => {
+    const { layer, projectDir } = fixture();
+    git(
+      projectDir,
+      "remote",
+      "add",
+      "upstream",
+      "git@github.com:dmmulroy/notes.git",
+    );
+
+    const context = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* Notes).contextPayload({ command: "test" });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(context.repository).toEqual(identity);
   });
 
   test("uses the Git root name when no remote exists", async () => {

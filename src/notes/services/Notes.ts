@@ -475,10 +475,10 @@ export class Notes extends Context.Service<Notes, NotesService>()("Notes") {
           warnings.push(`Unable to list git remotes: ${remotesResult.error}`);
         }
 
-        const remote = remotes.includes("upstream")
-          ? "upstream"
-          : remotes.includes("origin")
-            ? "origin"
+        const remote = remotes.includes("origin")
+          ? "origin"
+          : remotes.includes("upstream")
+            ? "upstream"
             : remotes[0];
 
         if (remote) {
