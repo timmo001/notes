@@ -16,7 +16,7 @@
     "lint": "oxlint --deny-warnings .",
     "format": "prettier --write \"{src,tests}/**/*.ts\" \"oxlint.config.ts\" \"{package,tsconfig}.json\" \"docs/{package,tsconfig}.json\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{ts,md,mdx,astro,css}\"",
     "format:check": "prettier --check \"{src,tests}/**/*.ts\" \"oxlint.config.ts\" \"{package,tsconfig}.json\" \"docs/{package,tsconfig}.json\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{ts,md,mdx,astro,css}\"",
-    "prepare": "effect-tsgo patch"
+    "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-rc.118",
@@ -30,7 +30,7 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "@effect/tsgo": "^0.46.0",
+    "@effect/tsgo": "^0.47.0",
     "@oxlint/plugins": "1.86.0",
     "@timmo001/oxlint-rules": "0.4.0",
     "@types/bun": "^1.4.2",

@@ -14,7 +14,7 @@
     "sync": "wrangler types --config wrangler.example.jsonc && CAPTURE_WRANGLER_CONFIG=wrangler.example.jsonc astro sync",
     "typecheck": "bun run sync && bun run typecheck:ts7 && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc astro check",
     "typecheck:ts7": "bun node_modules/typescript-7/bin/tsc --noEmit",
-    "prepare": "effect-tsgo patch --typescript-package typescript-7"
+    "prepare": "effect-tsgo patch --typescript-package typescript-7 --force=false"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.2",
@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
-    "@effect/tsgo": "^0.46.0",
+    "@effect/tsgo": "^0.47.0",
     "@types/bun": "^1.4.2",
     "prettier": "^3.9.8",
     "prettier-plugin-astro": "^1.0.1",
