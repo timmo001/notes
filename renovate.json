@@ -1,12 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>timmo001/renovate-config"],
-  "packageRules": [
-    {
-      "description": "Keep Astro on the TypeScript programmatic API.",
-      "matchDepNames": ["typescript"],
-      "matchFileNames": ["capture/package.json"],
-      "allowedVersions": "<7"
-    }
-  ]
+  "extends": ["github>timmo001/renovate-config"]
 }
