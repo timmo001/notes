@@ -274,7 +274,6 @@ export class CaptureForm extends LitElement {
       <main>
         <header>
           <h1>Capture a note</h1>
-          <p>Type a note. It will be added to your notes repository.</p>
         </header>
 
         <form @submit=${(event: SubmitEvent) => void this.onSubmit(event)}>

@@ -40,12 +40,6 @@ h1 {
   letter-spacing: -0.035em;
 }
 
-header p {
-  margin: 0.65rem 0 0;
-  color: #aaa;
-  line-height: 1.5;
-}
-
 form {
   display: grid;
   gap: 0.75rem;
