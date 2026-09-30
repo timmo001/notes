@@ -1,4 +1,4 @@
-const CACHE_NAME = "notes-capture-v2";
+const CACHE_NAME = "notes-capture-v3";
 
 const PUBLIC_ASSETS = ["/manifest.webmanifest", "/icons/icon.svg"];
 

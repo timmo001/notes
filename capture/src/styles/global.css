@@ -8,8 +8,8 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  background: #181818;
-  color: #f2f2f2;
+  background: #000;
+  color: #e6e6e6;
   font-synthesis: none;
 }
 
@@ -20,7 +20,7 @@
 body {
   min-height: 100vh;
   margin: 0;
-  background: #181818;
+  background: #000;
 }
 
 main {
@@ -53,10 +53,10 @@ form {
 
 textarea {
   width: 100%;
-  border: 0;
+  border: 1px solid #1c1c1c;
   border-radius: 0.75rem;
   outline: 0;
-  background: #252525;
+  background: #111;
   color: inherit;
   font: inherit;
 }
@@ -68,13 +68,9 @@ textarea {
   resize: vertical;
 }
 
-textarea:focus {
-  box-shadow: 0 0 0 2px #777;
-}
-
-input:focus-visible,
+textarea:focus-visible,
 button:focus-visible {
-  outline: 2px solid #e3bd6b;
+  outline: 2px solid #3a3a3a;
   outline-offset: 2px;
 }
 
@@ -97,13 +93,14 @@ button {
   align-items: center;
   gap: 0.4rem;
   padding: 0.55rem 0.75rem;
+  border: 1px solid #1c1c1c;
   border-radius: 0.6rem;
-  background: #252525;
-  color: #ddd;
+  background: #111;
+  color: #ccc;
 }
 
 .repository-trigger:hover {
-  background: #303030;
+  background: #1a1a1a;
 }
 
 .repository-trigger svg {
@@ -123,13 +120,12 @@ button {
   width: min(26rem, calc(100vw - 1.5rem));
   max-height: min(28rem, calc(100vh - 2rem));
   padding: 0.65rem;
-  border: 1px solid #3b3b3b;
+  border: 1px solid #242424;
   border-radius: 0.8rem;
   margin: 0.5rem 0 0;
   overflow: hidden;
-  background: #202020;
-  color: #eee;
-  box-shadow: 0 1rem 3rem rgb(0 0 0 / 45%);
+  background: #111;
+  color: inherit;
 }
 
 .repository-popover:popover-open {
@@ -137,16 +133,16 @@ button {
 }
 
 .repository-popover::backdrop {
-  background: rgb(0 0 0 / 25%);
+  background: rgb(0 0 0 / 60%);
 }
 
 .repository-search {
   width: 100%;
   padding: 0.75rem 0.85rem;
-  border: 1px solid #444;
+  border: 1px solid #262626;
   border-radius: 0.6rem;
   outline: 0;
-  background: #181818;
+  background: #0a0a0a;
   color: inherit;
   font: inherit;
 }
@@ -172,7 +168,7 @@ button {
 
 .repository-option:hover,
 .repository-option[aria-pressed="true"] {
-  background: #303030;
+  background: #1f1f1f;
 }
 
 .repository-option small {
@@ -204,14 +200,15 @@ button {
 .submit {
   width: 100%;
   padding: 0.9rem 1.25rem;
+  border: 1px solid #242424;
   border-radius: 0.75rem;
-  background: #eee;
-  color: #181818;
+  background: #1a1a1a;
+  color: #ddd;
   font-weight: 650;
 }
 
 .submit:hover:not(:disabled) {
-  background: #fff;
+  background: #222;
 }
 
 .submit:disabled {

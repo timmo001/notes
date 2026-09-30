@@ -4,8 +4,8 @@
   "description": "Capture text for local OpenCode processing.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#17150f",
-  "theme_color": "#17150f",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "/icons/icon.svg",
