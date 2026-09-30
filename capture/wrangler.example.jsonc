@@ -1,8 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "notes-capture",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-07-21",
   "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": true,
+  },
   "vars": {
     "ACCESS_AUD": "development",
     "ACCESS_TEAM_DOMAIN": "example.cloudflareaccess.com",

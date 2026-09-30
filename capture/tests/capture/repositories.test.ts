@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   parseRepositoryOptions,
-  splitRepository,
   validateTargetRepository,
 } from "../../src/capture/repositories.js";
 
@@ -31,15 +30,6 @@ describe("parseRepositoryOptions", () => {
         ]),
       ),
     ).toThrow("duplicates");
-  });
-});
-
-describe("splitRepository", () => {
-  test("splits a validated repository identifier", () => {
-    expect(splitRepository("owner/repository")).toEqual([
-      "owner",
-      "repository",
-    ]);
   });
 });
 

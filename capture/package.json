@@ -4,33 +4,31 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler types --config wrangler.example.jsonc && astro dev",
-    "build": "bun run typecheck && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc astro build",
-    "deploy": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler deploy --config dist/server/wrangler.json",
-    "deploy:preview": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc astro build && wrangler versions upload --config dist/server/wrangler.json",
-    "format": "prettier --write \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
-    "format:check": "prettier --check \"{src,tests}/**/*.{ts,astro,css}\" \"astro.config.mjs\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
+    "dev": "wrangler types --config wrangler.example.jsonc && vite dev",
+    "build": "bun run typecheck && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc vite build",
+    "deploy": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc vite build && wrangler deploy",
+    "deploy:preview": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc vite build && wrangler versions upload",
+    "preview": "vite preview",
+    "format": "prettier --write \"{src,tests}/**/*.{ts,css}\" \"index.html\" \"vite.config.ts\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
+    "format:check": "prettier --check \"{src,tests}/**/*.{ts,css}\" \"index.html\" \"vite.config.ts\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
     "test": "bun test",
-    "sync": "wrangler types --config wrangler.example.jsonc && CAPTURE_WRANGLER_CONFIG=wrangler.example.jsonc astro sync",
-    "typecheck": "bun run sync && bun run typecheck:ts7 && CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc astro check",
-    "typecheck:ts7": "bun node_modules/typescript-7/bin/tsc --noEmit",
-    "prepare": "effect-tsgo patch --typescript-package typescript-7 --force=false"
+    "sync": "wrangler types --config wrangler.example.jsonc",
+    "typecheck": "bun run sync && tsc --noEmit",
+    "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^14.3.2",
-    "astro": "^7.3.3",
     "effect": "4.0.0-rc.118",
-    "jose": "^6.2.12"
+    "jose": "^6.2.12",
+    "lit": "^3.3.3"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@cloudflare/vite-plugin": "^1.62.2",
     "@effect/tsgo": "^0.47.0",
     "@types/bun": "^1.4.2",
     "prettier": "^3.9.8",
-    "prettier-plugin-astro": "^1.0.1",
-    "typescript": "npm:typescript@^6.0.3",
-    "typescript-7": "npm:typescript@^7.0.2",
-    "wrangler": "^4.136.1"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "wrangler": "^4.144.0"
   },
   "trustedDependencies": [
     "@effect/tsgo"

@@ -7,7 +7,7 @@ const RepositoryOption = Schema.Struct({
   repository: Repository,
 });
 
-const RepositoryOptions = Schema.Array(RepositoryOption);
+export const RepositoryOptions = Schema.Array(RepositoryOption);
 
 export type RepositoryOption = typeof RepositoryOption.Type;
 
@@ -40,14 +40,4 @@ export function validateTargetRepository(
   }
 
   throw new Error("Capture repository is not allowed");
-}
-
-export function splitRepository(repository: string): readonly [string, string] {
-  const separator = repository.indexOf("/");
-
-  if (separator <= 0 || separator === repository.length - 1) {
-    throw new Error("Capture repository is invalid");
-  }
-
-  return [repository.slice(0, separator), repository.slice(separator + 1)];
 }

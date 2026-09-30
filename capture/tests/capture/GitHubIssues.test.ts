@@ -1,16 +1,43 @@
 import { describe, expect, test } from "bun:test";
-import { createGitHubIssue } from "../../src/capture/services/GitHubIssues.js";
+import { Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/http";
+import { CaptureConfig } from "../../src/capture/config.js";
+import { GitHubIssues } from "../../src/capture/services/GitHubIssues.js";
 
-describe("createGitHubIssue", () => {
+const env = {
+  ACCESS_AUD: "development",
+  ACCESS_TEAM_DOMAIN: "example.cloudflareaccess.com",
+  GITHUB_OWNER: "owner",
+  GITHUB_REPO: "repo",
+  GITHUB_TOKEN: "test-token",
+  QUEUE_LABEL: "agent:ready",
+};
+
+function createIssue(respond: () => Promise<Response>) {
+  return GitHubIssues.use((issues) =>
+    issues.create({ title: "Test", body: "Body", labels: ["agent:ready"] }),
+  ).pipe(
+    Effect.provide(
+      GitHubIssues.layer.pipe(
+        Layer.provide([CaptureConfig.layer(env), FetchHttpClient.layer]),
+      ),
+    ),
+    Effect.provideService(
+      FetchHttpClient.Fetch,
+      Object.assign(respond, { preconnect: fetch.preconnect }),
+    ),
+  );
+}
+
+describe("GitHubIssues", () => {
   test("maps a successful GitHub response", async () => {
-    const issue = await createGitHubIssue(
-      { title: "Test", body: "Body", labels: ["agent:ready"] },
-      { owner: "owner", repository: "repo", token: "test-token" },
-      async () =>
+    const issue = await Effect.runPromise(
+      createIssue(async () =>
         Response.json({
           number: 7,
           html_url: "https://github.com/o/r/issues/7",
         }),
+      ),
     );
 
     expect(issue).toEqual({
@@ -20,18 +47,12 @@ describe("createGitHubIssue", () => {
   });
 
   test("does not expose the response body on failure", async () => {
-    let message = "";
-
-    try {
-      await createGitHubIssue(
-        { title: "Test", body: "Body", labels: ["agent:ready"] },
-        { owner: "owner", repository: "repo", token: "test-token" },
+    const error = await Effect.runPromise(
+      createIssue(
         async () => new Response("sensitive provider output", { status: 403 }),
-      );
-    } catch (error) {
-      message = error instanceof Error ? error.message : String(error);
-    }
+      ).pipe(Effect.flip),
+    );
 
-    expect(message).toBe("GitHub issue creation failed (403)");
+    expect(error.message).toBe("GitHub issue creation failed (403)");
   });
 });

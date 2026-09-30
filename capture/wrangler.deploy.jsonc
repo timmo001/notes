@@ -1,9 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "notes-capture",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-07-21",
   "compatibility_flags": ["nodejs_compat"],
   "keep_vars": true,
+  "assets": {
+    "binding": "ASSETS",
+    "run_worker_first": true,
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

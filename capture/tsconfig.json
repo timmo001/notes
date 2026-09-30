@@ -1,8 +1,25 @@
 {
   "$schema": "./node_modules/@effect/tsgo/schema.json",
-  "extends": "astro/tsconfigs/strictest",
   "compilerOptions": {
-    "types": ["bun"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "types": ["bun", "vite/client"],
     "plugins": [
       {
         "name": "@effect/language-service",
@@ -10,6 +27,6 @@
       }
     ]
   },
-  "include": [".astro/types.d.ts", "worker-configuration.d.ts", "**/*"],
-  "exclude": ["dist"]
+  "include": ["worker-configuration.d.ts", "**/*"],
+  "exclude": ["dist", "node_modules"]
 }
