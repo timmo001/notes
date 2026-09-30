@@ -15,7 +15,7 @@ Submitting always creates an issue in the private queue repository configured by
 
 ## Development
 
-The PWA is a separate Astro application under `capture/` so the Starlight documentation deployment remains static and independent.
+The PWA is a separate application under `capture/` so the Starlight documentation deployment remains static and independent. A Lit form is built by Vite and served as static assets by a Cloudflare Worker, whose Effect `HttpRouter` handles the Access check and the `/api/repositories` and `/api/captures` routes. The Worker runs first for every request, so the page itself stays behind Cloudflare Access.
 
 ```bash
 mise run capture:dev
@@ -27,14 +27,14 @@ mise run capture:check
 mise run capture:build
 ```
 
-Capture type-checking runs the Effect-patched TypeScript 7 compiler for `.ts` files, followed by `astro check` for Astro components. The `typescript-7` alias supplies the native compiler; `typescript` stays on TS6 because Astro's checker needs its JavaScript compiler API. The Renovate rule targets only the `typescript` dependency in `capture/package.json`, leaving the native alias free to update.
+`capture:dev:serve` runs the Vite dev server on port 5173 through Pitchfork.
 
-The root VS Code settings select the patched native compiler for the TypeScript 7 extension and capture's TS6 SDK for the Astro extension. Run `mise run install capture:install` to install both SDKs.
+Capture type-checking runs the Effect-patched TypeScript 7 compiler with plain `tsc`.
 
 Local development bypasses Cloudflare Access and requires `GITHUB_TOKEN` in `capture/.dev.vars` to exercise issue creation. Never commit that file.
 
 Copy `capture/.dev.vars.example` to `capture/.dev.vars` for local configuration. Production deployment configuration stays outside this public repository: configure the Worker custom domain, `ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`, `GITHUB_OWNER`, `GITHUB_REPO`, optional `CAPTURE_REPOSITORIES`, and `QUEUE_LABEL` in Cloudflare, and store `GITHUB_TOKEN` as a Worker secret.
 
-Use `capture/wrangler.example.jsonc` for public validation. Keep the production values in ignored `capture/wrangler.local.jsonc`; the deploy scripts select it only while generating the production Worker bundle.
+Use `capture/wrangler.example.jsonc` for public validation. Keep the production values in ignored `capture/wrangler.local.jsonc`; the deploy scripts select it only while building the production Worker, and `wrangler deploy` then picks up the built configuration.
 
 `dot notes-capture-sync` reconciles that local file from the active Worker's non-secret settings, generates picker options from notification-watched repositories, and deploys when the live picker differs. The generated configuration uses `keep_vars`, so Workers Builds triggered by later Git pushes preserve the runtime picker variable and dashboard-managed secrets.
