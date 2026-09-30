@@ -69,8 +69,11 @@ Panel {
       .sort(function(a, b) { return Number(b.mtime || 0) - Number(a.mtime || 0) })
   }
   readonly property var panelRows: buildRows()
-  readonly property var visibleRows: filterController.filteredModel
-  readonly property var navigationRows: visibleRows.filter(function(row) { return row.kind !== "heading" || row.collapsible || row.refreshScope })
+  readonly property string backLabel: view === "overview" ? ""
+    : (view === "detail" ? "Back to " + (selectedListView === "overview" ? "Notes overview" : (selectedListView === "handoffs" ? "Handoffs" : "Notes"))
+    : (view === "notes" || view === "handoffs" || view === "create" || view === "capture" ? "Back to Notes overview" : "Back to note"))
+  readonly property var visibleRows: filterController.filteredModel.filter(function(row) { return row.navigation !== true })
+  readonly property var navigationRows: filterController.filteredModel.filter(function(row) { return row.navigation === true || row.kind !== "heading" || row.collapsible || row.refreshScope })
   readonly property bool rankedSearchActive: (view === "overview" || view === "notes" || view === "handoffs")
     && filterController.filterText.trim() !== ""
 
@@ -115,6 +118,9 @@ Panel {
   function actionRow(action, label, detail, icon) {
     return { key: "action:" + action, kind: "action", action: action, primaryText: label,
       secondaryText: detail || "", icon: icon || "" }
+  }
+  function navigationRow(label) {
+    return { key: "action:back", kind: "navigation", action: "back", navigation: true, primaryText: label, secondaryText: "" }
   }
   function headingRow(value, count, icon, collapsible, refreshScope) {
     var key = "heading:" + view + ":" + groupMode + ":" + (refreshScope === "workspace" ? "workspace" : value)
@@ -180,6 +186,7 @@ Panel {
   }
   function buildRows() {
     var rows = []
+    if (backLabel) rows.push(navigationRow(backLabel))
     if (view === "overview") {
       if (rankedSearchActive) {
         var overviewNotes = filteredNotes()
@@ -197,7 +204,6 @@ Panel {
         rows.push(actionRow("new-handoff", "New handoff", "Create a handoff note", "+"))
       }
     } else if (view === "notes" || view === "handoffs") {
-      rows.push(actionRow("back", "Back to Notes overview", "", ""))
       rows.push(actionRow("filter-repo", "Repository: " + repositoryFilter, "Enter to cycle", "󰏗"))
       rows.push(actionRow("filter-tag", "Tag: " + tagFilter, "Enter to cycle", ""))
       rows.push(actionRow("filter-priority", "Priority: " + priorityFilter, "Enter to cycle", "!"))
@@ -217,7 +223,6 @@ Panel {
         rows.push(noteRow(notes[i], i))
       }
     } else if (view === "detail") {
-      rows.push(actionRow("back", "Back to " + (selectedListView === "overview" ? "Notes overview" : (selectedListView === "handoffs" ? "Handoffs" : "Notes")), "", ""))
       rows.push(actionRow("edit", "Edit", "Edit in this panel", ""))
       rows.push(actionRow("external", "Open external editor", "Open with nvim", ""))
       rows.push(actionRow("agent", "Open in agent", "Choose an installed agent", "󱚣"))
@@ -226,19 +231,16 @@ Panel {
       rows.push(actionRow("move", "Move", "Choose a repository", "󰁔"))
       rows.push(actionRow("delete", "Delete", "Confirmation required", "󰆴"))
     } else if (view === "agent") {
-      rows.push(actionRow("back", "Back to note", "", ""))
       var agents = service ? service.agents : []
       for (var a = 0; a < agents.length; a++) rows.push(actionRow("agent:" + agents[a].command, agents[a].label, agents[a].command, "󱚣"))
     } else if (view === "priority") {
-      rows.push(actionRow("back", "Back to note", "", ""))
       var priorities = ["critical", "high", "medium", "low"]
       for (var p = 0; p < priorities.length; p++) rows.push(actionRow("priority:" + priorities[p], priorities[p], "", "!"))
     } else if (view === "move") {
-      rows.push(actionRow("back", "Back to note", "", ""))
       var targets = service ? service.targets : []
       for (var t = 0; t < targets.length; t++) rows.push(actionRow("move:" + targets[t], String(targets[t]), "", "󰁔"))
     } else if (view === "delete") {
-      rows.push(actionRow("back", "Cancel", "", ""))
+      rows.push(actionRow("cancel", "Cancel", "", ""))
       rows.push(actionRow("confirm-delete", "Delete this note", "This cannot be undone", "󰆴"))
     }
     return rows
@@ -270,7 +272,7 @@ Panel {
       createKind = action === "new-handoff" ? "handoff" : "note"
       pendingCreateView = createKind === "handoff" ? "handoffs" : "notes"
       clearCreateForm(); showView("create")
-    } else if (action === "back") back()
+    } else if (action === "back" || action === "cancel") back()
     else if (action === "filter-repo") repositoryFilter = cycle(repositoryFilter, ["all"].concat(uniqueValues("repoSlug", false)))
     else if (action === "filter-tag") tagFilter = cycle(tagFilter, ["all"].concat(uniqueValues("tags", true)))
     else if (action === "filter-priority") priorityFilter = cycle(priorityFilter, ["all", "critical", "high", "medium", "low"])
@@ -309,7 +311,8 @@ Panel {
   }
   function cursorItem() {
     var selected = filterController.selectedEntry()
-    return selected ? rowRepeater.itemAt(visibleRows.indexOf(selected)) : null
+    if (!selected) return null
+    return selected.navigation === true ? panelHeader : rowRepeater.itemAt(visibleRows.indexOf(selected))
   }
   function revealCursor() {
     var item = cursorItem()
@@ -456,8 +459,12 @@ Panel {
         Column {
           id: contentColumn
           width: panelFlick.width; spacing: Style.space(12)
-          PanelHero {
-            width: parent.width
+          PanelHeader {
+            id: panelHeader
+            backText: root.backLabel
+            backHasCursor: filterController.selectedEntry()?.navigation === true
+            onBackHovered: filterController.selectIndex(filterController.indexForKey("action:back"))
+            onBackActivated: root.back()
             title: root.view === "overview" ? "Notes" : (root.view === "handoffs" ? "Handoffs" : (root.view === "notes" ? "Notes" : (root.view === "create" ? (root.createKind === "handoff" ? "New handoff" : "New note") : (root.view === "capture" ? "Capture note" : (root.view === "edit" ? "Edit note" : (root.view === "delete" ? "Confirm delete" : (root.selectedNote ? String(root.selectedNote.name || root.selectedNote.filename) : "Notes")))))))
             meta: root.service && root.service.mutating ? "Saving changes" : (root.service ? root.service.mutationMessage : "")
             foreground: root.foreground; fontFamily: root.fontFamily
@@ -537,14 +544,12 @@ Panel {
 
           Column {
             visible: root.view === "edit"; width: parent.width; spacing: Style.space(8)
-            Button { width: parent.width; text: "Back to note"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.back() }
             ScrollView { width: parent.width; height: Style.space(390); MultilineTextField { id: editInput; foreground: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; selectByMouse: true; Keys.onEscapePressed: root.back() } }
             Button { width: parent.width; text: root.pendingMutation === "edit" ? "Saving" : "Save (Ctrl+Enter)"; enabled: !root.pendingMutation; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitEdit() }
           }
 
           Column {
             visible: root.view === "create"; width: parent.width; spacing: Style.space(8)
-            Button { width: parent.width; text: "Back to Notes overview"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.back() }
             TextField { id: createName; width: parent.width; placeholderText: "Name"; color: root.foreground; font.family: root.fontFamily }
             TextField { id: createDescription; width: parent.width; placeholderText: "Description"; color: root.foreground; font.family: root.fontFamily }
             ScrollView { width: parent.width; height: Style.space(260); MultilineTextField { id: createBody; placeholderText: "Markdown content"; foreground: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; Keys.onPressed: function(event) { if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { root.submitCreate(); event.accepted = true } else if (event.key === Qt.Key_Escape) { root.back(); event.accepted = true } } } }
@@ -556,7 +561,6 @@ Panel {
 
           Column {
             visible: root.view === "capture"; width: parent.width; spacing: Style.space(8)
-            Button { width: parent.width; text: "Back to Notes overview"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.back() }
             ScrollView { width: parent.width; height: Style.space(180); MultilineTextField { id: captureInput; placeholderText: "What should be investigated or remembered?"; foreground: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: draftSaveTimer.restart(); Keys.onPressed: function(event) { if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { root.submitCapture(); event.accepted = true } else if (event.key === Qt.Key_Escape) { root.back(); event.accepted = true } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) { captureSend.forceActiveFocus(); event.accepted = true } } } }
             Button { id: captureSend; width: parent.width; text: "Send (Ctrl+Enter)"; enabled: root.canCapture; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitCapture() }
             Button { width: parent.width; text: "Clear"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.resetCapture() }
