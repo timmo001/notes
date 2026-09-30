@@ -3,6 +3,7 @@ min_version = "2025.1.0"
 [tools]
 node = "26.10.0"
 bun = "1.4.2"
+pitchfork = "2.29.0"
 
 [tasks.install]
 description = "Install notes dependencies"
@@ -69,25 +70,21 @@ dir = "capture"
 run = "bun run dev"
 
 [tasks."capture:dev:serve"]
-description = "Run the capture PWA dev server in the background"
+description = "Run the capture PWA dev server in the background through Pitchfork"
 depends = ["capture:install"]
-dir = "capture"
-run = "bunx astro dev --background"
+run = "pitchfork start capture"
 
 [tasks."capture:dev:status"]
 description = "Show capture PWA dev server status"
-dir = "capture"
-run = "bunx astro dev status"
+run = "pitchfork status notes/capture"
 
 [tasks."capture:dev:logs"]
 description = "Show capture PWA dev server logs"
-dir = "capture"
-run = "bunx astro dev logs"
+run = "pitchfork logs notes/capture"
 
 [tasks."capture:dev:stop"]
 description = "Stop capture PWA dev server"
-dir = "capture"
-run = "bunx astro dev stop"
+run = "pitchfork stop notes/capture"
 
 [tasks."capture:test"]
 description = "Run capture PWA tests"

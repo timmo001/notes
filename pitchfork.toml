@@ -1,0 +1,5 @@
+[daemons.capture]
+dir = "capture"
+run = "exec bun run dev --port 5173 --strictPort"
+port = 5173
+ready_http = "http://localhost:5173/"
