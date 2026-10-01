@@ -16,7 +16,11 @@ provides bar access to browse, search, edit, create, and capture notes. Its sour
 [`omarchy-plugin/`](omarchy-plugin/), with setup and host integration details in
 the [Omarchy capture documentation](https://notes.timmo.dev/integrations/omarchy-capture/).
 
-Agents can use [`notes-cli`](.agents/skills/notes-cli/SKILL.md) for shell commands or [`notes-mcp`](.agents/skills/notes-mcp/SKILL.md) for MCP tools.
+Agents can use [`notes-cli`](.agents/skills/notes-cli/SKILL.md) for shell commands or [`notes-mcp`](.agents/skills/notes-mcp/SKILL.md) for MCP tools. Install them with:
+
+```sh
+npx skills add timmo001/notes
+```
 
 Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
 GitHub draft, optionally generate its release notes, then publish it to build
