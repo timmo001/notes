@@ -29,9 +29,9 @@ This repo contains the standalone `notes` CLI and MCP server.
 
 - This repository owns `.agents/skills/notes-cli/SKILL.md` and `.agents/skills/notes-mcp/SKILL.md`.
 - `timmo001/skills` imports only `notes-cli` as an unchanged snapshot. Edit the source here, not the imported or installed copy. `notes-mcp` remains available from this repository for explicit MCP use.
-- Update order: `notes` source -> `skills` import -> dotfiles skills submodule -> `dot stow`.
+- Update order: `notes` source -> `skills` import -> skills `main` -> `dot update`.
 - After an authorised source commit and push, run `./dist/skill-maintenance import notes-cli --apply` in the skills checkout. Review and validate the imported snapshot and its `imports.json` revision before committing and pushing skills.
-- Then advance `agents/.agents/skills` in dotfiles to that skills commit, commit the pointer with any companion command changes, and run `dot stow`. Each commit or push still requires user authorisation.
+- Then run `dot update`, which fetches the latest skills `main` and installs the new snapshot. Each commit or push still requires user authorisation.
 
 ## Docs Dev Server
 
