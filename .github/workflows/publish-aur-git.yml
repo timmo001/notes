@@ -48,7 +48,7 @@ jobs:
   publish:
     name: Publish AUR (repo-notes-git)
     needs: prepare
-    uses: timmo001/workflows/.github/workflows/publish-aur.yml@d787ea887605af00fd70650e7be38acbdab95aad # 20260929.0
+    uses: timmo001/workflows/.github/workflows/publish-aur.yml@36527a2230bed48409ccd595b17f8344efe0acdd # 20261001.1
     with:
       package-name: repo-notes-git
       artifact-name: aur-repo-notes-git-${{ github.run_id }}-${{ github.run_attempt }}
