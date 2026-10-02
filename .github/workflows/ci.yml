@@ -18,25 +18,23 @@ permissions:
 
 jobs:
   build:
-    name: Build
+    uses: timmo001/workflows/.github/workflows/build-bun-cli.yml@a7b34d53ef8f83b1763fd0d3257a0168416e23ab # 20261001.2
+    with:
+      smoke-test: |-
+        ./dist/notes --help
+        ./dist/notes root
+
+  capture:
+    name: Build capture PWA
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up mise
         uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566
 
-      - name: Check
-        run: mise run check
-
-      - name: Build
-        run: mise run build
-
       - name: Build capture PWA
         run: mise run capture:build
-
-      - name: Smoke test CLI
-        run: |
-          ./dist/notes --help
-          ./dist/notes root
