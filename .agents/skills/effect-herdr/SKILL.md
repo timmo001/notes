@@ -19,12 +19,12 @@ workspaces as an agent.
    declarations, and check its `herdr.protocol` metadata against the running
    server. Treat declared but absent packages as unverified.
 2. Read the relevant current docs before coding:
-   - [README](https://github.com/timmo001/effect-herdr/blob/fork/main/README.md):
+   - [README](https://github.com/timmo001/effect-herdr/blob/main/README.md):
      setup, API shape, errors and events.
-   - [Package manifest](https://github.com/timmo001/effect-herdr/blob/fork/main/package.json)
-     and [exports](https://github.com/timmo001/effect-herdr/blob/fork/main/src/index.ts):
+   - [Package manifest](https://github.com/timmo001/effect-herdr/blob/main/package.json)
+     and [exports](https://github.com/timmo001/effect-herdr/blob/main/src/index.ts):
      dependency pins, protocol and public surface.
-   - [Examples](https://github.com/timmo001/effect-herdr/tree/fork/main/examples):
+   - [Examples](https://github.com/timmo001/effect-herdr/tree/main/examples):
      executable recipes. They change live Herdr state, so read rather than run
      them.
      These links follow development. Prefer the installed release's docs and

@@ -31,10 +31,10 @@
     },
     "effect-herdr": {
       "source": "timmo001/effect-herdr",
-      "ref": "719c04d408270f2075e18c6c0d32df9c54038609",
+      "ref": "976b656fb121958063bd50630b2efb8d297dbb4b",
       "sourceType": "github",
       "skillPath": "skills/effect-herdr/SKILL.md",
-      "computedHash": "ed9131cb4e644279b8ff467ce44d1057a39a4beae4c851f66b56e8be7a05c70f"
+      "computedHash": "6d5191f27584bd32a094b1eb29356300cfbee6896dfeb37f736cb28f4f850ce2"
     },
     "effect-service-design": {
       "source": "dmmulroy/skills",
