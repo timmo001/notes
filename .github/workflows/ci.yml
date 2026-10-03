@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    uses: timmo001/workflows/.github/workflows/build-bun-cli.yml@4562274d170ccaa4b5d5bc776684caaa8d61b007 # 20261002.0
+    uses: timmo001/workflows/.github/workflows/build-bun-cli.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
     with:
       smoke-test: |-
         ./dist/notes --help
