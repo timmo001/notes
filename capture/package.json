@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.62.2",
-    "@effect/tsgo": "^0.50.0",
+    "@effect/tsgo": "^0.51.0",
     "@types/bun": "^1.4.2",
     "prettier": "^3.9.8",
     "typescript": "^7.0.2",
