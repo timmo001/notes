@@ -44,10 +44,8 @@ This repo contains the standalone `notes` CLI and MCP server.
 Run these after source changes:
 
 ```bash
-mise run check
-mise run build
 mise run docs:gen
-mise run docs:build
+mise run check ::: build ::: docs:build
 ```
 
 CI validates `.agents/skills/` with the shared `lint-agent-skills` workflow.

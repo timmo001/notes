@@ -117,8 +117,8 @@ dir = "capture"
 run = "bun run build"
 
 [tasks."capture:check"]
-description = "Test, type-check and build the capture PWA"
-depends = ["capture:test", "capture:format:check", "capture:build"]
+description = "Test, type-check, check formatting and build the capture PWA"
+depends = ["capture:test", "capture:typecheck", "capture:format:check", "capture:build"]
 
 [tasks."docs:install"]
 description = "Install docs dependencies"
