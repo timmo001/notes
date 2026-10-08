@@ -19,15 +19,16 @@ The PWA is a separate application under `capture/` so the Starlight documentatio
 
 ```bash
 mise run capture:dev
-mise run capture:dev:serve
-mise run capture:dev:status
-mise run capture:dev:logs
-mise run capture:dev:stop
+mise run serve:capture
+mise run serve:capture:status
+mise run serve:capture:logs
+mise run serve:capture:restart
+mise run serve:capture:stop
 mise run capture:check
 mise run capture:build
 ```
 
-`capture:dev:serve` runs the Vite dev server on port 5173 through Pitchfork.
+`serve:capture` runs the Vite dev server through Pitchfork on port 7490, or the next free port, at `https://capture.notes.localhost` through the Pitchfork proxy.
 
 Capture type-checking runs the Effect-patched TypeScript 7 compiler with plain `tsc`.
 

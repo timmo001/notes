@@ -39,6 +39,13 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Use `mise run docs:dev:status`, `mise run docs:dev:logs`, and `mise run docs:dev:stop` to inspect or stop it.
 - Use `mise run docs:dev` only when foreground server output is explicitly needed.
 
+## Capture Dev Server
+
+- Start the capture PWA dev server with `mise run serve:capture`, which runs it through Pitchfork in the background and restarts it if it exits or stops responding. Do not run `mise run capture:dev` or `vite dev` in the foreground from an agent.
+- Use `mise run serve:capture:status`, `mise run serve:capture:logs`, `mise run serve:capture:restart` and `mise run serve:capture:stop` to manage it.
+- The daemon is configured in `pitchfork.toml`. It serves `http://127.0.0.1:7490/`, or the next free port, and is always at `https://capture.notes.localhost` through the Pitchfork proxy.
+- Test through that HTTPS address, in the browser, with curl and anywhere else. Never add the proxy's own port, such as `:8443`, even if Pitchfork prints one: that means the 443 redirect is missing (it's lost on reboot), so run `pitchfork proxy doctor`, then `pitchfork proxy setup -y` to restore it. Use the `127.0.0.1` port only when the proxy isn't running.
+
 ## Validation
 
 Run these after source changes:

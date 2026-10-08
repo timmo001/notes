@@ -69,22 +69,26 @@ depends = ["capture:install"]
 dir = "capture"
 run = "bun run dev"
 
-[tasks."capture:dev:serve"]
-description = "Run the capture PWA dev server in the background through Pitchfork"
+[tasks."serve:capture"]
+description = "Start the capture PWA dev server in the background through Pitchfork"
 depends = ["capture:install"]
 run = "pitchfork start capture"
 
-[tasks."capture:dev:status"]
-description = "Show capture PWA dev server status"
-run = "pitchfork status notes/capture"
+[tasks."serve:capture:status"]
+description = "Show the background capture PWA dev server status"
+run = "pitchfork status capture"
 
-[tasks."capture:dev:logs"]
-description = "Show capture PWA dev server logs"
-run = "pitchfork logs notes/capture"
+[tasks."serve:capture:logs"]
+description = "Follow the background capture PWA dev server logs"
+run = "pitchfork logs -t capture"
 
-[tasks."capture:dev:stop"]
-description = "Stop capture PWA dev server"
-run = "pitchfork stop notes/capture"
+[tasks."serve:capture:restart"]
+description = "Restart the background capture PWA dev server"
+run = "pitchfork restart capture"
+
+[tasks."serve:capture:stop"]
+description = "Stop the background capture PWA dev server"
+run = "pitchfork stop capture"
 
 [tasks."capture:test"]
 description = "Run capture PWA tests"
