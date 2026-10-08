@@ -33,18 +33,12 @@ This repo contains the standalone `notes` CLI and MCP server.
 - After an authorised source commit and push, run `./dist/skill-maintenance import notes-cli --apply` in the skills checkout. Review and validate the imported snapshot and its `imports.json` revision before committing and pushing skills.
 - Then run `dot update`, which fetches the latest skills `main` and installs the new snapshot. Each commit or push still requires user authorisation.
 
-## Docs Dev Server
+## Background Dev Servers
 
-- Use `mise run docs:dev:serve` to start the Astro docs dev server in background mode.
-- Use `mise run docs:dev:status`, `mise run docs:dev:logs`, and `mise run docs:dev:stop` to inspect or stop it.
-- Use `mise run docs:dev` only when foreground server output is explicitly needed.
-
-## Capture Dev Server
-
-- Start the capture PWA dev server with `mise run serve:capture`, which runs it through Pitchfork in the background and restarts it if it exits or stops responding. Do not run `mise run capture:dev` or `vite dev` in the foreground from an agent.
-- Use `mise run serve:capture:status`, `mise run serve:capture:logs`, `mise run serve:capture:restart` and `mise run serve:capture:stop` to manage it.
-- The daemon is configured in `pitchfork.toml`. It serves `http://127.0.0.1:7490/`, or the next free port, and is always at `https://capture.notes.localhost` through the Pitchfork proxy.
-- Test through that HTTPS address, in the browser, with curl and anywhere else. Never add the proxy's own port, such as `:8443`, even if Pitchfork prints one: that means the 443 redirect is missing (it's lost on reboot), so run `pitchfork proxy doctor`, then `pitchfork proxy setup -y` to restore it. Use the `127.0.0.1` port only when the proxy isn't running.
+- Start the capture PWA dev server with `mise run serve:capture` and the docs dev server with `mise run serve:docs`. Both run through Pitchfork in the background and restart if they exit or stop responding. Do not run `mise run capture:dev`, `mise run docs:dev`, `vite dev` or `astro dev` in the foreground from an agent.
+- Use the `:status`, `:logs`, `:restart` and `:stop` variants of each, such as `mise run serve:docs:logs`, to manage them.
+- The daemons are configured in `pitchfork.toml`. Capture serves `http://127.0.0.1:7490/` and docs `http://127.0.0.1:7470/`, or the next free port, and they are always at `https://capture.notes.localhost` and `https://docs.notes.localhost` through the Pitchfork proxy.
+- Test through those HTTPS addresses, in the browser, with curl and anywhere else. Never add the proxy's own port, such as `:8443`, even if Pitchfork prints one: that means the 443 redirect is missing (it's lost on reboot), so run `pitchfork proxy doctor`, then `pitchfork proxy setup -y` to restore it. Use the `127.0.0.1` port only when the proxy isn't running.
 
 ## Validation
 
