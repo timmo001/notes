@@ -17,7 +17,7 @@
     "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
-    "effect": "4.0.1",
+    "effect": "4.0.2",
     "jose": "^6.2.12",
     "lit": "^3.3.3"
   },
