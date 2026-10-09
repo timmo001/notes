@@ -3,7 +3,7 @@ min_version = "2025.1.0"
 [tools]
 node = "26.11.1"
 bun = "1.4.2"
-pitchfork = "2.30.0"
+pitchfork = "2.30.1"
 
 [tasks.install]
 description = "Install notes dependencies"
