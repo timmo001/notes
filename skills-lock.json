@@ -31,10 +31,10 @@
     },
     "effect-gh": {
       "source": "timmo001/effect-gh",
-      "ref": "df8c724f83a154280a917c17d8e4d4ef5d1905a4",
+      "ref": "e28dea0935278bccad666d1611ba4beceef69b50",
       "sourceType": "github",
       "skillPath": "skills/effect-gh/SKILL.md",
-      "computedHash": "a2fcac4dd3384f286faf2f980632f70d957f453a50dc07e4e7a710a0e95fcc16"
+      "computedHash": "eae9bde4570299ccb369f483978c50e4dee5dfbcac9e59eaa71ea6ed2135f98d"
     },
     "effect-herdr": {
       "source": "timmo001/effect-herdr",
@@ -52,10 +52,10 @@
     },
     "opentui": {
       "source": "anomalyco/opentui",
-      "ref": "5494865060b668c9889eb1e2bf1dea481b9c54d9",
+      "ref": "786d423e9c9ef65bb41eaa5a8770b6d8ce5ee170",
       "sourceType": "github",
       "skillPath": "packages/web/src/content/SKILL.md",
-      "computedHash": "3c6fd0ff79744607576e42ec3b67d6f09bc825d53f27c32b3ed1f363b00ccf60"
+      "computedHash": "25dad8bceb989d0084d8304618678a8d3b3f018a0fbf3cc51552cb54be87ed45"
     },
     "skill-prefixes": {
       "source": "timmo001/skills",
