@@ -41,8 +41,25 @@ const issue = {
   body: "",
   state: "OPEN",
   labels: [{ name: "agent:ready" }],
-  comments: [{ author: { login: "worker" }, body: "Saved note" }],
+  comments: [
+    {
+      author: { login: "worker" },
+      body: "Saved note",
+      createdAt: "2026-10-10T00:00:00Z",
+    },
+  ],
 };
+
+const view = [
+  "issue",
+  "view",
+  "--json",
+  "number,title,body,state,labels,comments",
+  "--repo",
+  "owner/repo",
+  "--",
+  "42",
+];
 
 const fields = "number,title,body,state,labels,comments";
 
@@ -119,18 +136,18 @@ describe("IssueQueue SDK boundary", () => {
           [
             "issue",
             "list",
+            "--json",
+            fields,
             "--repo",
             "owner/repo",
             "--state",
             "open",
-            "--label",
-            "agent:ready",
             "--limit",
             "100",
-            "--json",
-            fields,
+            "--label",
+            "agent:ready",
           ],
-          ["issue", "view", "42", "--repo", "owner/repo", "--json", fields],
+          view,
         ]);
 
         for (const command of fake.commands) {
@@ -173,20 +190,17 @@ describe("IssueQueue SDK boundary", () => {
   });
 
   test.each(["list", "get"] as const)(
-    "%s preserves JSON and schema error operations",
+    "%s reports JSON and schema errors under its operation",
     async (operation) => {
-      for (const [stdout, suffix] of [
-        ["not JSON", ""],
-        ["", ""],
-        ["null", ".decode"],
-        [
-          JSON.stringify(
-            operation === "list"
-              ? [{ ...issue, body: null }]
-              : { ...issue, body: null },
-          ),
-          ".decode",
-        ],
+      for (const stdout of [
+        "not JSON",
+        "",
+        "null",
+        JSON.stringify(
+          operation === "list"
+            ? [{ ...issue, body: null }]
+            : { ...issue, body: null },
+        ),
       ]) {
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -199,7 +213,7 @@ describe("IssueQueue SDK boundary", () => {
             ).pipe(Effect.flip);
 
             expect(error).toBeInstanceOf(IssueQueueError);
-            expect(error.operation).toBe(operation + suffix);
+            expect(error.operation).toBe(operation);
             expect(error.message.length).toBeGreaterThan(0);
             expect(fake.commands).toHaveLength(1);
           }),
@@ -243,7 +257,7 @@ describe("IssueQueue SDK boundary", () => {
           expect(label).toMatch(/^agent:processing:desktop:[a-f0-9]{8}$/);
           expect(claimed).toBe(competing ? null : label);
           expect(fake.commands.map((command) => command.args)).toEqual([
-            ["issue", "view", "42", "--repo", "owner/repo", "--json", fields],
+            view,
             [
               "label",
               "create",
@@ -259,13 +273,14 @@ describe("IssueQueue SDK boundary", () => {
             [
               "issue",
               "edit",
-              "42",
               "--repo",
               "owner/repo",
               "--add-label",
               label,
+              "--",
+              "42",
             ],
-            ["issue", "view", "42", "--repo", "owner/repo", "--json", fields],
+            view,
             ...(competing
               ? [["label", "delete", label, "--repo", "owner/repo", "--yes"]]
               : []),
@@ -304,16 +319,26 @@ describe("IssueQueue SDK boundary", () => {
         yield* fake.queue.complete(42);
         yield* fake.queue.release("agent:processing:desktop:12345678");
         expect(fake.commands.map((command) => command.args)).toEqual([
-          ["issue", "comment", "42", "--repo", "owner/repo", "--body", body],
-          ["issue", "close", "42", "--repo", "owner/repo"],
+          [
+            "issue",
+            "comment",
+            "--repo",
+            "owner/repo",
+            "--body",
+            body,
+            "--",
+            "42",
+          ],
+          ["issue", "close", "--repo", "owner/repo", "--", "42"],
           [
             "issue",
             "edit",
-            "42",
             "--repo",
             "owner/repo",
             "--remove-label",
             "agent:ready",
+            "--",
+            "42",
           ],
           [
             "label",

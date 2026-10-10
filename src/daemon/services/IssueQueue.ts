@@ -1,5 +1,5 @@
-import { Context, Effect, Layer, Predicate, Schema } from "effect";
-import { Gh } from "@timmo001/effect-gh";
+import { Context, Effect, Layer, Schema } from "effect";
+import { Gh, GhDecodeError, Issue, Label } from "@timmo001/effect-gh";
 import { QueueIssue, type DaemonConfig } from "../schema.js";
 
 /** Failure returned by the GitHub issue queue boundary. */
@@ -52,35 +52,33 @@ export class IssueQueue extends Context.Service<
           timeout: `${config.commandTimeoutSeconds} seconds` as const,
         };
 
-        const run = (args: readonly string[]) => gh.execute(args, options);
+        const repo = config.repository;
 
-        const json = Effect.fn("IssueQueue.ghJson")(function* (
+        const run = <A, E>(
           operation: string,
-          args: readonly string[],
-        ) {
-          return yield* gh.json(args, Schema.Json, options).pipe(
+          effect: Effect.Effect<A, E, Gh>,
+        ): Effect.Effect<A, IssueQueueError> =>
+          effect.pipe(
+            Effect.provideService(Gh, gh),
             Effect.mapError(
               (error) =>
                 new IssueQueueError({
                   operation,
-                  message: Predicate.isTagged(error, "GhDecodeError")
-                    ? String(error.cause)
-                    : String(error),
+                  message:
+                    error instanceof GhDecodeError
+                      ? String(error.cause)
+                      : String(error),
                 }),
             ),
           );
-        });
 
         const get = Effect.fn("IssueQueue.get")(function* (number: number) {
-          return yield* json("get", [
-            "issue",
-            "view",
-            String(number),
-            "--repo",
-            config.repository,
-            "--json",
-            "number,title,body,state,labels,comments",
-          ]).pipe(Effect.flatMap(decodeIssue));
+          return mapIssue(
+            yield* run(
+              "get",
+              Issue.get(number, { repo, fields: issueFields }, options),
+            ),
+          );
         });
 
         const claimLabel = `agent:processing:${config.workerId}:${crypto.randomUUID().slice(0, 8)}`;
@@ -89,82 +87,51 @@ export class IssueQueue extends Context.Service<
           issue.labels.filter((label) => label.startsWith("agent:processing:"));
 
         return IssueQueue.of({
-          list: json("list", [
-            "issue",
+          list: run(
             "list",
-            "--repo",
-            config.repository,
-            "--state",
-            "open",
-            "--label",
-            config.queueLabel,
-            "--limit",
-            "100",
-            "--json",
-            "number,title,body,state,labels,comments",
-          ]).pipe(
-            Effect.flatMap((value) =>
-              Schema.decodeUnknownEffect(Schema.Array(GhIssue))(value),
+            Issue.query(
+              {
+                repo,
+                state: "open",
+                labels: [config.queueLabel],
+                limit: 100,
+                fields: issueFields,
+              },
+              options,
             ),
-            Effect.map((issues) => issues.map(mapIssue)),
-            Effect.mapError((error) =>
-              error instanceof IssueQueueError
-                ? error
-                : new IssueQueueError({
-                    operation: "list.decode",
-                    message: String(error),
-                  }),
-            ),
-          ),
+          ).pipe(Effect.map((issues) => issues.map(mapIssue))),
           get,
           claim: (number) =>
             Effect.gen(function* () {
               if (processingLabels(yield* get(number)).length > 0) return null;
-              yield* run([
-                "label",
-                "create",
-                claimLabel,
-                "--repo",
-                config.repository,
-                "--color",
-                "D9AF59",
-                "--description",
-                `Claimed by notes daemon worker ${config.workerId}`,
-                "--force",
-              ]);
-              yield* run([
-                "issue",
-                "edit",
-                String(number),
-                "--repo",
-                config.repository,
-                "--add-label",
-                claimLabel,
-              ]);
+              yield* run(
+                "claim",
+                Label.create(
+                  {
+                    repo,
+                    name: claimLabel,
+                    color: "D9AF59",
+                    description: `Claimed by notes daemon worker ${config.workerId}`,
+                    force: true,
+                  },
+                  options,
+                ),
+              );
+              yield* run(
+                "claim",
+                Issue.edit(number, { repo, addLabels: [claimLabel] }, options),
+              );
               const labels = processingLabels(yield* get(number));
 
               if (labels.length === 1 && labels[0] === claimLabel)
                 return claimLabel;
-              yield* run([
-                "label",
-                "delete",
-                claimLabel,
-                "--repo",
-                config.repository,
-                "--yes",
-              ]);
+              yield* run(
+                "claim",
+                Label.remove({ repo, name: claimLabel }, options),
+              );
 
               return null;
-            }).pipe(
-              Effect.mapError((error) =>
-                error instanceof IssueQueueError
-                  ? error
-                  : new IssueQueueError({
-                      operation: "claim",
-                      message: String(error),
-                    }),
-              ),
-            ),
+            }),
           owns: (number, label) =>
             get(number).pipe(
               Effect.map((issue) => {
@@ -174,91 +141,37 @@ export class IssueQueue extends Context.Service<
               }),
             ),
           release: (label) =>
-            run([
-              "label",
-              "delete",
-              label,
-              "--repo",
-              config.repository,
-              "--yes",
-            ]).pipe(
-              Effect.asVoid,
-              Effect.mapError(
-                (error) =>
-                  new IssueQueueError({
-                    operation: "release",
-                    message: String(error),
-                  }),
-              ),
-            ),
+            run("release", Label.remove({ repo, name: label }, options)),
           comment: (number, body) =>
-            run([
-              "issue",
-              "comment",
-              String(number),
-              "--repo",
-              config.repository,
-              "--body",
-              body,
-            ]).pipe(
-              Effect.asVoid,
-              Effect.mapError(
-                (error) =>
-                  new IssueQueueError({
-                    operation: "comment",
-                    message: String(error),
-                  }),
-              ),
-            ),
+            run("comment", Issue.comment(number, { repo, body }, options)),
           complete: (number) =>
             Effect.gen(function* () {
-              yield* run([
-                "issue",
-                "close",
-                String(number),
-                "--repo",
-                config.repository,
-              ]);
-              yield* run([
-                "issue",
-                "edit",
-                String(number),
-                "--repo",
-                config.repository,
-                "--remove-label",
-                config.queueLabel,
-              ]);
-            }).pipe(
-              Effect.asVoid,
-              Effect.mapError(
-                (error) =>
-                  new IssueQueueError({
-                    operation: "complete",
-                    message: String(error),
-                  }),
-              ),
-            ),
+              yield* run("complete", Issue.close(number, { repo }, options));
+              yield* run(
+                "complete",
+                Issue.edit(
+                  number,
+                  { repo, removeLabels: [config.queueLabel] },
+                  options,
+                ),
+              );
+            }),
         });
       }),
     );
   }
 }
 
-const GhIssue = Schema.Struct({
-  number: Schema.Int,
-  title: Schema.String,
-  body: Schema.String,
-  state: Schema.String,
-  labels: Schema.Array(Schema.Struct({ name: Schema.String })),
-  comments: Schema.Array(
-    Schema.Struct({
-      author: Schema.Struct({ login: Schema.String }),
-      body: Schema.String,
-    }),
-  ),
-});
+const issueFields = [
+  "number",
+  "title",
+  "body",
+  "state",
+  "labels",
+  "comments",
+] as const;
 
-function mapIssue(issue: typeof GhIssue.Type): QueueIssue {
+function mapIssue(issue: Issue.Selected<typeof issueFields>): QueueIssue {
   return QueueIssue.make({
     number: issue.number,
     title: issue.title,
@@ -270,17 +183,4 @@ function mapIssue(issue: typeof GhIssue.Type): QueueIssue {
       body: comment.body,
     })),
   });
-}
-
-function decodeIssue(value: Schema.Json) {
-  return Schema.decodeUnknownEffect(GhIssue)(value).pipe(
-    Effect.map(mapIssue),
-    Effect.mapError(
-      (error) =>
-        new IssueQueueError({
-          operation: "get.decode",
-          message: String(error),
-        }),
-    ),
-  );
 }
