@@ -16,7 +16,7 @@
         "yaml": "^2.9.1",
       },
       "devDependencies": {
-        "@effect/tsgo": "^0.51.0",
+        "@effect/tsgo": "0.51.1",
         "@oxlint/plugins": "1.87.0",
         "@timmo001/oxlint-rules": "0.6.2",
         "@types/bun": "^1.4.2",
