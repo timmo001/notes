@@ -38,4 +38,4 @@ Copy `capture/.dev.vars.example` to `capture/.dev.vars` for local configuration.
 
 Use `capture/wrangler.example.jsonc` for public validation. Keep the production values in ignored `capture/wrangler.local.jsonc`; the deploy scripts select it only while building the production Worker, and `wrangler deploy` then picks up the built configuration.
 
-`dot notes-capture-sync` reconciles that local file from the active Worker's non-secret settings, generates picker options from notification-watched repositories, and deploys when the live picker differs. The generated configuration uses `keep_vars`, so Workers Builds triggered by later Git pushes preserve the runtime picker variable and dashboard-managed secrets.
+`dot notes capture sync` reconciles that local file from the active Worker's non-secret settings, generates picker options from notification-watched repositories, and deploys when the live picker differs. The generated configuration uses `keep_vars`, so Workers Builds triggered by later Git pushes preserve the runtime picker variable and dashboard-managed secrets.
