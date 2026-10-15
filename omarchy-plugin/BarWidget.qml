@@ -87,8 +87,10 @@ BarWidget {
     target.service = root.notesService
   }
 
-  visible: activeInstance
-  implicitWidth: activeInstance ? button.implicitWidth : 0
+  readonly property bool shown: activeInstance && (hasNotes || opened)
+
+  visible: shown
+  implicitWidth: shown ? button.implicitWidth : 0
   implicitHeight: button.implicitHeight
 
   onBarChanged: injectPanel()
