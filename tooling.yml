@@ -1,0 +1,13 @@
+---
+# Tool releases notes was last reviewed against. The tooling-drift tool
+# (mise run tooling:status / tooling:publish) compares each with the latest
+# release and opens a pull request for review when it moves; its README
+# documents this file.
+assignee: timmo001
+dispatch:
+  - ci.yml
+  - lint-general.yml
+tools:
+  - repo: herdrdev/herdr
+    reviewed: v0.9.5
+    review: Check the Herdr calls in src/notes (agentTargets, activeCount) and the TUI views that use them (NotesView, App, dialogs/AgentDialog) against the release notes.

@@ -33,6 +33,11 @@ This repo contains the standalone `notes` CLI and MCP server.
 - After an authorised source commit and push, run `./dist/skill-maintenance import notes-cli --apply` in the skills checkout. Review and validate the imported snapshot and its `imports.json` revision before committing and pushing skills.
 - Then run `dot update`, which fetches the latest skills `main` and installs the new snapshot. Each commit or push still requires user authorisation.
 
+## Tooling Drift
+
+- `tooling.yml` records the Herdr release notes was last reviewed against. The daily `tooling-drift.yml` workflow opens a draft review pull request when a newer one is out.
+- Review the release notes against the code named in the entry's `review` line, then record the release with `mise run tooling:update <tag>`. Never edit `reviewed` by hand.
+
 ## Background Dev Servers
 
 - Start the capture PWA dev server with `mise run serve:capture` and the docs dev server with `mise run serve:docs`. Both run through Pitchfork in the background and restart if they exit or stop responding. Do not run `mise run capture:dev`, `mise run docs:dev`, `vite dev` or `astro dev` in the foreground from an agent.

@@ -9,6 +9,7 @@ ignore: |
   node_modules/
   docs/dist/
   docs/.astro/
+  .mise/locks/
 
 rules:
   # Every document must start with "---" (enforced).
