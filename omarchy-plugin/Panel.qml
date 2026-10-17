@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 Panel {
@@ -13,7 +14,7 @@ Panel {
   property var hostWidget: null
   property var service: null
   readonly property var barIdentity: hostWidget || root
-  readonly property color foreground: bar ? bar.foreground : Color.foreground
+  readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   property string view: "overview"
   property string previousView: "overview"
@@ -539,7 +540,7 @@ Panel {
             width: parent.width; spacing: Style.space(6)
             PanelSeparator { foreground: root.foreground }
             Text { width: parent.width; text: "Repository: " + String(root.selectedNote && root.selectedNote.repoSlug || "") + "\nTags: " + String(root.selectedNote && (root.selectedNote.tags || []).join(", ") || "none") + "\nPriority: " + String(root.selectedNote && root.selectedNote.priority || "medium") + "\nModified: " + new Date(Number(root.selectedNote && root.selectedNote.mtime || 0) * 1000).toLocaleString(); color: Qt.darker(root.foreground, 1.3); font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
-            Text { width: parent.width; text: root.noteBody(root.service ? root.service.selectedContent : ""); textFormat: Text.MarkdownText; color: root.foreground; linkColor: Color.accent; font.family: root.fontFamily; font.pixelSize: Style.font.body; wrapMode: Text.Wrap; onLinkActivated: function(link) { Qt.openUrlExternally(link) } }
+            Text { width: parent.width; text: root.noteBody(root.service ? root.service.selectedContent : ""); textFormat: Text.MarkdownText; color: root.foreground; linkColor: Commons.Color.accent; font.family: root.fontFamily; font.pixelSize: Style.font.body; wrapMode: Text.Wrap; onLinkActivated: function(link) { Qt.openUrlExternally(link) } }
           }
 
           Column {
@@ -564,7 +565,7 @@ Panel {
             ScrollView { width: parent.width; height: Style.space(180); MultilineTextField { id: captureInput; placeholderText: "What should be investigated or remembered?"; foreground: root.foreground; font.family: root.fontFamily; wrapMode: TextEdit.Wrap; selectByMouse: true; onTextChanged: draftSaveTimer.restart(); Keys.onPressed: function(event) { if ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)) { root.submitCapture(); event.accepted = true } else if (event.key === Qt.Key_Escape) { root.back(); event.accepted = true } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) { captureSend.forceActiveFocus(); event.accepted = true } } } }
             Button { id: captureSend; width: parent.width; text: "Send (Ctrl+Enter)"; enabled: root.canCapture; foreground: root.foreground; fontFamily: root.fontFamily; bordered: true; focusable: true; onClicked: root.submitCapture() }
             Button { width: parent.width; text: "Clear"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.resetCapture() }
-            Text { text: [root.captureAvailable ? root.statusText : "Local processor unavailable. Captures stay queued until it returns.", root.captureQueueText].filter(Boolean).join("\n"); visible: text !== ""; width: parent.width; color: root.captureAvailable ? root.foreground : Color.urgent; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
+            Text { text: [root.captureAvailable ? root.statusText : "Local processor unavailable. Captures stay queued until it returns.", root.captureQueueText].filter(Boolean).join("\n"); visible: text !== ""; width: parent.width; color: root.captureAvailable ? root.foreground : Commons.Color.urgent; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.Wrap }
             PanelSeparator { foreground: root.foreground }
             TextField { id: captureRepositoryFilter; width: parent.width; placeholderText: "Search target repositories"; color: root.foreground; font.family: root.fontFamily; text: root.captureRepositorySearch; onTextChanged: root.captureRepositorySearch = text }
             Button { width: parent.width; text: root.selectedCaptureRepository === "" ? "Automatic" : "Automatic (clear selection)"; foreground: root.foreground; fontFamily: root.fontFamily; focusable: true; onClicked: root.selectedCaptureRepository = "" }

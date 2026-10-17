@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 BarWidget {
@@ -33,7 +34,7 @@ BarWidget {
     var entries = notesService.activeNotes.entries
     var hasHigh = false
     for (var i = 0; i < entries.length; i++) {
-      if (entries[i].priority === "critical") return bar ? bar.urgent : Color.urgent
+      if (entries[i].priority === "critical") return bar ? bar.urgent : Commons.Color.urgent
       if (entries[i].priority === "high") hasHigh = true
     }
     return hasHigh ? "#e5c07b" : "#b0bec5"
