@@ -211,7 +211,7 @@ export class NotesView {
     this.renderer = renderer;
     this.callbacks = callbacks;
     this.theme = theme;
-    this.syntaxStyle = createMarkdownSyntaxStyle(theme);
+    this.syntaxStyle = createMarkdownSyntaxStyle(theme, renderer);
     this.keyHandlers = {
       tab: () => this.togglePane(),
       a: () => this.startCreateFlow("editor"),
@@ -1599,18 +1599,24 @@ export class NotesView {
   }
 }
 
-function createMarkdownSyntaxStyle(theme: Theme): SyntaxStyle {
-  return SyntaxStyle.fromStyles({
-    default: { fg: theme.fg },
-    conceal: { fg: theme.fgMuted },
-    "markup.heading": { fg: theme.accent, bold: true },
-    "markup.strong": { bold: true },
-    "markup.italic": { italic: true },
-    "markup.raw": { fg: theme.green },
-    "markup.link": { fg: theme.accent, underline: true },
-    "markup.link.label": { fg: theme.accent, underline: true },
-    "markup.link.url": { fg: theme.fgMuted, dim: true },
-  });
+function createMarkdownSyntaxStyle(
+  theme: Theme,
+  renderer: CliRenderer,
+): SyntaxStyle {
+  return SyntaxStyle.fromStyles(
+    {
+      default: { fg: theme.fg },
+      conceal: { fg: theme.fgMuted },
+      "markup.heading": { fg: theme.accent, bold: true },
+      "markup.strong": { bold: true },
+      "markup.italic": { italic: true },
+      "markup.raw": { fg: theme.green },
+      "markup.link": { fg: theme.accent, underline: true },
+      "markup.link.label": { fg: theme.accent, underline: true },
+      "markup.link.url": { fg: theme.fgMuted, dim: true },
+    },
+    renderer.nativeScene,
+  );
 }
 
 function matchesFilter(
