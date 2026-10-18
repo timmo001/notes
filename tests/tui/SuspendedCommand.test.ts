@@ -5,15 +5,11 @@ import { runWithRendererSuspended } from "../../src/tui/SuspendedCommand.js";
 
 async function rendererFixture(events: string[]) {
   const { renderer } = await createTestRenderer({ width: 1, height: 1 });
-  renderer.suspend = () => {
+  renderer.suspend = async () => {
     events.push("suspend");
   };
 
-  renderer.currentRenderBuffer.clear = () => {
-    events.push("clear");
-  };
-
-  renderer.resume = () => {
+  renderer.resume = async () => {
     events.push("resume");
   };
 
@@ -44,9 +40,7 @@ describe("runWithRendererSuspended", () => {
     expect(result).toBe("result");
     expect(events).toEqual([
       "suspend",
-      "clear",
       "work",
-      "clear",
       "resume",
       "afterResume",
       "render",
@@ -73,9 +67,7 @@ describe("runWithRendererSuspended", () => {
     );
     expect(events).toEqual([
       "suspend",
-      "clear",
       "work",
-      "clear",
       "resume",
       "afterResume",
       "render",

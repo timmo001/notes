@@ -14,14 +14,12 @@ export async function runWithRendererSuspended<T>(
   work: () => Promise<T>,
 ): Promise<T> {
   const { renderer, afterResume } = options;
-  renderer.suspend();
-  renderer.currentRenderBuffer.clear();
+  await renderer.suspend();
 
   try {
     return await work();
   } finally {
-    renderer.currentRenderBuffer.clear();
-    renderer.resume();
+    await renderer.resume();
     afterResume?.();
     renderer.requestRender();
   }
