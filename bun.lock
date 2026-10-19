@@ -8,7 +8,7 @@
         "@effect/platform-node": "4.0.5",
         "@opentui/core": "^0.6.0",
         "@timmo001/effect-gh": "0.7.0",
-        "@timmo001/effect-herdr": "0.9.0-timmo001.1",
+        "@timmo001/effect-herdr": "0.9.0-timmo001.2",
         "@tuiparts/core": "^0.0.6",
         "effect": "4.0.5",
         "fuse.js": "^7.5.0",
@@ -138,7 +138,7 @@
 
     "@timmo001/effect-gh": ["@timmo001/effect-gh@0.7.0", "", { "peerDependencies": { "effect": "4.0.3" } }, "sha512-isfsLuJinzIlt0vFko+sjSE8goxCtly5+cUP+PIKTS7pOF+g9lVmHRP1CWzewNXZSI9APPeCbWdtECXSyIGyUQ=="],
 
-    "@timmo001/effect-herdr": ["@timmo001/effect-herdr@0.9.0-timmo001.1", "", { "dependencies": { "@effect/platform-node-shared": "4.0.3", "ajv": "8.20.0", "effect": "4.0.3" } }, "sha512-hl7vakIVr3Sow/yRIfBvMQsX9nKGn0kjLUj7ilEsnoxvcQjkG/pHUN0k4EbuHJfj1OZua5S114ufG5KbSEEhaA=="],
+    "@timmo001/effect-herdr": ["@timmo001/effect-herdr@0.9.0-timmo001.2", "", { "dependencies": { "@effect/platform-node-shared": "4.0.5", "ajv": "8.20.0", "effect": "4.0.5" } }, "sha512-uw2rloQIdN4EbyO5p8qZjzCyRdjooVxOeFk5XALmrpU1xLibHJfUf8BF+qHTK53uKtk4+74yvsAbc42/uq5v9A=="],
 
     "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.6.3", "", { "peerDependencies": { "@oxlint/plugins": "1.88.0", "oxlint": "1.88.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-DxIid4Bu5t8bLuWcAIZlikLVLabSrJ1ai2siFB+E+7HdY3TPMgsUU44/Is+9RAQYVH8LEYjOQFVedH5MOXL5YQ=="],
 
