@@ -430,7 +430,7 @@ Panel {
     anchorItem: root.anchorItem; owner: root.barIdentity; bar: root.bar; open: root.opened
     focusTarget: root.view === "edit" ? editInput : (root.view === "create" ? createName : (root.view === "capture" ? captureInput : filterController))
     contentWidth: panel.fittedContentWidth(Style.space(560))
-    contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight, Style.space(700))
+    contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight, panel.screenH * 0.8)
 
     FilterablePanel {
       id: filterController
