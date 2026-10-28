@@ -19,7 +19,7 @@ The npm and JSR jobs fail unless the release tag matches every manifest exactly,
 
 Run `bun install` to refresh `bun.lock`, then run the checks from `AGENTS.md` before committing.
 
-Keep `epoch=1` in every PKGBUILD under `.scripts/linux/`. Releases used `YYYYMMDD.N` tags before 1.0.0, and without the epoch pacman sees semver as a downgrade.
+Keep the epochs in the PKGBUILDs under `.scripts/linux/`: `epoch=1` for the binary packages and `epoch=2` for `repo-notes-git`. Releases used `YYYYMMDD.N` tags before 1.0.0, and without the epoch pacman sees semver as a downgrade. The git package needs 2 because one build already shipped as `1:20261010.0.r107`.
 
 Releasing is a public publish you can't undo. Commit, push and create the release only when the user asks, and use their chosen version. Create the release with `gh release create <version> --generate-notes`. The workflow's `release-version` dispatch input reruns only the Linux packages, since the npm and JSR jobs need a release event.
 
