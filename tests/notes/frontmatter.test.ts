@@ -4,7 +4,7 @@ import {
   renderDraft,
   setFrontmatterField,
   validateNoteContent,
-} from "../../src/notes/frontmatter.js";
+} from "../../packages/effect-notes/src/notes/frontmatter.js";
 
 const identity = {
   source: "remote" as const,

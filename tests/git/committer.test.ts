@@ -5,8 +5,8 @@ import {
   commitIn,
   preflightMutation,
   pushBranch,
-} from "../../src/git/committer.js";
-import { CommandExecutor } from "../../src/services/CommandExecutor.js";
+} from "../../packages/effect-notes/src/git/committer.js";
+import { CommandExecutor } from "@timmo001/effect-notes";
 import {
   git as runGit,
   createTempDirectory,

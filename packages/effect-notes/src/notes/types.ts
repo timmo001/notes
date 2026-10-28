@@ -3,6 +3,7 @@ import { formatLocalNoteDateTimeFromEpochSeconds } from "./time.js";
 /** Resolved project identity for project-scoped notes. */
 export type RepoNoteIdentity = RemoteRepoNoteIdentity | LocalRepoNoteIdentity;
 
+/** Project identity resolved from a git remote. */
 export interface RemoteRepoNoteIdentity {
   readonly source: "remote";
   /** Owner or organisation parsed from the selected remote. */
@@ -15,6 +16,7 @@ export interface RemoteRepoNoteIdentity {
   readonly remoteUrl: string;
 }
 
+/** Project identity for a directory without a usable git remote. */
 export interface LocalRepoNoteIdentity {
   readonly source: "local";
   readonly owner: "local";

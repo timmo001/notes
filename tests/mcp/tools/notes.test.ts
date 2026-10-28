@@ -4,10 +4,12 @@ import { McpSchema, McpServer } from "effect/ai";
 import { join } from "node:path";
 import { Notifier } from "../../../src/mcp/services/Notifier.js";
 import { registerNotesTools } from "../../../src/mcp/tools/notes.js";
-import { renderDraft } from "../../../src/notes/frontmatter.js";
-import { Notes } from "../../../src/notes/services/Notes.js";
-import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
-import { Config } from "../../../src/services/Config.js";
+import {
+  CommandExecutor,
+  Config,
+  Notes,
+  renderDraft,
+} from "@timmo001/effect-notes";
 import {
   git as runGit,
   makeDirectory,

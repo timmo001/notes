@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { searchNoteEntries } from "../../src/notes/search.js";
-import type { NoteEntry } from "../../src/notes/types.js";
+import { searchNoteEntries, type NoteEntry } from "@timmo001/effect-notes";
 
 function entry(
   filename: string,

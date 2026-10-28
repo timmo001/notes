@@ -10,8 +10,7 @@ import {
   Schema,
 } from "effect";
 import { HerdrSdk, type PaneId, type TabId } from "@timmo001/effect-herdr";
-import { CommandExecutor } from "../services/CommandExecutor.js";
-import type { NoteEntry } from "./types.js";
+import { CommandExecutor, type NoteEntry } from "@timmo001/effect-notes";
 
 export interface AgentTarget {
   readonly command: string;

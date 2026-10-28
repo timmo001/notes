@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { noteGitOutcome } from "../../src/notes/gitOutcome.js";
+import { noteGitOutcome } from "@timmo001/effect-notes";
 
 describe("noteGitOutcome", () => {
   test("reports a commit failure as partial success", () => {

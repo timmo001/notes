@@ -90,46 +90,61 @@ export class NotesError extends Schema.TaggedError<NotesError>()("NotesError", {
 }) {}
 
 /** Service interface for project-scoped note context and file I/O. */
-interface NotesService {
+export interface NotesService {
+  /** The notes vault root. */
   readonly root: Effect.Effect<string, NotesError>;
+  /** The vault's `projects` directory. */
   readonly projectsRoot: Effect.Effect<string, NotesError>;
+  /** Structured project-note context for an integration command. */
   readonly contextPayload: (
     options: NoteContextOptions,
   ) => Effect.Effect<NoteContextPayload, NotesError>;
+  /** Project-note context rendered as a prompt block. */
   readonly context: (
     options: NoteContextOptions,
   ) => Effect.Effect<string, NotesError>;
+  /** Notes for the configured project, newest first. */
   readonly list: Effect.Effect<readonly NoteEntry[], NotesError>;
+  /** Notes from every projects directory, grouped by repository. */
   readonly listAll: Effect.Effect<readonly NoteRepoSection[], NotesError>;
+  /** The scope the TUI opens in. */
   readonly tuiScope: Effect.Effect<NotesTuiScope, NotesError>;
+  /** Read a note's content and SHA-256 revision hash. */
   readonly read: (
     filePath: string,
   ) => Effect.Effect<NoteReadResult, NotesError>;
+  /** Resolve a note path to its entry and content. */
   readonly resolveEntry: (
     filePath: string,
   ) => Effect.Effect<
     { readonly entry: NoteEntry; readonly content: string },
     NotesError
   >;
+  /** Replace a note's content, then commit and push it. */
   readonly write: (
     filePath: string,
     content: string,
     options?: NoteWriteOptions,
   ) => Effect.Effect<NoteWriteResult, NotesError>;
+  /** Delete a note, then commit and push it. */
   readonly delete: (
     filePath: string,
   ) => Effect.Effect<NoteDeleteResult, NotesError>;
+  /** Repository scopes notes can be moved or created in. */
   readonly moveTargets: Effect.Effect<readonly string[], NotesError>;
+  /** Move a note to another repository scope, then commit and push it. */
   readonly move: (
     filePath: string,
     repoSlug: string,
   ) => Effect.Effect<NoteMoveResult, NotesError>;
+  /** Create a note in the configured project and edit it with `runEditor`. */
   readonly create: (
     kind: NoteCreateKind,
     name: string,
     description: string,
     runEditor: (entry: NoteEntry) => Promise<void>,
   ) => Effect.Effect<NoteCreateResult, NotesError>;
+  /** Create a note in `repository` with `body`, then commit and push it. */
   readonly createFromInput: (
     repository: string,
     kind: NoteCreateKind,
@@ -137,11 +152,13 @@ interface NotesService {
     description: string,
     body: string,
   ) => Effect.Effect<NoteCreateResult, NotesError>;
+  /** Edit a note with `runEditor`, then commit and push it. */
   readonly edit: (
     filePath: string,
     runEditor: (entry: NoteEntry) => Promise<void>,
     create: boolean,
   ) => Effect.Effect<NoteGitResult, NotesError>;
+  /** Set a note's priority, then commit and push it. */
   readonly setPriority: (
     filePath: string,
     priority: NotePriority,

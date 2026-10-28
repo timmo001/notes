@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { acquireVaultLock } from "../../src/notes/processLock.js";
+import { acquireVaultLock } from "../../packages/effect-notes/src/notes/processLock.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -22,7 +22,7 @@ describe("acquireVaultLock", () => {
       [
         "bun",
         "-e",
-        `import { acquireVaultLock } from ${JSON.stringify(import.meta.dir + "/../../src/notes/processLock.ts")}; const release = await acquireVaultLock(${JSON.stringify(root)}); release();`,
+        `import { acquireVaultLock } from ${JSON.stringify(import.meta.dir + "/../../packages/effect-notes/src/notes/processLock.ts")}; const release = await acquireVaultLock(${JSON.stringify(root)}); release();`,
       ],
       { stdout: "ignore", stderr: "pipe" },
     );

@@ -22,5 +22,5 @@
       }
     ]
   },
-  "include": ["src", "tests", "oxlint.config.ts"]
+  "include": ["src", "tests", "packages/*/src", "oxlint.config.ts"]
 }

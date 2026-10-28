@@ -5,14 +5,14 @@ import {
   Schema,
   SchemaTransformation,
 } from "effect";
-import { Notes } from "../../notes/services/Notes.js";
-import type {
-  NoteDeleteResult,
-  NoteEntry,
-  NoteRepoSection,
-  NoteWriteResult,
-} from "../../notes/types.js";
-import { noteGitOutcome } from "../../notes/gitOutcome.js";
+import {
+  Notes,
+  noteGitOutcome,
+  type NoteDeleteResult,
+  type NoteEntry,
+  type NoteRepoSection,
+  type NoteWriteResult,
+} from "@timmo001/effect-notes";
 import { Notifier, type NotifierService } from "../services/Notifier.js";
 import {
   DESTRUCTIVE_HINTS,

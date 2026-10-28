@@ -1,5 +1,6 @@
 import type { NoteGitResult } from "./types.js";
 
+/** Whether a note mutation was committed and pushed, with a summary. */
 export interface NoteGitOutcome {
   readonly complete: boolean;
   readonly detail: string;

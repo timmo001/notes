@@ -1,7 +1,6 @@
 import { HerdrSdk } from "@timmo001/effect-herdr";
 import { Effect, Layer, Option } from "effect";
-import { Config } from "../services/Config.js";
-import { Notes } from "./services/Notes.js";
+import { Config, Notes } from "@timmo001/effect-notes";
 
 /** Count and identify notes in the focused Herdr pane's project, including handoffs. */
 export const activeNoteCount = Effect.fn("activeNoteCount")(function* () {

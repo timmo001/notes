@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import { McpSchema, McpServer } from "effect/ai";
 import { renderHelp } from "../../cli/help.js";
-import { Notes } from "../../notes/services/Notes.js";
+import { Notes } from "@timmo001/effect-notes";
 
 const commandParam = McpSchema.param("name", Schema.String);
 

@@ -12,7 +12,7 @@ import { Button } from "../../../tui/components/Button.js";
 import { Dialog } from "../../../tui/components/Dialog.js";
 import { Input } from "../../../tui/components/Input.js";
 import { RadioGroup } from "../../../tui/components/RadioGroup.js";
-import type { NoteCreateKind } from "../../types.js";
+import type { NoteCreateKind } from "@timmo001/effect-notes";
 
 export interface CreateNoteDialogResult {
   readonly kind: NoteCreateKind;

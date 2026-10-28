@@ -9,10 +9,9 @@
         "@opentui/core": "^0.7.0",
         "@timmo001/effect-gh": "0.8.0",
         "@timmo001/effect-herdr": "0.9.0-timmo001.4",
+        "@timmo001/effect-notes": "workspace:*",
         "@tuiparts/core": "^0.0.6",
         "effect": "4.0.7",
-        "fuse.js": "^7.5.0",
-        "proper-lockfile": "^4.1.2",
         "yaml": "^2.9.1",
       },
       "devDependencies": {
@@ -20,11 +19,29 @@
         "@oxlint/plugins": "1.90.0",
         "@timmo001/oxlint-rules": "0.6.3",
         "@types/bun": "^1.4.2",
-        "@types/proper-lockfile": "^4.1.4",
         "oxlint": "1.90.0",
         "oxlint-tsgolint": "7.0.2005",
         "prettier": "^3.9.8",
         "typescript": "^7.0.2",
+      },
+    },
+    "packages/effect-notes": {
+      "name": "@timmo001/effect-notes",
+      "version": "0.1.0",
+      "dependencies": {
+        "fuse.js": "7.5.0",
+        "proper-lockfile": "4.1.2",
+        "yaml": "2.9.1",
+      },
+      "devDependencies": {
+        "@effect/platform-node": "4.0.7",
+        "@types/node": "26.6.5",
+        "@types/proper-lockfile": "4.1.4",
+        "effect": "4.0.7",
+      },
+      "peerDependencies": {
+        "@effect/platform-node": "^4.0.1",
+        "effect": "^4.0.1",
       },
     },
   },
@@ -140,13 +157,15 @@
 
     "@timmo001/effect-herdr": ["@timmo001/effect-herdr@0.9.0-timmo001.4", "", { "dependencies": { "@effect/platform-node-shared": "4.0.6", "ajv": "8.20.0", "effect": "4.0.6" } }, "sha512-dWEkLWiZO0eswSFJZupNK4zuMNGNZPfHx58sVxxf3TvJW46bhqt1DPqgSFeHG2G9CuIiqcQNrvHDpBJ3cY4dXQ=="],
 
+    "@timmo001/effect-notes": ["@timmo001/effect-notes@workspace:packages/effect-notes"],
+
     "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.6.3", "", { "peerDependencies": { "@oxlint/plugins": "1.88.0", "oxlint": "1.88.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-DxIid4Bu5t8bLuWcAIZlikLVLabSrJ1ai2siFB+E+7HdY3TPMgsUU44/Is+9RAQYVH8LEYjOQFVedH5MOXL5YQ=="],
 
     "@tuiparts/core": ["@tuiparts/core@0.0.6", "", { "peerDependencies": { "@opentui/core": "^0.4.3" } }, "sha512-DNqtRprlpMJGUHVTm+L0R/P2Gbn392NZdzna8YSPQkgfNjyroSKpZieg1jTTnYAQn7cz5LpiwtDjw3RCUBrulw=="],
 
     "@types/bun": ["@types/bun@1.4.4", "", { "dependencies": { "bun-types": "1.4.4" } }, "sha512-9wkRDXUXK124pEnAutE6n/l18j+i9GC5IAHK8TmX/2nlySETmky0OU6yL5U8pW1AoKh++AN9auDCr647BfurjQ=="],
 
-    "@types/node": ["@types/node@26.6.6", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog=="],
+    "@types/node": ["@types/node@26.6.5", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg=="],
 
     "@types/proper-lockfile": ["@types/proper-lockfile@4.1.4", "", { "dependencies": { "@types/retry": "*" } }, "sha512-uo2ABllncSqg9F1D4nugVl9v93RmjxF6LJzQLMLDdPaXCUIDPeOJ21Gbqi43xNKzBi/WQ0Q0dICqufzQbMjipQ=="],
 
@@ -255,5 +274,9 @@
     "ws": ["ws@8.22.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg=="],
 
     "yaml": ["yaml@2.9.1", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw=="],
+
+    "@types/ws/@types/node": ["@types/node@26.6.6", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog=="],
+
+    "bun-types/@types/node": ["@types/node@26.6.6", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog=="],
   }
 }

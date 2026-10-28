@@ -5,20 +5,33 @@ import { CliError, Command, Flag } from "effect/cli";
 import { basename } from "node:path";
 import { detectAgentTargets, openNoteAgent } from "./notes/agentTargets.js";
 import { activeNoteCount } from "./notes/activeCount.js";
-import { searchNoteEntries } from "./notes/search.js";
 import { setHelpRenderer } from "./cli/help.js";
-import { CommandExecutor } from "./services/CommandExecutor.js";
-import { Config } from "./services/Config.js";
 import { runDaemon } from "./daemon/run.js";
 import { captureStatus, processLocalCapture } from "./capture/run.js";
-import { Notes, NotesError } from "./notes/services/Notes.js";
 import {
+  CommandExecutor,
+  Config,
+  createNote,
+  deleteNote,
   formatNoteLabel,
   formatNoteSections,
-  isHandoff,
+  listAllHandoffs,
+  listAllNotes,
+  listHandoffs,
+  listNotes,
+  listNoteTargets,
+  moveNote,
+  noteContext,
   notePriority,
+  Notes,
+  NotesError,
+  notesRoot,
   priorityLabel,
-  priorityRank,
+  readNote,
+  searchNotes,
+  setNotePriority,
+  sortHandoffs,
+  writeNote,
   type NoteDeleteResult,
   type NoteEntry,
   type NoteGitResult,
@@ -28,7 +41,7 @@ import {
   type NotesListFormat,
   type NoteWriteResult,
   type NoteMoveResult,
-} from "./notes/types.js";
+} from "@timmo001/effect-notes";
 
 type TuiMode = {
   readonly initialNotesFilter?: NotesViewFilter;
@@ -112,43 +125,8 @@ function emitGitMutation(
   });
 }
 
-function hasTag(entry: NoteEntry, tag: string): boolean {
-  const wanted = tag.toLowerCase();
-
-  return entry.tags.some((current) => current.toLowerCase() === wanted);
-}
-
-function filterEntries(
-  entries: readonly NoteEntry[],
-  tag: string | undefined,
-): readonly NoteEntry[] {
-  return tag ? entries.filter((entry) => hasTag(entry, tag)) : entries;
-}
-
-function filterSections(
-  sections: readonly NoteRepoSection[],
-  tag: string | undefined,
-): readonly NoteRepoSection[] {
-  if (!tag) return sections;
-
-  return sections.flatMap((section) => {
-    const entries = section.entries.filter((entry) => hasTag(entry, tag));
-
-    return entries.length > 0 ? [{ ...section, entries }] : [];
-  });
-}
-
 function formatHandoffLabel(entry: NoteEntry): string {
   return `[${priorityLabel(notePriority(entry))}] ${formatNoteLabel(entry)}`;
-}
-
-function sortHandoffs(entries: readonly NoteEntry[]): readonly NoteEntry[] {
-  return [...entries].sort((a, b) => {
-    const rankDelta =
-      priorityRank(notePriority(a)) - priorityRank(notePriority(b));
-
-    return rankDelta !== 0 ? rankDelta : b.mtime - a.mtime;
-  });
 }
 
 const allNotesFilter = {
@@ -194,9 +172,7 @@ function formatHandoffSections(sections: readonly NoteRepoSection[]): string {
 function runRoot({ projects }: { readonly projects: boolean }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-      const root = projects ? yield* notes.projectsRoot : yield* notes.root;
-      yield* writeLine(root);
+      yield* writeLine(yield* notesRoot({ projects }));
     }),
   );
 }
@@ -210,16 +186,14 @@ function runContext({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-
       if (json) {
-        const payload = yield* notes.contextPayload({ command });
+        const payload = yield* noteContext(command);
         yield* writeLine(JSON.stringify(payload, null, 2));
 
         return;
       }
 
-      yield* writeLine(yield* notes.context({ command }));
+      yield* writeLine(yield* (yield* Notes).context({ command }));
     }),
   );
 }
@@ -235,10 +209,8 @@ function runList({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-
       if (all) {
-        const sections = filterSections(yield* notes.listAll, tag);
+        const sections = yield* listAllNotes({ tag });
 
         const output =
           format === "json"
@@ -250,7 +222,7 @@ function runList({
         return;
       }
 
-      const entries = filterEntries(yield* notes.list, tag);
+      const entries = yield* listNotes({ tag });
 
       const output =
         format === "json"
@@ -275,13 +247,7 @@ function runSearch({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-
-      const entries = all
-        ? (yield* notes.listAll).flatMap((section) => section.entries)
-        : yield* notes.list;
-
-      const results = searchNoteEntries(filterEntries(entries, tag), query);
+      const results = yield* searchNotes({ query, all, tag });
       yield* writeLine(
         format === "json"
           ? JSON.stringify(results, null, 2)
@@ -300,8 +266,7 @@ function runRead({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-      const result = yield* notes.read(path);
+      const result = yield* readNote(path);
       yield* json
         ? writeLine(JSON.stringify(result))
         : writeText(result.content);
@@ -320,9 +285,8 @@ function runWrite({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
       const content = yield* Effect.promise(() => Bun.stdin.text());
-      const result = yield* notes.write(path, content, { expectedHash });
+      const result = yield* writeNote({ path, content, expectedHash });
       yield* emitNoteResult(result, json);
     }),
   );
@@ -337,8 +301,7 @@ function runDelete({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-      const result = yield* notes.delete(path);
+      const result = yield* deleteNote(path);
       yield* emitNoteResult(result, json);
     }),
   );
@@ -355,8 +318,7 @@ function runMove({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-      const result = yield* notes.move(path, to);
+      const result = yield* moveNote({ path, to });
       yield* emitNoteResult(result, json);
     }),
   );
@@ -377,15 +339,13 @@ function runCreate({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-
-      const result = yield* notes.createFromInput(
+      const result = yield* createNote({
         repository,
         kind,
         name,
         description,
-        yield* Effect.promise(() => Bun.stdin.text()),
-      );
+        body: yield* Effect.promise(() => Bun.stdin.text()),
+      });
 
       if (json) {
         yield* writeLine(JSON.stringify(result));
@@ -403,7 +363,7 @@ function runCreate({
 function runTargets({ format }: { readonly format: NotesListFormat }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const targets = yield* (yield* Notes).moveTargets;
+      const targets = yield* listNoteTargets();
       yield* writeLine(
         format === "json"
           ? JSON.stringify(targets, null, 2)
@@ -444,10 +404,10 @@ function runPriority({
 }) {
   return handleNotesError(
     Effect.gen(function* () {
-      const result = yield* (yield* Notes).setPriority(path, value);
+      const result = yield* setNotePriority({ path, priority: value });
 
       if (json) {
-        yield* writeLine(JSON.stringify({ path, priority: value, ...result }));
+        yield* writeLine(JSON.stringify(result));
       } else {
         yield* emitGitMutation(
           result,
@@ -531,10 +491,8 @@ function runHandoffs({
 
   return handleNotesError(
     Effect.gen(function* () {
-      const notes = yield* Notes;
-
       if (all) {
-        const sections = filterSections(yield* notes.listAll, "handoff");
+        const sections = yield* listAllHandoffs();
 
         const output =
           format === "json"
@@ -546,7 +504,7 @@ function runHandoffs({
         return;
       }
 
-      const entries = sortHandoffs((yield* notes.list).filter(isHandoff));
+      const entries = yield* listHandoffs();
 
       const output =
         format === "json"

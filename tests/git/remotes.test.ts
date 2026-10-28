@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseRepositoryRemoteUrl } from "../../src/git/remotes.js";
+import { parseRepositoryRemoteUrl } from "../../packages/effect-notes/src/git/remotes.js";
 
 describe("parseRepositoryRemoteUrl", () => {
   test.each([

@@ -14,7 +14,7 @@ import {
   PRIORITY_LEVELS,
   priorityLabel,
   type NotePriority,
-} from "../../types.js";
+} from "@timmo001/effect-notes";
 
 const DESCRIPTIONS = {
   critical: "Highest urgency, handle first",

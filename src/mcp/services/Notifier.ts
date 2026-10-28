@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from "effect";
-import { CommandExecutor } from "../../services/CommandExecutor.js";
+import { CommandExecutor } from "@timmo001/effect-notes";
 
 /** Service interface for emitting desktop notifications. */
 export interface NotifierService {

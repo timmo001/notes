@@ -1,5 +1,5 @@
 import type { CliRenderer } from "@opentui/core";
-import type { NoteEntry } from "../types.js";
+import type { NoteEntry } from "@timmo001/effect-notes";
 import {
   type ExternalEditorKind,
   openPathInEditor,

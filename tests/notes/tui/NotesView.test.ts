@@ -7,7 +7,7 @@ import {
   NotesView,
   type NotesViewOptions,
 } from "../../../src/notes/tui/NotesView.js";
-import type { NoteEntry } from "../../../src/notes/types.js";
+import type { NoteEntry } from "@timmo001/effect-notes";
 import { TEST_THEME } from "../../support/tui.js";
 import { Dialog } from "../../../src/tui/components/Dialog.js";
 

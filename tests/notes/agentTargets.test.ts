@@ -10,8 +10,7 @@ import {
   openNoteAgent,
   workspaceLabelForDirectory,
 } from "../../src/notes/agentTargets.js";
-import type { NoteEntry } from "../../src/notes/types.js";
-import { CommandExecutor } from "../../src/services/CommandExecutor.js";
+import { CommandExecutor, type NoteEntry } from "@timmo001/effect-notes";
 import { herdrFixture } from "../support/herdr.js";
 import {
   chmodPath,

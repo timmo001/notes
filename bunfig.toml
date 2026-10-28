@@ -1,0 +1,4 @@
+[install]
+# The workspace would default to the isolated linker. The compiled CLI imports
+# @opentui/core's platform package by name, which only resolves when hoisted.
+linker = "hoisted"

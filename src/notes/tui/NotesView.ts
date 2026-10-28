@@ -22,28 +22,26 @@ import { surfaceBackground } from "../../tui/components/styles.js";
 import { editorLabel } from "../../tui/externalEditor.js";
 import { StatusList, type StatusListItem } from "../../tui/StatusList.js";
 import type { AgentOpenMode, AgentTarget } from "../agentTargets.js";
-import type {
-  NoteCreateKind,
-  NoteCreateResult,
-  NoteDeleteResult,
-  NoteEntry,
-  NoteGitResult,
-  NoteMoveResult,
-  NotePriority,
-  NoteRepoSection,
-  NotesTuiScope,
-  NotesViewFilter,
-} from "../types.js";
 import {
+  formatLocalNoteDateTimeFromEpochSeconds,
   GROUP_CYCLE,
+  noteGitOutcome,
   notePriority,
   priorityLabel,
   priorityRank,
+  searchNoteEntries,
+  type NoteCreateKind,
+  type NoteCreateResult,
+  type NoteDeleteResult,
+  type NoteEntry,
+  type NoteGitResult,
   type NoteGroupMode,
-} from "../types.js";
-import { formatLocalNoteDateTimeFromEpochSeconds } from "../time.js";
-import { noteGitOutcome } from "../gitOutcome.js";
-import { searchNoteEntries } from "../search.js";
+  type NoteMoveResult,
+  type NotePriority,
+  type NoteRepoSection,
+  type NotesTuiScope,
+  type NotesViewFilter,
+} from "@timmo001/effect-notes";
 import type { NoteEditorKind } from "./NoteEditor.js";
 import {
   CreateNoteDialog,

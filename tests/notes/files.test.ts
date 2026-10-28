@@ -7,7 +7,7 @@ import {
   ensurePhysicalVaultRoot,
   readNoteFile,
   resolveRepositoryNotesDirectory,
-} from "../../src/notes/files.js";
+} from "../../packages/effect-notes/src/notes/files.js";
 import {
   makeDirectory,
   createTempDirectory,

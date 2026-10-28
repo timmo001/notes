@@ -1,7 +1,6 @@
 import { Effect, FileSystem } from "effect";
 import { join } from "node:path";
-import { ENV, envString } from "./lib/env.js";
-import { HOME_DIR } from "./lib/paths.js";
+import { ENV, envString, HOME_DIR } from "@timmo001/effect-notes";
 
 /** Semantic colour tokens for the notes TUI. */
 export interface Theme {

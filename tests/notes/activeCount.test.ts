@@ -3,10 +3,12 @@ import { join } from "node:path";
 import { Effect, Layer } from "effect";
 import { herdrIds } from "@timmo001/effect-herdr";
 import { activeNoteCount } from "../../src/notes/activeCount.js";
-import { renderDraft } from "../../src/notes/frontmatter.js";
-import { Notes } from "../../src/notes/services/Notes.js";
-import { CommandExecutor } from "../../src/services/CommandExecutor.js";
-import { Config } from "../../src/services/Config.js";
+import {
+  CommandExecutor,
+  Config,
+  Notes,
+  renderDraft,
+} from "@timmo001/effect-notes";
 import { herdrFixture } from "../support/herdr.js";
 import {
   makeDirectory,

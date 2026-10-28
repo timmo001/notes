@@ -1,6 +1,6 @@
 import { Effect, FileSystem, Schema } from "effect";
 import { parse } from "yaml";
-import { expandHomePath } from "../lib/paths.js";
+import { expandHomePath } from "@timmo001/effect-notes";
 import {
   DaemonConfig,
   type DaemonConfig as DaemonConfigValue,

@@ -1,5 +1,5 @@
 import type { CliRenderer } from "@opentui/core";
-import { ENV, envString } from "../lib/env.js";
+import { ENV, envString } from "@timmo001/effect-notes";
 import { runWithRendererSuspended } from "./SuspendedCommand.js";
 import { runSupervisedProcess } from "./SupervisedProcess.js";
 

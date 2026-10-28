@@ -3,11 +3,13 @@ import { Effect, Layer } from "effect";
 import { rejects } from "node:assert/strict";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { renderDraft } from "../../../src/notes/frontmatter.js";
-import { rememberRepositoryDirectory } from "../../../src/notes/repositoryDirectories.js";
-import { Notes } from "../../../src/notes/services/Notes.js";
-import { CommandExecutor } from "../../../src/services/CommandExecutor.js";
-import { Config } from "../../../src/services/Config.js";
+import {
+  CommandExecutor,
+  Config,
+  Notes,
+  renderDraft,
+} from "@timmo001/effect-notes";
+import { rememberRepositoryDirectory } from "../../../packages/effect-notes/src/notes/repositoryDirectories.js";
 import {
   git as runGit,
   makeDirectory,
@@ -834,7 +836,7 @@ describe("Notes service", () => {
           async () => {
             competitor = runProcess("bun", [
               "-e",
-              `import { acquireVaultLock } from ${JSON.stringify(import.meta.dir + "/../../../src/notes/processLock.ts")}; const release = await acquireVaultLock(${JSON.stringify(root)}); await release();`,
+              `import { acquireVaultLock } from ${JSON.stringify(import.meta.dir + "/../../../packages/effect-notes/src/notes/processLock.ts")}; const release = await acquireVaultLock(${JSON.stringify(root)}); await release();`,
             ]);
             void competitor.then(() => {
               competitorSettled = true;

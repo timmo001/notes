@@ -12,7 +12,7 @@ import type {
   NoteRepoSection,
   NotesTuiScope,
   NotesViewFilter,
-} from "../types.js";
+} from "@timmo001/effect-notes";
 import { NotesView } from "./NotesView.js";
 import type { NoteEditorKind } from "./NoteEditor.js";
 

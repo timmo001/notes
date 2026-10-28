@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "bin": {
     "notes": "./dist/notes",
     "note": "./dist/notes",
@@ -14,8 +17,8 @@
     "build": "bun build src/index.ts --compile --outfile dist/notes",
     "test": "bun test",
     "lint": "oxlint .",
-    "format": "prettier --write \"{src,tests}/**/*.ts\" \"oxlint.config.ts\" \"{package,tsconfig}.json\" \"docs/{package,tsconfig}.json\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{ts,md,mdx,astro,css}\"",
-    "format:check": "prettier --check \"{src,tests}/**/*.ts\" \"oxlint.config.ts\" \"{package,tsconfig}.json\" \"docs/{package,tsconfig}.json\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{ts,md,mdx,astro,css}\"",
+    "format": "prettier --write \"{src,tests}/**/*.ts\" \"packages/*/src/**/*.ts\" \"packages/*/{package,jsr,tsconfig.build}.json\" \"oxlint.config.ts\" \"{package,tsconfig}.json\" \"docs/{package,tsconfig}.json\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{ts,md,mdx,astro,css}\"",
+    "format:check": "prettier --check \"{src,tests}/**/*.ts\" \"packages/*/src/**/*.ts\" \"packages/*/{package,jsr,tsconfig.build}.json\" \"oxlint.config.ts\" \"{package,tsconfig}.json\" \"docs/{package,tsconfig}.json\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{ts,md,mdx,astro,css}\"",
     "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
@@ -23,10 +26,9 @@
     "@opentui/core": "^0.7.0",
     "@timmo001/effect-gh": "0.8.0",
     "@timmo001/effect-herdr": "0.9.0-timmo001.4",
+    "@timmo001/effect-notes": "workspace:*",
     "@tuiparts/core": "^0.0.6",
     "effect": "4.0.7",
-    "fuse.js": "^7.5.0",
-    "proper-lockfile": "^4.1.2",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
@@ -34,7 +36,6 @@
     "@oxlint/plugins": "1.90.0",
     "@timmo001/oxlint-rules": "0.6.3",
     "@types/bun": "^1.4.2",
-    "@types/proper-lockfile": "^4.1.4",
     "oxlint": "1.90.0",
     "oxlint-tsgolint": "7.0.2005",
     "prettier": "^3.9.8",

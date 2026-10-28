@@ -1,7 +1,6 @@
 import { Effect, FileSystem, Option, Schema } from "effect";
 import { basename, join } from "node:path";
-import { envString, ENV } from "./env.js";
-import { HOME_DIR } from "./paths.js";
+import { envString, ENV, HOME_DIR } from "@timmo001/effect-notes";
 
 const BUNFS_ROOT = "/$bunfs/root";
 

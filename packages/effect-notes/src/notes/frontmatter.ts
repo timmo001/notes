@@ -20,6 +20,7 @@ const Frontmatter = Schema.Struct({
 
 type FrontmatterRecord = typeof Frontmatter.Type;
 
+/** Frontmatter fields for a new note draft. */
 export interface DraftFrontmatter {
   readonly repo: string;
   readonly date: string;

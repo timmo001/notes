@@ -1,0 +1,17 @@
+{
+  "$schema": "https://jsr.io/schema/config-file.v1.json",
+  "name": "@timmo001/effect-notes",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "exports": "./jsr/index.js",
+  "publish": {
+    "include": [
+      "jsr/index.js",
+      "dist/**/*.js",
+      "dist/**/*.d.ts",
+      "package.json",
+      "README.md"
+    ],
+    "exclude": ["!dist"]
+  }
+}

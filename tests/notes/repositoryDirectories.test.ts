@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import {
   readRepositoryDirectories,
   rememberRepositoryDirectory,
-} from "../../src/notes/repositoryDirectories.js";
+} from "../../packages/effect-notes/src/notes/repositoryDirectories.js";
 import { createTempDirectory, runScoped } from "../support/platform.js";
 
 describe("repository directories", () => {

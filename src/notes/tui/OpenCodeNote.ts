@@ -1,6 +1,6 @@
 import type { CliRenderer } from "@opentui/core";
 import { statSync } from "node:fs";
-import type { NoteEntry } from "../types.js";
+import type { NoteEntry } from "@timmo001/effect-notes";
 import {
   openOpenCodeSession,
   type OpenCodeSessionMode,
