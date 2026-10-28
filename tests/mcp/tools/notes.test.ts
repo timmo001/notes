@@ -122,6 +122,7 @@ describe("notes MCP tools", () => {
       path,
       hash: expect.any(String),
     });
+    expect(result.structuredContent).toEqual(JSON.parse(resultText(result)));
   });
 
   test("note_list filters tags case-insensitively", async () => {
@@ -137,6 +138,9 @@ describe("notes MCP tools", () => {
     expect(JSON.parse(resultText(result))).toMatchObject([
       { filename: "handoff.md", tags: ["handoff", "draft"] },
     ]);
+    expect(result.structuredContent).toMatchObject({
+      notes: [{ filename: "handoff.md", tags: ["handoff", "draft"] }],
+    });
   });
 
   test("note_write updates a guarded note and notifies", async () => {
@@ -161,6 +165,11 @@ describe("notes MCP tools", () => {
 
     expect(result.isError).toBeFalse();
     expect(resultText(result)).toContain(`Written: ${path}`);
+    expect(result.structuredContent).toMatchObject({
+      path,
+      hash: expect.any(String),
+      commit: { ok: true },
+    });
     expect(await readTextFile(path)).toContain("# Updated");
     expect(notifications).toEqual(["notes: written: note.md - saved locally"]);
   });

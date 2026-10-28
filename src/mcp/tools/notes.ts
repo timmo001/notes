@@ -1,4 +1,10 @@
-import { Effect, Schema } from "effect";
+import {
+  Effect,
+  Option,
+  Predicate,
+  Schema,
+  SchemaTransformation,
+} from "effect";
 import { Notes } from "../../notes/services/Notes.js";
 import type {
   NoteDeleteResult,
@@ -68,6 +74,90 @@ const NoteDeleteParams = Schema.Struct({
   }),
 });
 
+/** Optional field that accepts undefined values and omits them from the encoded JSON. */
+function optionalField<S extends Schema.Top>(schema: S) {
+  return Schema.optionalKey(schema).pipe(
+    Schema.decodeTo(
+      Schema.optional(Schema.toType(schema)),
+      SchemaTransformation.transformOptional({
+        decode: (value) => value,
+        encode: Option.filter(Predicate.isNotUndefined),
+      }),
+    ),
+  );
+}
+
+const NoteEntrySchema = Schema.Struct({
+  filename: Schema.String,
+  filePath: Schema.String,
+  name: Schema.NullOr(Schema.String),
+  description: Schema.NullOr(Schema.String),
+  tags: Schema.Array(Schema.String),
+  priority: Schema.NullOr(
+    Schema.Literals(["low", "medium", "high", "critical"]),
+  ),
+  repoSlug: optionalField(Schema.String),
+  projectDir: optionalField(Schema.String),
+  mtime: Schema.Finite.annotate({
+    description: "Modification time in epoch seconds",
+  }),
+});
+
+const NoteReadResultSchema = Schema.Struct({
+  path: Schema.String,
+  content: Schema.String,
+  hash: Schema.String.annotate({
+    description: "SHA-256 revision hash to pass to note_write as expectedHash",
+  }),
+});
+
+const NoteListResultSchema = Schema.Struct({
+  notes: Schema.optionalKey(Schema.Array(NoteEntrySchema)).annotate({
+    description: "Notes in the current project, when `all` is not set",
+  }),
+  sections: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        repoSlug: Schema.String,
+        notesPath: Schema.String,
+        entries: Schema.Array(NoteEntrySchema),
+      }),
+    ),
+  ).annotate({
+    description: "Notes grouped by project, when `all` is set",
+  }),
+});
+
+const NoteGitResultFields = {
+  commit: Schema.Struct({
+    ok: Schema.Boolean,
+    committed: Schema.Boolean,
+    sha: optionalField(Schema.String),
+    text: optionalField(Schema.String),
+    error: optionalField(Schema.String),
+  }),
+  push: optionalField(
+    Schema.Struct({
+      ok: Schema.Boolean,
+      message: Schema.String,
+      error: optionalField(Schema.String),
+    }),
+  ),
+};
+
+const NoteWriteResultSchema = Schema.Struct({
+  path: Schema.String,
+  output: Schema.String,
+  hash: Schema.String,
+  ...NoteGitResultFields,
+});
+
+const NoteDeleteResultSchema = Schema.Struct({
+  path: Schema.String,
+  output: Schema.String,
+  ...NoteGitResultFields,
+});
+
 function hasTag(entry: NoteEntry, tag: string): boolean {
   const wanted = tag.toLowerCase();
 
@@ -134,11 +224,15 @@ export const registerNotesTools = Effect.gen(function* () {
       "Use this to read an existing note before appending to it. " +
       "This is the ONLY permitted way to read note files when a vault guard is active.",
     parameters: NoteReadParams,
+    success: NoteReadResultSchema,
     annotations: READONLY_HINTS,
     handle: (params) =>
-      notes
-        .read(params.path)
-        .pipe(Effect.map((result) => JSON.stringify(result))),
+      notes.read(params.path).pipe(
+        Effect.map((result) => ({
+          text: JSON.stringify(result),
+          structured: result,
+        })),
+      ),
   });
 
   yield* register({
@@ -148,6 +242,7 @@ export const registerNotesTools = Effect.gen(function* () {
       "Returns JSON with filename, name, description, tags, priority, and modification time for each note. " +
       "Optionally filter by tag (e.g. 'handoff') or list notes from all projects.",
     parameters: NoteListParams,
+    success: NoteListResultSchema,
     annotations: READONLY_HINTS,
     handle: (params) =>
       Effect.gen(function* () {
@@ -158,7 +253,10 @@ export const registerNotesTools = Effect.gen(function* () {
             ? filterSectionsByTag(sections, params.tag)
             : sections;
 
-          return JSON.stringify(filtered, null, 2);
+          return {
+            text: JSON.stringify(filtered, null, 2),
+            structured: { sections: filtered },
+          };
         }
 
         const entries = yield* notes.list;
@@ -167,7 +265,10 @@ export const registerNotesTools = Effect.gen(function* () {
           ? filterEntriesByTag(entries, params.tag)
           : entries;
 
-        return JSON.stringify(filtered, null, 2);
+        return {
+          text: JSON.stringify(filtered, null, 2),
+          structured: { notes: filtered },
+        };
       }),
   });
 
@@ -179,6 +280,7 @@ export const registerNotesTools = Effect.gen(function* () {
       "Creates parent directories automatically. " +
       "This is the ONLY permitted way to write note files when a vault guard is active.",
     parameters: NoteWriteParams,
+    success: NoteWriteResultSchema,
     annotations: DESTRUCTIVE_HINTS,
     handle: (params) =>
       Effect.gen(function* () {
@@ -188,7 +290,7 @@ export const registerNotesTools = Effect.gen(function* () {
 
         yield* notifyMutation(notifier, "written", result);
 
-        return formatMutationOutput(result);
+        return { text: formatMutationOutput(result), structured: result };
       }),
   });
 
@@ -199,13 +301,14 @@ export const registerNotesTools = Effect.gen(function* () {
       "IMPORTANT: deletion is irreversible; confirm with the user before calling this tool. " +
       "This is the ONLY permitted way to delete note files when a vault guard is active.",
     parameters: NoteDeleteParams,
+    success: NoteDeleteResultSchema,
     annotations: DESTRUCTIVE_HINTS,
     handle: (params) =>
       Effect.gen(function* () {
         const result = yield* notes.delete(params.path);
         yield* notifyMutation(notifier, "deleted", result);
 
-        return formatMutationOutput(result);
+        return { text: formatMutationOutput(result), structured: result };
       }),
   });
 });
