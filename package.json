@@ -14,7 +14,7 @@
   },
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --compile --outfile dist/notes",
+    "build": "bun build src/index.ts --compile --external @opentui/core-linux-x64-musl --external @opentui/core-linux-arm64-musl --outfile dist/notes",
     "test": "bun test",
     "lint": "oxlint .",
     "format": "prettier --write \"{src,tests}/**/*.ts\" \"packages/*/src/**/*.ts\" \"packages/*/{package,jsr,tsconfig.build}.json\" \"oxlint.config.ts\" \"{package,tsconfig}.json\" \"docs/{package,tsconfig}.json\" \"docs/astro.config.mjs\" \"docs/scripts/**/*.{ts,mjs}\" \"docs/src/**/*.{ts,md,mdx,astro,css}\"",
