@@ -7,7 +7,7 @@ license: Apache-2.0
 
 # Notes CLI
 
-Use the `notes` CLI for vault access. Run it from the target repository so context and listings resolve the right scope. Check a subcommand's `--help` when its flags are uncertain.
+Use the `notes` CLI for vault access. Run it from the target repository so context and listings resolve the right scope. Check a subcommand's `--help` when its flags are uncertain. When the agent has a `notes` Code Mode namespace, prefer its tools for the same operations; the workflow below applies to both.
 
 Use the CLI when a note command, skill, or explicit user request calls for a note operation. Tool availability alone does not authorise note mutations.
 
