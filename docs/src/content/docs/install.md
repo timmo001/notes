@@ -39,9 +39,11 @@ editors instead of Neovim. Missing `notify-send` only disables desktop
 notifications. The [capture processor](/integrations/capture-daemon/) needs a
 configured OpenCode CLI in both queued and direct modes.
 
-Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
-GitHub draft, optionally generate its release notes, then publish it to build
-Linux archives, deb and RPM packages and update `repo-notes-bin`.
+Stable releases use a semver version shared by the CLI and
+`@timmo001/effect-notes`. Create a blank GitHub draft tagged with it,
+optionally generate its release notes, then publish it to build Linux
+archives, deb and RPM packages, publish the library to npm and JSR, and update
+`repo-notes-bin`.
 
 ## Build Locally
 

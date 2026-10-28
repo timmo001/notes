@@ -8,7 +8,7 @@ output_dir="${1:?output directory required}"
 cd "$repo_root"
 pkgver="$(git describe --long --tags --abbrev=7 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g')"
 if [[ -z $pkgver ]]; then
-  pkgver="0.1.0.r$(git rev-list --count HEAD).g$(git rev-parse --short=7 HEAD)"
+  pkgver="1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short=7 HEAD)"
 fi
 
 mkdir -p "$output_dir"

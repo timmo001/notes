@@ -35,7 +35,7 @@ cp ../../.scripts/linux/repo-notes.install repo-notes.install
 ./notes --completions bash >notes.bash
 ./notes --completions fish >notes.fish
 
-ARCH_PKGVER="${VERSION:-0.1.0.r0.local}"
+ARCH_PKGVER="${VERSION:-1.0.0.r0.local}"
 ARCH_PKGVER="${ARCH_PKGVER//-/.}"
 ARCH_PKGVER="${ARCH_PKGVER//+/.}"
 export ARCH_PKGVER
@@ -57,4 +57,4 @@ cd ../..
 rm -rf build/arch
 
 echo "Package created successfully!"
-echo "Install with: yay -U dist/repo-notes-git-${ARCH_PKGVER}-1-x86_64.pkg.tar.zst"
+echo "Install with: yay -U dist/repo-notes-git-1:${ARCH_PKGVER}-1-x86_64.pkg.tar.zst"

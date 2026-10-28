@@ -27,7 +27,7 @@
     },
     "packages/effect-notes": {
       "name": "@timmo001/effect-notes",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "dependencies": {
         "fuse.js": "7.5.0",
         "proper-lockfile": "4.1.2",

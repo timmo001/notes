@@ -22,9 +22,11 @@ Agents can use [`notes-cli`](.agents/skills/notes-cli/SKILL.md) for shell comman
 npx skills add timmo001/notes
 ```
 
-Stable releases use a manually chosen `YYYYMMDD.N` version. Create a blank
-GitHub draft, optionally generate its release notes, then publish it to build
-Linux archives, deb and RPM packages, and update `repo-notes-bin` in the AUR.
+Stable releases use a semver version shared by the CLI and
+`@timmo001/effect-notes`. Create a blank GitHub draft tagged with it,
+optionally generate its release notes, then publish it to build Linux
+archives, deb and RPM packages, publish the library to npm and JSR, and update
+`repo-notes-bin` in the AUR.
 `repo-notes-git` continues to track relevant changes on `main`.
 
 Changes under `omarchy-plugin/` are validated separately and published from
