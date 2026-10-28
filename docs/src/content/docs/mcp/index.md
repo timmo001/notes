@@ -29,6 +29,23 @@ available. Notifications are best-effort, so the operation still succeeds when
 
 Agent harnesses prefix tool names with the server key. With the server configured as `notes`, `note_read` appears as `notes_note_read`.
 
+## Results and Code Mode
+
+Each tool declares an `outputSchema` and returns its result as `structuredContent`, alongside the same text content as before. Clients that type results from the schema, such as OpenCode's Code Mode, can chain calls without parsing text:
+
+```js
+const { notes = [] } = await tools["notes"].note_list({ tag: "handoff" });
+const note = await tools["notes"].note_read({ path: notes[0].filePath });
+
+await tools["notes"].note_write({
+  path: note.path,
+  content: `${note.content}\n- Picked up\n`,
+  expectedHash: note.hash,
+});
+```
+
+`note_list` returns `{ notes }` for the current project, or `{ sections }` grouped by project when `all` is set. `note_write` and `note_delete` return the path, the Git commit and push outcome, and the rendered `output`; `note_write` also returns the new `hash`.
+
 ## Resources
 
 - `notes://context` - repo-note context for the current repository.
