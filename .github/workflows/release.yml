@@ -24,6 +24,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The package versions must match the release tag, which the publish
+  # workflows check. They only run for published releases, since a manual run
+  # has no release tag to compare.
+  effect-notes-npm:
+    name: effect-notes npm
+    if: >-
+      github.event_name == 'release' &&
+      !github.event.release.prerelease
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-npm-package.yml@de4221cd9b24ad3d61aa1db87b6e4864cf56d5a1 # 20261027.0
+    with:
+      package-path: packages/effect-notes
+      check-command: cd ../.. && bunx tsc --noEmit && bun run format:check && bun test
+
+  effect-notes-jsr:
+    name: effect-notes JSR
+    if: >-
+      github.event_name == 'release' &&
+      !github.event.release.prerelease
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-jsr-package.yml@de4221cd9b24ad3d61aa1db87b6e4864cf56d5a1 # 20261027.0
+    with:
+      package-path: packages/effect-notes
+      check-command: (cd ../.. && bunx tsc --noEmit && bun run format:check && bun test) && bun run build
+
   release:
     name: Build and publish Linux packages
     if: >-
