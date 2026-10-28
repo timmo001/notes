@@ -3,6 +3,7 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { herdrSdkLayer } from "@timmo001/effect-herdr";
 import { CliError, Command, Flag } from "effect/cli";
 import { basename } from "node:path";
+import packageJson from "../package.json" with { type: "json" };
 import { detectAgentTargets, openNoteAgent } from "./notes/agentTargets.js";
 import { activeNoteCount } from "./notes/activeCount.js";
 import { setHelpRenderer } from "./cli/help.js";
@@ -967,7 +968,7 @@ export const notesCommand = Command.make(
 );
 
 export function runCli(args: readonly string[]) {
-  return Command.runWith(notesCommand, { version: "0.1.0" })(args);
+  return Command.runWith(notesCommand, { version: packageJson.version })(args);
 }
 
 const CliLayers = Notes.layer.pipe(

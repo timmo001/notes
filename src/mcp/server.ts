@@ -1,13 +1,14 @@
 import { Effect, Layer, Logger } from "effect";
 import { NodeStdio } from "@effect/platform-node";
 import { McpProtocol, McpServer } from "effect/ai";
+import packageJson from "../../package.json" with { type: "json" };
 import { Notifier } from "./services/Notifier.js";
 import { registerNotesResources } from "./resources/notes.js";
 import { registerNotesTools } from "./tools/notes.js";
 
 const SERVER_NAME = "notes";
 
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = packageJson.version;
 
 const registerAll = Effect.gen(function* () {
   yield* registerNotesTools;
