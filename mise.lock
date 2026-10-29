@@ -101,9 +101,9 @@ checksum = "sha256:dcc60d59a0746999f99064a01c020445d54d84228c691cdbf25b49ac3b591
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-win-x64.zip"
 
 [[tools."npm:@timmo001/tooling-drift"]]
-version = "0.1.6"
+version = "0.1.7"
 backend = "npm:@timmo001/tooling-drift"
-specifiers = ["0.1.6"]
+specifiers = ["0.1.7"]
 
 [tools."npm:@timmo001/tooling-drift".options]
 allow_low_downloads = "true"
