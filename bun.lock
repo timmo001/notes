@@ -8,7 +8,7 @@
         "@effect/platform-node": "4.1.1",
         "@opentui/core": "^0.8.0",
         "@timmo001/effect-gh": "0.9.1",
-        "@timmo001/effect-herdr": "0.9.0-timmo001.4",
+        "@timmo001/effect-herdr": "0.9.0-timmo001.5",
         "@timmo001/effect-notes": "workspace:*",
         "@tuiparts/core": "^0.0.6",
         "effect": "4.1.1",
@@ -155,7 +155,7 @@
 
     "@timmo001/effect-gh": ["@timmo001/effect-gh@0.9.1", "", { "dependencies": { "graphql": "17.0.2" }, "peerDependencies": { "effect": "4.1.0" } }, "sha512-E/g1Zqk/9h7Df4JFGn4qOqPlPwWU3RWJHjBcAMhtOLx3uJKbkZ+oAXX2QypsCRntv3HwKBJVymjQhyTJ5M+VKg=="],
 
-    "@timmo001/effect-herdr": ["@timmo001/effect-herdr@0.9.0-timmo001.4", "", { "dependencies": { "@effect/platform-node-shared": "4.0.6", "ajv": "8.20.0", "effect": "4.0.6" } }, "sha512-dWEkLWiZO0eswSFJZupNK4zuMNGNZPfHx58sVxxf3TvJW46bhqt1DPqgSFeHG2G9CuIiqcQNrvHDpBJ3cY4dXQ=="],
+    "@timmo001/effect-herdr": ["@timmo001/effect-herdr@0.9.0-timmo001.5", "", { "dependencies": { "@effect/platform-node-shared": "4.1.1", "ajv": "8.20.0", "effect": "4.1.1" } }, "sha512-dJkpZWhn6CX7Jasr/pIzLIkitDm5ExjLhu5pJu9DZpNgZtnitLmAgjD6bayGo2+1Q4SpUSvY7/jony8FhkjSlA=="],
 
     "@timmo001/effect-notes": ["@timmo001/effect-notes@workspace:packages/effect-notes"],
 
