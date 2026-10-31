@@ -9,17 +9,15 @@ const CONTEXT_COMMAND = "notes-list";
 
 /** Register notes read-only resources on the current MCP server. */
 export const registerNotesResources = Effect.gen(function* () {
+  const notes = yield* Notes;
+
   yield* McpServer.registerResource({
     uri: "notes://context",
     name: "project note context",
     description:
       "The current project's note context: project identity, notes path, and recent notes.",
     mimeType: "text/markdown",
-    content: Effect.gen(function* () {
-      const notes = yield* Notes;
-
-      return yield* notes.context({ command: CONTEXT_COMMAND });
-    }),
+    content: notes.context({ command: CONTEXT_COMMAND }),
   });
 
   yield* McpServer.registerResource`notes://command/${commandParam}`({
