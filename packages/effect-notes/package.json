@@ -1,6 +1,6 @@
 {
   "name": "@timmo001/effect-notes",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Effect services for repository-scoped Markdown notes, the library behind the notes CLI, TUI and MCP server",
   "keywords": [
     "effect",
