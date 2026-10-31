@@ -6,6 +6,7 @@ import {
   Fiber,
   Layer,
   PlatformError,
+  Redacted,
   Schema,
   Sink,
   Stream,
@@ -62,7 +63,12 @@ const fixture = Effect.fn("test.openCodeFixture")(function* (
             throw new Error("Expected a standard command");
           commands.push(command);
 
-          const args = command.args.slice(overrides.opencodeArgs?.length ?? 0);
+          const args = command.args
+            .slice(overrides.opencodeArgs?.length ?? 0)
+            .map((arg) =>
+              Redacted.isRedacted(arg) ? Redacted.value(arg) : arg,
+            );
+
           const isRun = args[0] === "run";
           const isAgentQuery = args[4]?.startsWith("/api/agent?");
           let response: Partial<ChildProcessSpawner.ChildProcessHandle> = {};

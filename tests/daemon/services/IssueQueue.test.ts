@@ -8,6 +8,7 @@ import {
   Layer,
   Match,
   PlatformError,
+  Redacted,
   Sink,
   Stream,
 } from "effect";
@@ -95,7 +96,11 @@ const fixture = Effect.fn("test.issueQueueFixture")(function* (
             getInputFd: () => Sink.drain,
             getOutputFd: () => Stream.empty,
             unref: Effect.succeed(Effect.void),
-            ...respond(command.args),
+            ...respond(
+              command.args.map((arg) =>
+                Redacted.isRedacted(arg) ? Redacted.value(arg) : arg,
+              ),
+            ),
           });
         }).pipe(Effect.tap(() => Deferred.succeed(spawned, undefined))),
         () => Effect.sync(() => releases++),
