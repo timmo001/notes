@@ -8,6 +8,7 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "strict": true,
     "noFallthroughCasesInSwitch": true,
@@ -31,5 +32,12 @@
     ]
   },
   "include": ["worker-configuration.d.ts", "**/*"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "vite.config.ts",
+    "src/main.ts",
+    "src/components",
+    "src/theme"
+  ]
 }

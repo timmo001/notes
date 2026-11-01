@@ -4,19 +4,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler types --config wrangler.example.jsonc && vite dev",
-    "build": "CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc vite build",
-    "deploy": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc vite build && wrangler deploy",
-    "deploy:preview": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc vite build && wrangler versions upload",
-    "preview": "vite preview",
+    "dev": "wrangler types --config wrangler.example.jsonc && vite dev --configLoader runner",
+    "build": "CAPTURE_WRANGLER_CONFIG=wrangler.deploy.jsonc vite build --configLoader runner",
+    "deploy": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc vite build --configLoader runner && wrangler deploy",
+    "deploy:preview": "CAPTURE_WRANGLER_CONFIG=wrangler.local.jsonc vite build --configLoader runner && wrangler versions upload",
+    "preview": "vite preview --configLoader runner",
     "format": "prettier --write \"{src,tests}/**/*.{ts,css}\" \"index.html\" \"vite.config.ts\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
     "format:check": "prettier --check \"{src,tests}/**/*.{ts,css}\" \"index.html\" \"vite.config.ts\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
     "test": "bun test",
     "sync": "wrangler types --config wrangler.example.jsonc",
-    "typecheck": "bun run sync && tsc --noEmit",
+    "typecheck": "bun run sync && tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
     "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
+    "@timmo001/groundwork-tokens": "0.9.29",
+    "@timmo001/groundwork-ui": "0.9.29",
     "effect": "4.1.1",
     "jose": "^6.2.12",
     "lit": "^3.3.3"

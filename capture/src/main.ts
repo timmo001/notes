@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import "./styles/global.css";
 import "./components/CaptureForm.js";
 

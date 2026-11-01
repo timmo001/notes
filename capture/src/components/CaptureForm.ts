@@ -1,31 +1,34 @@
-import { html, LitElement, nothing, type PropertyDeclarations } from "lit";
+/**
+ * `capture-form`: the capture page. A repository picker, the note and Add
+ * note, on Groundwork's `gw-` components and the page's theme.
+ */
+import { html, LitElement, type PropertyDeclarations } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
 import { Option, Schema } from "effect";
+import "@timmo001/groundwork-ui/gw-button.ts";
+import "@timmo001/groundwork-ui/gw-input.ts";
+import type { GwInput } from "@timmo001/groundwork-ui/gw-input.ts";
+import "@timmo001/groundwork-ui/gw-page-header.ts";
+import "@timmo001/groundwork-ui/gw-select.ts";
+import type { GwSelect } from "@timmo001/groundwork-ui/gw-select.ts";
+import "@timmo001/groundwork-ui/gw-theme-picker.ts";
+import type { GwThemePicker } from "@timmo001/groundwork-ui/gw-theme-picker.ts";
 import { captureErrorMessage, GENERIC_CAPTURE_ERROR } from "../capture/http.js";
 import {
   RepositoryOptions,
   type RepositoryOption,
 } from "../capture/repositories.js";
 import {
-  filterRepositories,
   REPOSITORY_STORAGE_KEY,
   restoreRepository,
 } from "../scripts/repositoryPicker.js";
-
-const AUTOMATIC = {
-  label: "Automatic",
-  repository: "",
-  detail: "Infer from context",
-  searchText: "Automatic infer from context local captures",
-};
+import { bindThemePicker } from "../theme/picker.js";
 
 const RepositoriesResponse = Schema.Struct({
   repositories: RepositoryOptions,
 });
 
 const CreatedIssueResponse = Schema.Struct({ url: Schema.String });
-
-const supportsPopover = "showPopover" in HTMLElement.prototype;
 
 function readStoredRepository() {
   try {
@@ -48,7 +51,6 @@ export class CaptureForm extends LitElement {
   static override properties: PropertyDeclarations = {
     repositories: { state: true },
     selectedRepository: { state: true },
-    repositoryQuery: { state: true },
     submitting: { state: true },
     status: { state: true },
     issueUrl: { state: true },
@@ -56,20 +58,20 @@ export class CaptureForm extends LitElement {
 
   declare private repositories: readonly RepositoryOption[];
   declare private selectedRepository: string;
-  declare private repositoryQuery: string;
   declare private submitting: boolean;
   declare private status: string;
   declare private issueUrl: string | undefined;
 
-  private readonly textarea = createRef<HTMLTextAreaElement>();
-  private readonly repositoryPopover = createRef<HTMLElement>();
-  private readonly search = createRef<HTMLInputElement>();
+  private readonly note = createRef<GwInput>();
+  private readonly repository = createRef<GwSelect>();
+  private readonly picker = createRef<GwThemePicker>();
+
+  private unbindTheme: (() => void) | undefined;
 
   constructor() {
     super();
     this.repositories = [];
     this.selectedRepository = "";
-    this.repositoryQuery = "";
     this.submitting = false;
     this.status = "";
     this.issueUrl = undefined;
@@ -84,8 +86,19 @@ export class CaptureForm extends LitElement {
     void this.loadRepositories();
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.unbindTheme?.();
+  }
+
   protected override firstUpdated() {
-    this.textarea.value?.focus();
+    if (this.picker.value !== undefined) {
+      this.unbindTheme = bindThemePicker(this.picker.value);
+    }
+
+    void this.note.value?.updateComplete.then(() =>
+      this.note.value?.querySelector("textarea")?.focus(),
+    );
   }
 
   private async loadRepositories() {
@@ -110,24 +123,17 @@ export class CaptureForm extends LitElement {
     }
   }
 
-  private selectRepository(repository: string) {
+  private onRepositoryChange() {
+    const repository = this.repository.value?.value ?? "";
     this.selectedRepository = repository;
     storeRepository(repository);
-    this.repositoryPopover.value?.hidePopover();
-  }
-
-  private onPopoverToggle(event: ToggleEvent) {
-    if (event.newState !== "open") return;
-
-    this.repositoryQuery = "";
-    this.search.value?.focus();
   }
 
   private async onSubmit(event: SubmitEvent) {
     event.preventDefault();
-    const textarea = this.textarea.value;
+    const note = this.note.value;
 
-    if (!textarea?.value.trim()) return;
+    if (!note?.value.trim()) return;
 
     this.submitting = true;
     this.issueUrl = undefined;
@@ -135,21 +141,16 @@ export class CaptureForm extends LitElement {
     let responseError: string | undefined;
 
     try {
-      const repository =
-        supportsPopover && this.repositories.length > 0
-          ? this.selectedRepository
-          : "";
-
       const response = await fetch("/api/captures", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           version: 1,
           requestId: crypto.randomUUID(),
-          text: textarea.value,
+          text: note.value,
           capturedAt: new Date().toISOString(),
           source: "text",
-          repository: repository || undefined,
+          repository: this.selectedRepository || undefined,
         }),
       });
 
@@ -179,7 +180,7 @@ export class CaptureForm extends LitElement {
         throw new Error("Unexpected issue URL");
       }
 
-      textarea.value = "";
+      note.value = "";
       this.issueUrl = issueUrl.href;
       this.status = "";
     } catch {
@@ -190,105 +191,57 @@ export class CaptureForm extends LitElement {
   }
 
   private renderRepositoryPicker() {
-    if (!supportsPopover || this.repositories.length === 0) return nothing;
-
     const options = [
-      AUTOMATIC,
+      { value: "", label: "Automatic", description: "Infer from context" },
       ...this.repositories.map(({ label, repository }) => ({
+        value: repository,
         label,
-        repository,
-        detail: repository,
-        searchText: `${label} ${repository}`,
+        description: repository,
+        keywords: [repository],
       })),
     ];
 
-    const visible = new Set(filterRepositories(options, this.repositoryQuery));
-
-    const selectedLabel =
-      options.find(({ repository }) => repository === this.selectedRepository)
-        ?.label ?? AUTOMATIC.label;
-
+    // Held at its size while the repositories load, so nothing moves
     return html`
-      <div class="repository-picker">
-        <button
-          class="repository-trigger"
-          type="button"
-          popovertarget="repository-popover"
-          aria-label="Target repository: ${selectedLabel}"
-        >
-          <span>${selectedLabel}</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m7 10 5 5 5-5" />
-          </svg>
-        </button>
-        <div
-          class="repository-popover"
-          id="repository-popover"
-          popover="auto"
-          ${ref(this.repositoryPopover)}
-          @toggle=${(event: ToggleEvent) => this.onPopoverToggle(event)}
-        >
-          <label class="sr-only" for="repository-search">
-            Search repositories
-          </label>
-          <input
-            class="repository-search"
-            id="repository-search"
-            type="search"
-            placeholder="Search repositories..."
-            autocomplete="off"
-            .value=${this.repositoryQuery}
-            ${ref(this.search)}
-            @input=${(event: InputEvent) => {
-              if (event.target instanceof HTMLInputElement) {
-                this.repositoryQuery = event.target.value;
-              }
-            }}
-          />
-          <div class="repository-options">
-            ${options.map(
-              (option) => html`
-                <button
-                  class="repository-option"
-                  type="button"
-                  aria-pressed=${option.repository === this.selectedRepository}
-                  ?hidden=${!visible.has(option.repository)}
-                  @click=${() => this.selectRepository(option.repository)}
-                >
-                  <span>${option.label}</span>
-                  <small>${option.detail}</small>
-                </button>
-              `,
-            )}
-          </div>
-          <p class="repository-empty" ?hidden=${visible.size > 0}>
-            No matching repositories
-          </p>
-        </div>
-      </div>
+      <gw-select
+        class="repository"
+        label="Repository"
+        inline-label
+        .options=${options}
+        .value=${this.selectedRepository}
+        ?disabled=${this.repositories.length === 0}
+        ${ref(this.repository)}
+        @change=${() => this.onRepositoryChange()}
+      ></gw-select>
     `;
   }
 
   protected override render() {
     return html`
       <main>
-        <header>
-          <h1>Capture a note</h1>
-        </header>
+        <gw-page-header heading="Capture a note">
+          <gw-theme-picker
+            slot="actions"
+            layout="popover"
+            gallery
+            ${ref(this.picker)}
+          ></gw-theme-picker>
+        </gw-page-header>
 
         <form @submit=${(event: SubmitEvent) => void this.onSubmit(event)}>
           ${this.renderRepositoryPicker()}
 
-          <label class="sr-only" for="capture">Note</label>
-          <textarea
-            id="capture"
+          <gw-input
+            label="Note"
+            label-hidden
             name="capture"
+            multiline
             rows="10"
             maxlength="12000"
             required
             placeholder="Write a note..."
-            ${ref(this.textarea)}
-          ></textarea>
+            ${ref(this.note)}
+          ></gw-input>
 
           <p class="status" role="status" aria-live="polite">
             ${
@@ -297,9 +250,14 @@ export class CaptureForm extends LitElement {
                 : this.status
             }
           </p>
-          <button class="submit" type="submit" ?disabled=${this.submitting}>
+          <gw-button
+            class="submit"
+            type="submit"
+            size="large"
+            ?loading=${this.submitting}
+          >
             Add note
-          </button>
+          </gw-button>
         </form>
       </main>
     `;

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["bun", "vite/client"]
+  },
+  "include": [
+    "vite.config.ts",
+    "src/env.d.ts",
+    "src/main.ts",
+    "src/components",
+    "src/theme"
+  ],
+  "exclude": ["dist", "node_modules"]
+}
