@@ -35,8 +35,8 @@ This repo contains the standalone `notes` CLI and MCP server.
 
 ## Tooling Drift
 
-- `tooling.yml` records the Herdr release notes was last reviewed against. The daily `tooling-drift.yml` workflow opens a draft review pull request when a newer one is out.
-- Review the release notes against the code named in the entry's `review` line, then record the release with `mise run tooling:update <tag>`. Never edit `reviewed` by hand.
+- `tooling.yml` records the Herdr release notes was last reviewed against. Upkeep's [`drift` job](https://upkeep.timmo.dev/running#drift) checks for a newer one.
+- Review the release notes against the code named in the entry's `review` line, then record the release by setting `reviewed` in `tooling.yml` and pushing.
 
 ## Background Dev Servers
 

@@ -4,8 +4,6 @@ min_version = "2025.1.0"
 node = "26.13.0"
 bun = "1.4.4"
 pitchfork = "2.33.0"
-# Approved for aube's package-age check while the package is under 30 days old.
-"npm:@timmo001/tooling-drift" = { version = "0.1.7", allow_low_downloads = true }
 
 [tasks.install]
 description = "Install notes dependencies"
@@ -210,15 +208,3 @@ depends = ["docs:install"]
 dir = "docs"
 run = "bunx astro sync"
 
-[tasks."tooling:status"]
-description = "Compare the reviewed Herdr release in tooling.yml with the latest"
-run = "tooling-drift status"
-
-[tasks."tooling:update"]
-description = "Record a Herdr release as reviewed in tooling.yml after reviewing it"
-usage = 'arg "<tag>" help="Release tag, e.g. v0.9.5"'
-run = "tooling-drift update herdrdev/herdr $usage_tag"
-
-[tasks."tooling:publish"]
-description = "Open or refresh a review pull request when a newer Herdr release is out"
-run = "tooling-drift publish"
