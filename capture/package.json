@@ -17,7 +17,7 @@
     "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
-    "@timmo001/groundwork-tokens": "0.9.35",
+    "@timmo001/groundwork-tokens": "0.9.36",
     "@timmo001/groundwork-ui": "0.9.35",
     "effect": "4.1.2",
     "jose": "^6.2.12",
