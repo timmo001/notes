@@ -1,7 +1,17 @@
-import { Cause, Console, Effect, FileSystem, Layer, Schema } from "effect";
+import {
+  Cause,
+  Console,
+  Effect,
+  FileSystem,
+  Layer,
+  Schema,
+  Stdio,
+  Stream,
+} from "effect";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { herdrSdkLayer } from "@timmo001/effect-herdr";
-import { CliError, Command, Flag } from "effect/cli";
+import { Argument, CliError, Command, Flag } from "effect/cli";
+import * as Agent from "./agent/tools.js";
 import { basename } from "node:path";
 import packageJson from "../package.json" with { type: "json" };
 import { detectAgentTargets, openNoteAgent } from "./notes/agentTargets.js";
@@ -934,6 +944,45 @@ const captureCommand = Command.make(
   Command.withDescription("Process a captured note through local OpenCode"),
 );
 
+const agentToolsCommand = Command.make(
+  "tools",
+  { json: booleanFlag("json", "Print JSON (the only format)") },
+  () => writeLine(JSON.stringify(Agent.manifest(), null, 2)),
+).pipe(Command.withDescription("Print the Code Mode tools as JSON"));
+
+const agentCallCommand = Command.make(
+  "call",
+  {
+    tool: Argument.Literals("tool", Agent.toolNames).pipe(
+      Argument.withDescription("The tool to run, from notes agent tools"),
+    ),
+  },
+  ({ tool }) =>
+    Effect.gen(function* () {
+      const stdio = yield* Stdio.Stdio;
+
+      const text = yield* stdio.stdin.pipe(
+        Stream.decodeText(),
+        Stream.mkString,
+      );
+
+      yield* writeLine(yield* Agent.call(tool, text));
+    }).pipe(
+      Effect.catchTag("AgentError", (error) =>
+        Effect.sync(() => exitWithError([`[notes] ${error.message}`])),
+      ),
+    ),
+).pipe(
+  Command.withDescription(
+    "Run a Code Mode tool in the current repository, with its input as JSON on stdin, and print its result as JSON",
+  ),
+);
+
+const agentCommand = Command.make("agent").pipe(
+  Command.withDescription("The Code Mode tools the OpenCode plugin registers"),
+  Command.withSubcommands([agentToolsCommand, agentCallCommand]),
+);
+
 export const notesCommand = Command.make(
   "notes",
   { all: booleanFlag("all", "Browse notes from every projects directory") },
@@ -964,6 +1013,7 @@ export const notesCommand = Command.make(
     mcpCommand,
     captureCommand,
     daemonCommand,
+    agentCommand,
   ]),
 );
 

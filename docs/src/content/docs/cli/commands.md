@@ -408,3 +408,24 @@ GLOBAL FLAGS
   --completions <bash|zsh|fish|powershell|sh|pwsh>                    Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)
   --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
 ```
+
+## `notes agent`
+
+```text
+DESCRIPTION
+  The Code Mode tools the OpenCode plugin registers
+
+USAGE
+  notes agent <subcommand> [flags]
+
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|powershell|sh|pwsh>                    Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
+
+SUBCOMMANDS
+  tools    Print the Code Mode tools as JSON
+  call     Run a Code Mode tool in the current repository, with its input as JSON on stdin, and print its result as JSON
+```
