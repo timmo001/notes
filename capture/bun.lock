@@ -5,7 +5,7 @@
     "": {
       "name": "notes-capture",
       "dependencies": {
-        "@timmo001/groundwork-tokens": "0.10.2",
+        "@timmo001/groundwork-tokens": "0.10.3",
         "@timmo001/groundwork-ui": "0.10.2",
         "effect": "4.1.2",
         "jose": "^6.2.12",
@@ -228,7 +228,7 @@
 
     "@tanstack/virtual-core": ["@tanstack/virtual-core@3.19.11", "", {}, "sha512-/5iHb0RHBvj8Di59FDs4ESNm45jls33aZAi4zccVXZjc/6ZvwQP6nzEYeT6weXjTf9E6/vrp2JhYWRyO+ZP13A=="],
 
-    "@timmo001/groundwork-tokens": ["@timmo001/groundwork-tokens@0.10.2", "", { "dependencies": { "@types/culori": "4.0.1", "culori": "4.0.2", "effect": "4.1.2" } }, "sha512-Xj7jyOP6W1I9W2tGHQMiWuBhpRVlmd+obqV15lNGR4O8jIgTus3tQET5d1RslsFF7R36FZCXpyPnZD6HLI13Nw=="],
+    "@timmo001/groundwork-tokens": ["@timmo001/groundwork-tokens@0.10.3", "", { "dependencies": { "@types/culori": "4.0.1", "culori": "4.0.2", "effect": "4.1.2" } }, "sha512-2wMyizKpgXlgPYJI17VutrDc3fhUPmWdo0+yCH/GYqyj8StecD0MEMcDj1eO7ZlSj0OCeTpN0IcDBFgGwP/DiA=="],
 
     "@timmo001/groundwork-ui": ["@timmo001/groundwork-ui@0.10.2", "", { "dependencies": { "@tanstack/table-core": "9.3.1", "@tanstack/virtual-core": "3.19.11" } }, "sha512-viJa95Fd/6mVPpld9jtm8Tg+CSXjWOM0iE2NM5fij0wgIKx2myYiOdDn2C8qh1mAaK/y4rh+8qc/KjTieZ8wCg=="],
 
