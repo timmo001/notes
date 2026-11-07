@@ -16,7 +16,8 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Keep CLI definitions and metadata in the Effect `Command` tree in `src/index.ts`; help, completions, and generated docs consume it.
 - Regenerate generated docs with `mise run docs:gen` after changing CLI or MCP metadata.
 - Do not hand-edit generated docs pages.
-- Keep portable Notes skills under `.agents/skills/`, with separate `notes-cli` and `notes-mcp` workflows. Keep OpenCode plugins, commands, guards, and integration-specific skills in dotfiles.
+- Keep portable Notes skills under `.agents/skills/`, with separate `notes-cli` and `notes-mcp` workflows. Keep OpenCode commands, guards, and integration-specific skills in dotfiles.
+- `opencode-plugin/` is the Notes OpenCode plugin, loaded from this repository. It registers the `notes` Code Mode namespace from `notes agent tools --json` (`src/agent/tools.ts`) and runs each tool with `notes agent call` in the session's directory, so a new tool there needs no plugin change. It has its own `bun.lock`, outside the workspace, because it pins OpenCode's `@opencode/plugin` and Effect versions; `mise run typecheck` installs and checks it.
 - Repository notes live under `projects/{owner}/{repo}`. When no repository can be resolved, use the local scope under `projects/local/{project}`; automated captures use `projects/local/captures`.
 
 ## Omarchy Plugin

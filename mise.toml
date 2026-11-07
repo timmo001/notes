@@ -32,7 +32,12 @@ chmod +x ./.scripts/linux/create-arch.sh
 [tasks.typecheck]
 description = "Type-check the notes source"
 depends = ["install"]
-run = "bunx tsc --noEmit"
+run = [
+  "bunx tsc --noEmit",
+  # The OpenCode plugin pins OpenCode's Effect, so it has its own install.
+  "bun install --cwd opencode-plugin --frozen-lockfile",
+  "bunx tsc -p opencode-plugin",
+]
 
 [tasks.test]
 description = "Run notes tests"
