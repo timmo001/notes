@@ -5,8 +5,8 @@
     "": {
       "name": "notes-capture",
       "dependencies": {
-        "@timmo001/groundwork-tokens": "0.10.14",
-        "@timmo001/groundwork-ui": "0.10.14",
+        "@timmo001/groundwork-tokens": "0.11.0",
+        "@timmo001/groundwork-ui": "0.11.0",
         "effect": "4.1.2",
         "jose": "^6.2.12",
         "lit": "^3.3.3",
@@ -242,9 +242,9 @@
 
     "@tanstack/virtual-core": ["@tanstack/virtual-core@3.19.11", "", {}, "sha512-/5iHb0RHBvj8Di59FDs4ESNm45jls33aZAi4zccVXZjc/6ZvwQP6nzEYeT6weXjTf9E6/vrp2JhYWRyO+ZP13A=="],
 
-    "@timmo001/groundwork-tokens": ["@timmo001/groundwork-tokens@0.10.14", "", { "dependencies": { "@effect/platform-node": "4.1.2", "@types/culori": "4.0.1", "culori": "4.0.2", "effect": "4.1.2" }, "bin": { "groundwork-tokens": "src/bin.ts" } }, "sha512-Hlpc43+7ppKnEFOTwaGAtl4/KE+hrcijuGuW5M7OpLh/htTnCxGjhMGtKZPxQlon1/Qmrn3pGarDyqztAFbj4g=="],
+    "@timmo001/groundwork-tokens": ["@timmo001/groundwork-tokens@0.11.0", "", { "dependencies": { "@effect/platform-node": "4.1.2", "@types/culori": "4.0.1", "culori": "4.0.2", "effect": "4.1.2" }, "bin": { "groundwork-tokens": "src/bin.ts" } }, "sha512-c+kqS7mlhx9Qoimr+PUdFyrKpunF5QlPduJqcf7RsgWrkOxUFTypqeLGi7YXEnajiVZmdodBn9Ga4MSe4HACHA=="],
 
-    "@timmo001/groundwork-ui": ["@timmo001/groundwork-ui@0.10.14", "", { "dependencies": { "@tanstack/table-core": "9.3.1", "@tanstack/virtual-core": "3.19.11", "micromark": "4.0.3", "micromark-extension-gfm": "3.0.0" } }, "sha512-3UGoVr9RUohdDg8te8kooNdljJ3wCeiyMdkBD4s5rFtPWFNbf3OfaarmUpz+4qj9YEOcnup6wbP4liLFn2aevQ=="],
+    "@timmo001/groundwork-ui": ["@timmo001/groundwork-ui@0.11.0", "", { "dependencies": { "@tanstack/table-core": "9.3.1", "@tanstack/virtual-core": "3.19.11", "micromark": "4.0.3", "micromark-extension-gfm": "3.0.0" } }, "sha512-MNRRXmimSD6cfMi2bFveSG1tgEvEBrhztr4Vi+VrtWpcghUKik06Dh3WDOOVL+C6xm8/dVzMD1eXG0wYYppFsA=="],
 
     "@types/bun": ["@types/bun@1.4.4", "", { "dependencies": { "bun-types": "1.4.4" } }, "sha512-9wkRDXUXK124pEnAutE6n/l18j+i9GC5IAHK8TmX/2nlySETmky0OU6yL5U8pW1AoKh++AN9auDCr647BfurjQ=="],
 

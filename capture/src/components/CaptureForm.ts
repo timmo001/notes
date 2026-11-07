@@ -5,13 +5,13 @@
 import { html, LitElement, type PropertyDeclarations } from "lit";
 import { createRef, ref } from "lit/directives/ref.js";
 import { Option, Schema } from "effect";
-import "@timmo001/groundwork-ui/gw-button.ts";
-import "@timmo001/groundwork-ui/gw-input.ts";
+import "@timmo001/groundwork-ui/define/gw-button.ts";
+import "@timmo001/groundwork-ui/define/gw-input.ts";
 import type { GwInput } from "@timmo001/groundwork-ui/gw-input.ts";
-import "@timmo001/groundwork-ui/gw-page-header.ts";
-import "@timmo001/groundwork-ui/gw-select.ts";
+import "@timmo001/groundwork-ui/define/gw-page-header.ts";
+import "@timmo001/groundwork-ui/define/gw-select.ts";
 import type { GwSelect } from "@timmo001/groundwork-ui/gw-select.ts";
-import "@timmo001/groundwork-ui/gw-theme-picker.ts";
+import "@timmo001/groundwork-ui/define/gw-theme-picker.ts";
 import type { GwThemePicker } from "@timmo001/groundwork-ui/gw-theme-picker.ts";
 import { captureErrorMessage, GENERIC_CAPTURE_ERROR } from "../capture/http.js";
 import {
