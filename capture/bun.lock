@@ -6,7 +6,7 @@
       "name": "notes-capture",
       "dependencies": {
         "@timmo001/groundwork-tokens": "0.10.12",
-        "@timmo001/groundwork-ui": "0.10.6",
+        "@timmo001/groundwork-ui": "0.10.12",
         "effect": "4.1.2",
         "jose": "^6.2.12",
         "lit": "^3.3.3",
@@ -244,7 +244,7 @@
 
     "@timmo001/groundwork-tokens": ["@timmo001/groundwork-tokens@0.10.12", "", { "dependencies": { "@effect/platform-node": "4.1.2", "@types/culori": "4.0.1", "culori": "4.0.2", "effect": "4.1.2" }, "bin": { "groundwork-tokens": "src/bin.ts" } }, "sha512-T7TOmXCoqcjiBb0jb2iAzZbwl/iQCeJ4zcH0DG+nE9zss7CLfuuTu0e2iXIMoflGwzwKAY8FqpO4ZrcxLr+zFQ=="],
 
-    "@timmo001/groundwork-ui": ["@timmo001/groundwork-ui@0.10.6", "", { "dependencies": { "@tanstack/table-core": "9.3.1", "@tanstack/virtual-core": "3.19.11", "micromark": "4.0.3", "micromark-extension-gfm": "3.0.0" } }, "sha512-IPBp8yzGzgngtsRcBGlsizIO3HhSI+VxrCflBY4IYO4TG3SzM6Z/GfPqFDTH9bf+GQvBOCSqQwh0XKdqj88XIQ=="],
+    "@timmo001/groundwork-ui": ["@timmo001/groundwork-ui@0.10.12", "", { "dependencies": { "@tanstack/table-core": "9.3.1", "@tanstack/virtual-core": "3.19.11", "micromark": "4.0.3", "micromark-extension-gfm": "3.0.0" } }, "sha512-oXxb/i5MLGInt+vqSyt5Ack2HaOV+jmC7AMrxpRxzqx6m82x+ep28P5n3zXHGxfH7iULj7x4cnHbAK509YiK4A=="],
 
     "@types/bun": ["@types/bun@1.4.4", "", { "dependencies": { "bun-types": "1.4.4" } }, "sha512-9wkRDXUXK124pEnAutE6n/l18j+i9GC5IAHK8TmX/2nlySETmky0OU6yL5U8pW1AoKh++AN9auDCr647BfurjQ=="],
 
