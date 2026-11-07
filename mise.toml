@@ -65,6 +65,8 @@ depends = ["test", "lint", "typecheck", "format:check", "capture:check", "docs:t
 
 [tasks."capture:install"]
 description = "Install capture PWA dependencies"
+# Capture's effect-tsgo patch resolves oxlint from the root node_modules, so the root install must finish first.
+depends = ["install"]
 dir = "capture"
 run = "bun install"
 
