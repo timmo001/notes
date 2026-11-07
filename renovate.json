@@ -1,4 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>timmo001/renovate-config"]
+  "extends": ["github>timmo001/renovate-config"],
+  "packageRules": [
+    {
+      "description": "The OpenCode plugin must use the same effect as @opencode/plugin and @opencode/schema (pinned to 4.1.0 in 2.2.6), or their types stop matching. Bump it with those packages.",
+      "matchFileNames": ["opencode-plugin/package.json"],
+      "matchPackageNames": ["effect"],
+      "enabled": false
+    }
+  ]
 }
