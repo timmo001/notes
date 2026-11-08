@@ -7,7 +7,7 @@
       "dependencies": {
         "@effect/platform-node": "4.1.2",
         "@opentui/core": "^0.8.0",
-        "@timmo001/effect-gh": "0.13.0",
+        "@timmo001/effect-gh": "0.13.2",
         "@timmo001/effect-herdr": "0.9.0-timmo001.6",
         "@timmo001/effect-notes": "workspace:*",
         "@tuiparts/core": "^0.0.6",
@@ -153,7 +153,7 @@
 
     "@redis/time-series": ["@redis/time-series@6.3.1", "", { "peerDependencies": { "@redis/client": "^6.3.1" } }, "sha512-MNDgrm+i63M/1a+XA+HcDsScwt4uBh/fGGJ84swTQZTFK5K5wMmxdlTRa4ZgmNJzjxMaszW/ipPScMUGV3aAMg=="],
 
-    "@timmo001/effect-gh": ["@timmo001/effect-gh@0.13.0", "", { "dependencies": { "graphql": "17.1.0" }, "peerDependencies": { "effect": "^4.1.2" } }, "sha512-4nHwi9cesHXN3RfKwUMwBrAXf6Zu4EGJ21j7GuMG1YY9EY3baTNeg7n6VT9WtVuj69MZ6lu7lf91NBl745jEaQ=="],
+    "@timmo001/effect-gh": ["@timmo001/effect-gh@0.13.2", "", { "dependencies": { "graphql": "17.1.0" }, "peerDependencies": { "effect": "^4.1.0" } }, "sha512-XY74QhpC/h1Lwte/qpgycbrzscQR2TUABmUp+jDK7aTFSV8vBC50mPQxsCmbCGhdCOBbtGFWZzEe3JNvOOsOOg=="],
 
     "@timmo001/effect-herdr": ["@timmo001/effect-herdr@0.9.0-timmo001.6", "", { "dependencies": { "@effect/platform-node-shared": "4.1.2", "ajv": "8.20.0" }, "peerDependencies": { "effect": "^4.1.2" } }, "sha512-wr/s+cE+ozCCg+/zjllyO1rolBfLnLu6YweiQina2V1F1ZzkxTwyOIHDpnX+nfMkMmBZpeKD/SAiopXhLnp+6g=="],
 
