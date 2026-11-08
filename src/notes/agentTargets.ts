@@ -64,11 +64,7 @@ const TARGETS: readonly AgentTarget[] = [
   { command: "qodercli", executable: "qodercli", label: "Qoder CLI" },
   { command: "qwen", executable: "qwen", label: "Qwen" },
   { command: "mastracode", executable: "mastracode", label: "Mastra Code" },
-  {
-    command: "antigravity-cli",
-    executable: "antigravity-cli",
-    label: "Antigravity CLI",
-  },
+  { command: "antigravity-cli", executable: "agy", label: "Antigravity CLI" },
   { command: "grok", executable: "grok", label: "Grok" },
 ];
 
@@ -79,10 +75,11 @@ export const detectAgentTargets = Effect.fn("detectAgentTargets")(function* (
   const sdk = yield* HerdrSdk;
   const integrations = yield* sdk.integrations.list();
 
+  // The API names targets in snake_case (antigravity_cli); the CLI and picker use kebab-case.
   const installed = new Set<string>(
     integrations
       .filter(({ state }) => state === "current" || state === "outdated")
-      .map(({ target }) => target),
+      .map(({ target }) => target.replaceAll("_", "-")),
   );
 
   const opencode2Available = yield* executableAvailable(OPENCODE2);

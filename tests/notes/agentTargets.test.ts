@@ -86,6 +86,11 @@ describe("agent targets", () => {
       { command: "pi", executable: "pi", label: "Pi" },
       cursor,
       { command: "claude", executable: "claude", label: "Claude Code" },
+      {
+        command: "antigravity-cli",
+        executable: "agy",
+        label: "Antigravity CLI",
+      },
     ]);
     expect(server.requests.map(({ method }) => method)).toEqual([
       "ping",

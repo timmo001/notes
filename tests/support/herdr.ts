@@ -140,6 +140,13 @@ export async function herdrFixture(
               available: true,
               state: "not_installed",
             },
+            {
+              target: "antigravity_cli",
+              label: "antigravity-cli",
+              command: "agy",
+              available: true,
+              state: "current",
+            },
           ],
         };
       case "session.snapshot":
