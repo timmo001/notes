@@ -6,3 +6,4 @@ linker = "hoisted"
 [test]
 # The capture PWA and docs site have their own installs and test tasks.
 pathIgnorePatterns = ["capture/**", "docs/**"]
+preload = ["./tests/support/preload.ts"]
