@@ -105,9 +105,10 @@ run = "bun test"
 
 [tasks."capture:typecheck"]
 description = "Type-check the capture PWA"
-depends = ["capture:install"]
+# Depends on capture:sync instead of generating types itself: two wrangler runs writing worker-configuration.d.ts at once make wrangler fail.
+depends = ["capture:sync"]
 dir = "capture"
-run = "bun run typecheck"
+run = "bun run typecheck:tsc"
 
 [tasks."capture:sync"]
 description = "Generate capture types for type-aware linting"

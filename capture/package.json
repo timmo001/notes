@@ -13,7 +13,8 @@
     "format:check": "prettier --check \"{src,tests}/**/*.{ts,css}\" \"index.html\" \"vite.config.ts\" \"package.json\" \"tsconfig.json\" \"wrangler.{deploy,example}.jsonc\" \"wrangler.jsonc\" \"public/**/*.{js,json,webmanifest}\"",
     "test": "bun test",
     "sync": "wrangler types --config wrangler.example.jsonc",
-    "typecheck": "bun run sync && tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "bun run sync && bun run typecheck:tsc",
+    "typecheck:tsc": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
     "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
