@@ -53,10 +53,10 @@
     },
     "opentui": {
       "source": "anomalyco/opentui",
-      "ref": "1207d3d92a5d59f7b6c05adda99440b79961b75c",
+      "ref": "ff703d174f12c3e42fe4af71a62ccd847688151f",
       "sourceType": "github",
       "skillPath": "packages/web/src/content/SKILL.md",
-      "computedHash": "f122b47bb3fdebaf437692bc4ae926c10dd9a0b4e832ce563f67d854d2886e1c",
+      "computedHash": "00bd59bbfeed2edb48b105b678cf62adf523b11517d0211f13b65a1dd0323f48",
       "installMode": "copy"
     },
     "skill-prefixes": {
