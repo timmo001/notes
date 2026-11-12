@@ -5,8 +5,8 @@
     "": {
       "name": "notes-capture",
       "dependencies": {
-        "@timmo001/groundwork-tokens": "0.23.0",
-        "@timmo001/groundwork-ui": "0.23.0",
+        "@timmo001/groundwork-tokens": "0.24.0",
+        "@timmo001/groundwork-ui": "0.24.0",
         "effect": "4.1.4",
         "jose": "^6.2.12",
         "lit": "^3.3.3",
@@ -56,9 +56,9 @@
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
-    "@effect/platform-node": ["@effect/platform-node@4.1.2", "", { "dependencies": { "@effect/platform-node-shared": "4.1.2", "undici": "^8.12.3" }, "peerDependencies": { "effect": "^4.1.2", "redis": ">=5.1.0 <7.0.0" } }, "sha512-ye0UjxORdd5Qu3paZ1LljgGOALWHt7muP9VTpjUSCNfcesiB/Hm7wPJIvZeu4gnwpTe5BtEnO1VHngWqjJp8mA=="],
+    "@effect/platform-node": ["@effect/platform-node@4.1.4", "", { "dependencies": { "@effect/platform-node-shared": "4.1.4", "undici": "^8.12.4" }, "peerDependencies": { "effect": "^4.1.4", "redis": ">=5.1.0 <7.0.0" } }, "sha512-h7QExTPq/RfYtHP/8tMlgfBvqYsuJKhxfkU6w0+NaF/ihqQ8Y3GH9t28ltupQjoqMM7P6W5gy8rOji7F0qVrmg=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.2", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.22.1" }, "peerDependencies": { "effect": "^4.1.2" } }, "sha512-wSwl9A/G1hcVvF8nLI+YfB3EyOIDvWS6+lsTZBkmgDnPBL7m8YWZF+1HD+mdEsb52SUGfukip46Q3gRwSdk3QA=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.4", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.22.1" }, "peerDependencies": { "effect": "^4.1.4" } }, "sha512-DWdfphHGOFJNj/mYadgpT3jIm8aRXDcPrQiGXFBH4p2H4XmA7iYMrPsI8NxVgZ7kNX0q1+FGJZJama0tINHRAg=="],
 
     "@effect/tsgo": ["@effect/tsgo@0.68.1", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.68.1", "@effect/tsgo-darwin-x64": "0.68.1", "@effect/tsgo-linux-arm": "0.68.1", "@effect/tsgo-linux-arm64": "0.68.1", "@effect/tsgo-linux-x64": "0.68.1", "@effect/tsgo-win32-arm64": "0.68.1", "@effect/tsgo-win32-x64": "0.68.1" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-/5zgc4EzB3ca9w8M09C8hNZcKChWVw29lIiBGfeLAz+TYFUETp2XqOSdT+GZIJlQlr0roFpQsdvJCq0RUPvNog=="],
 
@@ -264,9 +264,9 @@
 
     "@tanstack/virtual-core": ["@tanstack/virtual-core@3.19.11", "", {}, "sha512-/5iHb0RHBvj8Di59FDs4ESNm45jls33aZAi4zccVXZjc/6ZvwQP6nzEYeT6weXjTf9E6/vrp2JhYWRyO+ZP13A=="],
 
-    "@timmo001/groundwork-tokens": ["@timmo001/groundwork-tokens@0.23.0", "", { "dependencies": { "@effect/platform-node": "4.1.2", "@types/culori": "4.0.1", "culori": "4.0.2", "effect": "4.1.2" }, "bin": { "groundwork-tokens": "src/bin.ts" } }, "sha512-EVZdXwnSGopbnRNtyYS9a2LCzMiOM7lcSVKKJKhlviYxOlMkv+RuWeVxciK00lUJ3oLoDHAGmgC6/2fbypBVhw=="],
+    "@timmo001/groundwork-tokens": ["@timmo001/groundwork-tokens@0.24.0", "", { "dependencies": { "@effect/platform-node": "4.1.4", "@types/culori": "4.0.1", "culori": "4.0.2", "effect": "4.1.4" }, "bin": { "groundwork-tokens": "src/bin.ts" } }, "sha512-1AHXaiNi+5qwNxtvL0HxCTeBVlF0cqP8wZpWx2L15X81T3ATPMbutYN31M0dB60JXe28s6CJa73IV23iSc9DuQ=="],
 
-    "@timmo001/groundwork-ui": ["@timmo001/groundwork-ui@0.23.0", "", { "dependencies": { "@codemirror/lang-json": "6.0.2", "@codemirror/language": "6.13.1", "@codemirror/search": "6.7.2", "@codemirror/state": "6.7.6", "@codemirror/view": "6.43.15", "@lezer/highlight": "1.2.5", "@tanstack/table-core": "9.3.1", "@tanstack/virtual-core": "3.19.11", "micromark": "4.0.3", "micromark-extension-gfm": "3.0.0" } }, "sha512-5ui5ZEmJZXuex2gijjBudqhfqgOACgMJZ3a5wa0z1sSGV4HLt+EqGr/CVnVMbAOOZ6roRTUvdvKkyOAxh/eW+A=="],
+    "@timmo001/groundwork-ui": ["@timmo001/groundwork-ui@0.24.0", "", { "dependencies": { "@codemirror/lang-json": "6.0.2", "@codemirror/language": "6.13.1", "@codemirror/search": "6.7.2", "@codemirror/state": "6.7.6", "@codemirror/view": "6.43.15", "@lezer/highlight": "1.2.5", "@tanstack/table-core": "9.3.1", "@tanstack/virtual-core": "3.19.11", "micromark": "4.0.3", "micromark-extension-gfm": "3.0.0" } }, "sha512-MUB5yUItAeu25uW4zfYb3kWOU3DFjO1iuMc8kdzo34aF8OrUH5Z7mGlVJ/bKEm1cn5ItDoLowKlgJXYoc0NlaQ=="],
 
     "@types/bun": ["@types/bun@1.4.4", "", { "dependencies": { "bun-types": "1.4.4" } }, "sha512-9wkRDXUXK124pEnAutE6n/l18j+i9GC5IAHK8TmX/2nlySETmky0OU6yL5U8pW1AoKh++AN9auDCr647BfurjQ=="],
 
@@ -507,8 +507,6 @@
     "@effect/platform-node/undici": ["undici@8.12.4", "", {}, "sha512-8Mx+uNKKER2bA4AdtedkqRbwUCIJFr2nJckXRe5yrDqzePqwLP7VNcctN8/XdmDSbF7mS+jJKIszlL+vbam1VA=="],
 
     "@effect/platform-node-shared/ws": ["ws@8.22.2", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-/rEZ2ejown2N5gxVTHUu9bVVC7ttu0/Tgzf5hbTOixR3Fs7mbbXgn2DbdbcKgJOmpQMtrIUWivtYuVMnp/W/yA=="],
-
-    "@timmo001/groundwork-tokens/effect": ["effect@4.1.2", "", {}, "sha512-d3Oah1WyKxFLFh19yWheS5IXIVaITzxZ71JkE1rkUozq/6EcJSU5nPk5bF2QrSygZ3SQoiNQB8TsxFriyMeMaQ=="],
 
     "miniflare/workerd": ["workerd@1.20261103.1", "", { "optionalDependencies": { "@cloudflare/workerd-darwin-64": "1.20261103.1", "@cloudflare/workerd-darwin-arm64": "1.20261103.1", "@cloudflare/workerd-linux-64": "1.20261103.1", "@cloudflare/workerd-linux-arm64": "1.20261103.1", "@cloudflare/workerd-windows-64": "1.20261103.1" }, "hasInstallScript": true, "bin": { "workerd": "bin/workerd" } }, "sha512-GgcAnUH94uY8BEDc7CUyX3qsuLVbiidV+SZqJhasxbKi+f2dtR5xrgBC18uLbnaBFarlNFCYfr8JAIL2xJpnZw=="],
 
