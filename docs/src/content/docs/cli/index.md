@@ -1,8 +1,6 @@
 ---
 title: CLI
 description: The notes command-line interface.
-sidebar:
-  order: 1
 ---
 
 The `notes` CLI is the direct interface to the same note service exposed through MCP.

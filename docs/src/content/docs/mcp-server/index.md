@@ -1,8 +1,6 @@
 ---
 title: MCP Server
 description: Run notes as a Model Context Protocol server over stdio.
-sidebar:
-  order: 1
 ---
 
 `notes mcp` starts a Model Context Protocol server over stdio. It speaks JSON-RPC on stdout and sends logging to stderr so the protocol stream stays clean.
@@ -19,7 +17,7 @@ sidebar:
 }
 ```
 
-The server exposes note tools for reading, listing, writing, and deleting vault files. Reads include a SHA-256 revision that writes can use to reject stale content. See the generated [MCP tool reference](/mcp/tools/) for tool parameters.
+The server exposes note tools for reading, listing, writing, and deleting vault files. Reads include a SHA-256 revision that writes can use to reject stale content. See the generated [MCP tool reference](/mcp-server/tools) for tool parameters.
 
 Successful writes and deletes send a desktop notification when `notify-send` is
 available. Notifications are best-effort, so the operation still succeeds when

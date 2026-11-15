@@ -1,77 +1,55 @@
 ---
-title: Notes
+title: Overview
 description: Standalone CLI and MCP server for repo-scoped Markdown notes.
-template: splash
-hero:
-  title: Notes
-  tagline: Repo-scoped Markdown notes for humans and agents.
-  image:
-    file: ../../assets/hero.svg
-    alt: Notes logo
-  actions:
-    - text: Install
-      link: /install/
-      icon: right-arrow
-    - text: Quick start
-      link: /quick-start/
-      icon: open-book
-      variant: minimal
-    - text: View on GitHub
-      link: https://github.com/timmo001/notes
-      icon: external
-      variant: minimal
-      attrs:
-        rel: me
 ---
-
-import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 
 `notes` manages repository notes in a Git-backed vault and exposes the same behaviour through a CLI and an MCP server.
 
-<CardGrid>
-  <Card title="Project notes" icon="open-book">
+<CardGroup cols={2}>
+  <Card title="Project notes">
     Store Markdown notes under `projects/{owner}/{repo}` using a Git remote or a
     local project identity.
   </Card>
-  <Card title="Safe writes" icon="setting">
+  <Card title="Safe writes">
     Reads, writes, and deletes are constrained to the notes vault, then
     committed and best-effort pushed.
   </Card>
-  <Card title="Handoffs" icon="document">
+  <Card title="Handoffs">
     Handoffs are ordinary notes tagged `handoff`, using the same priority
     metadata as other notes.
   </Card>
-  <Card title="MCP server" icon="server">
+  <Card title="MCP server">
     The same note operations are exposed as raw-text MCP tools for agent
     harnesses.
   </Card>
-</CardGrid>
+</CardGroup>
 
 ## Start Here
 
-<CardGrid>
-  <LinkCard
-    title="Install"
-    href="/install/"
-    description="Install from the AUR or build the binary locally with mise."
-  />
-  <LinkCard
-    title="Quick Start"
-    href="/quick-start/"
-    description="List, read, write, and serve notes over MCP."
-  />
-  <LinkCard
-    title="Notes"
-    href="/notes/"
-    description="Understand the vault layout, frontmatter, and safety model."
-  />
-  <LinkCard
-    title="MCP Server"
-    href="/mcp/"
-    description="Expose notes to MCP-compatible agents over stdio."
-  />
-</CardGrid>
+<CardGroup cols={2}>
+  <Card title="Install" href="/install">
+    Install from the AUR or build the binary locally with mise.
+  </Card>
+  <Card title="Quick Start" href="/quick-start">
+    List, read, write, and serve notes over MCP.
+  </Card>
+  <Card title="Notes" href="/notes">
+    Understand the vault layout, frontmatter, and safety model.
+  </Card>
+  <Card title="MCP Server" href="/mcp-server">
+    Expose notes to MCP-compatible agents over stdio.
+  </Card>
+</CardGroup>
 
 ## Documentation Scope
 
 This repo owns the standalone CLI and MCP server. OpenCode plugins and slash commands that consume `notes` live in dotfiles/OpenCode config.
+
+## Machine-readable docs
+
+| URL                                   | Use                                      |
+| ------------------------------------- | ---------------------------------------- |
+| https://notes.timmo.dev/llms.txt      | Compact page index                       |
+| https://notes.timmo.dev/llms-full.txt | Full docs bundle                         |
+| https://notes.timmo.dev/mcp           | Hosted MCP (search, page and navigation) |
+| `/{route}.md`                         | One page as Markdown                     |

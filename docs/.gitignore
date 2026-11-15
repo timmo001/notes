@@ -1,0 +1,15 @@
+# build output
+dist/
+# generated types
+.astro/
+.blume/
+.blume-verify/
+
+# dependencies
+node_modules/
+
+# environment variables
+.env
+.env.production
+
+.wrangler/

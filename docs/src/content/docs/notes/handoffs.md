@@ -1,8 +1,6 @@
 ---
 title: Handoffs
 description: Handoff notes are tagged notes with workflow metadata.
-sidebar:
-  order: 2
 ---
 
 Handoffs are normal notes with a `handoff` tag. They are used by agent workflows to pass context between sessions.

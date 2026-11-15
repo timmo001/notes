@@ -1,22 +1,23 @@
 # Notes Docs
 
-The [notes](https://github.com/timmo001/notes) documentation site, built with Astro and Starlight.
+The [notes](https://github.com/timmo001/notes) documentation site, built with Blume and Astro. It's available at <https://notes.timmo.dev>.
 
 ## Commands
 
-Run these commands from this `docs/` directory:
+Run these from the repository root:
 
-- `bun install`
-- `bun run dev`
-- `bun run build`
-- `bun run deploy` (deploy the built site to Cloudflare Workers)
-- `bun run deploy:preview` (upload a preview version without promoting it)
-- `bun run preview`
-- `bun run gen` (regenerate the CLI and MCP reference pages from the repository source)
+- `mise run serve:docs`: run the dev server in the background
+- `mise run docs:build`: build the site
+- `mise run docs:preview`: preview the built site
+- `mise run docs:check`: validate the site with Blume
+- `mise run docs:gen`: regenerate the CLI and MCP reference pages from the repository source
+- `mise run docs:brand`: regenerate `public/logo.png`, `public/apple-touch-icon.png` and the GitHub social preview from `src/assets/logo.svg`
+
+Shared layout, components and config defaults come from [`@timmo001/docs-kit`](https://github.com/timmo001/groundwork/tree/main/packages/docs-kit).
 
 ## Deployment
 
-The site deploys to Cloudflare Workers as static assets. Workers Builds uses:
+The site deploys to Cloudflare Workers with Blume's Astro server bundle, which also serves the read-only docs MCP at `/mcp`. Workers Builds uses:
 
 - Root directory: `docs`
 - Production branch: `main`
@@ -24,6 +25,4 @@ The site deploys to Cloudflare Workers as static assets. Workers Builds uses:
 - Deploy command: `bun run deploy`
 - Non-production deploy command: `bun run deploy:preview`
 
-The repository checkout remains available above the root directory so the generators can read `../src`. Generated docs stay committed, and the site metadata continues to use `https://notes.timmo.dev`.
-
-`wrangler.jsonc` owns the Worker name, compatibility date, custom domain, asset directory, and 404 behaviour. The site is fully static, so it does not use an Astro adapter or Worker code for page requests.
+`wrangler.jsonc` owns the Worker name, compatibility settings, custom domain and observability. The Astro Cloudflare adapter writes the deployable config to `dist/server/wrangler.json`, which the deploy scripts use. The repository checkout stays available above the root directory so the generators can read `../src`. Generated docs stay committed.

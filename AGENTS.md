@@ -7,7 +7,7 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Runtime and package manager: Bun.
 - Language: TypeScript.
 - Effects and services: Effect v4.
-- Docs: Astro + Starlight under `docs/`.
+- Docs: Blume and docs-kit under `docs/`, deployed by Cloudflare Workers Builds.
 - Task runner: mise.
 
 ## Rules
@@ -41,7 +41,7 @@ This repo contains the standalone `notes` CLI and MCP server.
 
 ## Background Dev Servers
 
-- Start the capture PWA dev server with `mise run serve:capture` and the docs dev server with `mise run serve:docs`. Both run through Pitchfork in the background and restart if they exit or stop responding. Do not run `mise run capture:dev`, `mise run docs:dev`, `vite dev` or `astro dev` in the foreground from an agent.
+- Start the capture PWA dev server with `mise run serve:capture` and the docs dev server with `mise run serve:docs`. Both run through Pitchfork in the background and restart if they exit or stop responding. Do not run `mise run capture:dev`, `mise run docs:dev`, `vite dev`, `blume dev` or `astro dev` in the foreground from an agent.
 - Use the `:status`, `:logs`, `:restart` and `:stop` variants of each, such as `mise run serve:docs:logs`, to manage them.
 - The daemons are configured in `pitchfork.toml`. Capture serves `http://127.0.0.1:7490/` and docs `http://127.0.0.1:7470/`, or the next free port, and they are always at `https://capture.notes.localhost` and `https://docs.notes.localhost` through the Pitchfork proxy.
 - Test through those HTTPS addresses, in the browser, with curl and anywhere else. Never add the proxy's own port, such as `:8443`, even if Pitchfork prints one: that means the 443 redirect is missing (it's lost on reboot), so run `pitchfork proxy doctor`, then `pitchfork proxy setup -y` to restore it. Use the `127.0.0.1` port only when the proxy isn't running.

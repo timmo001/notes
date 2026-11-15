@@ -9,6 +9,8 @@ ignore: |
   node_modules/
   docs/dist/
   docs/.astro/
+  docs/.blume/
+  docs/.blume-verify/
   .mise/locks/
 
 rules:

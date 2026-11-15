@@ -40,7 +40,10 @@ jobs:
         run: mise run docs:gen
 
       - name: Verify generated docs are in sync
-        run: git diff --exit-code -- docs/src/content/docs/cli/commands.md docs/src/content/docs/mcp/tools.md
+        run: git diff --exit-code -- docs/src/content/docs/cli/commands.md docs/src/content/docs/mcp-server/tools.md
+
+      - name: Check docs
+        run: mise run docs:check
 
       - name: Build docs
         run: mise run docs:build

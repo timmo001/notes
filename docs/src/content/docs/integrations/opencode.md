@@ -1,8 +1,6 @@
 ---
 title: OpenCode
 description: How OpenCode integrations consume notes.
-sidebar:
-  order: 1
 ---
 
 `notes` owns the standalone CLI, MCP server, OpenCode plugin, and portable [`notes-cli`](https://github.com/timmo001/notes/tree/main/.agents/skills/notes-cli) and [`notes-mcp`](https://github.com/timmo001/notes/tree/main/.agents/skills/notes-mcp) Agent Skills. Slash commands, guards, and integration-specific skills are maintained outside this repo because they are part of the agent configuration layer.

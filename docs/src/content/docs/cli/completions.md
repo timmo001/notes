@@ -1,8 +1,6 @@
 ---
 title: Shell Completions
 description: Generate shell completions for notes.
-sidebar:
-  order: 3
 ---
 
 `notes` can print completion scripts for Bash, Fish, and Zsh:

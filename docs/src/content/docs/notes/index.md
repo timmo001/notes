@@ -1,8 +1,6 @@
 ---
 title: Notes
 description: Vault layout, repository identity, and note safety rules.
-sidebar:
-  order: 1
 ---
 
 `notes` stores Markdown files in a Git-backed vault and opens an interactive browser when run without a command. The default vault is `~/Documents/notes`; set `NOTES` to use a different path. `DOT_NOTES_DIR` is still read as a compatibility fallback when `NOTES` is unset.

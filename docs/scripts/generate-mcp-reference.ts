@@ -5,7 +5,7 @@ import { mcpTools } from "../../src/mcp/toolMetadata.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const outFile = path.join(root, "src/content/docs/mcp/tools.md");
+const outFile = path.join(root, "src/content/docs/mcp-server/tools.md");
 
 const lines: string[] = [];
 
@@ -18,10 +18,6 @@ push("---");
 push("title: MCP Tool Reference");
 
 push("description: Generated reference for the notes MCP tools.");
-
-push("sidebar:");
-
-push("  order: 2");
 
 push("---");
 

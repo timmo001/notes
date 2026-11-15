@@ -54,7 +54,7 @@ run = "bun test"
 
 [tasks.lint]
 description = "Lint source with the shared Oxlint rules"
-depends = ["install", "capture:sync", "docs:sync"]
+depends = ["install", "capture:sync", "docs:install"]
 run = "bun run lint"
 
 [tasks.format]
@@ -69,7 +69,7 @@ run = "bun run format:check"
 
 [tasks.check]
 description = "Test, lint, type-check and verify formatting"
-depends = ["test", "lint", "typecheck", "format:check", "capture:check", "docs:typecheck"]
+depends = ["test", "lint", "typecheck", "format:check", "capture:check", "docs:check"]
 
 [tasks."capture:install"]
 description = "Install capture PWA dependencies"
@@ -178,12 +178,6 @@ depends = ["docs:install"]
 dir = "docs"
 run = "bun run build"
 
-[tasks."docs:og"]
-description = "Regenerate the docs Open Graph image"
-depends = ["docs:install"]
-dir = "docs"
-run = "bun run og"
-
 [tasks."docs:preview"]
 description = "Preview docs site"
 depends = ["docs:install"]
@@ -208,19 +202,16 @@ depends = ["install", "docs:install"]
 dir = "docs"
 run = "bun run gen"
 
-[tasks."docs:check"]
-description = "Regenerate and build docs"
-depends = ["docs:gen", "docs:typecheck", "docs:build"]
-
-[tasks."docs:typecheck"]
-description = "Type-check docs source and generators with TypeScript 7"
-depends = ["install", "docs:sync"]
-dir = "docs"
-run = "bun ../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json"
-
-[tasks."docs:sync"]
-description = "Generate docs types for TypeScript and Oxlint"
+[tasks."docs:brand"]
+description = "Regenerate the docs logo PNGs and the social preview"
 depends = ["docs:install"]
 dir = "docs"
-run = "bunx astro sync"
+run = "bun run brand"
+
+# --isolated keeps blume's check from clashing with a running dev server.
+[tasks."docs:check"]
+description = "Check the docs site with Blume's strict validation"
+depends = ["docs:install"]
+dir = "docs"
+run = "bunx blume check --strict --isolated"
 

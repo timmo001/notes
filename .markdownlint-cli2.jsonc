@@ -27,6 +27,8 @@
     "docs/dist/**",
     "docs/.astro",
     "docs/.astro/**",
+    "docs/.blume/**",
+    "docs/.blume-verify/**",
     "dot-migration/**",
     "docs/src/content/docs/dot/commands.md",
     "docs/src/content/docs/reference/**",

@@ -1,8 +1,6 @@
 ---
 title: Command Reference
 description: Every notes command and flag, generated from the Effect command tree.
-sidebar:
-  order: 2
 ---
 
 <!-- Generated from the Effect command tree by `mise run docs:gen:cli`. Do not edit by hand. -->
