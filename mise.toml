@@ -40,13 +40,16 @@ chmod +x ./.scripts/linux/create-arch.sh
 [tasks.typecheck]
 description = "Type-check the notes source"
 # docs/scripts imports docs-kit, which needs the docs dependencies (sharp) installed.
-depends = ["install", "docs:install"]
+depends = ["install", "docs:install", "plugin:install"]
 run = [
   "bunx tsc --noEmit",
-  # The OpenCode plugin pins OpenCode's Effect, so it has its own install.
-  "bun install --cwd opencode-plugin --frozen-lockfile",
   "bunx tsc -p opencode-plugin",
 ]
+
+[tasks."plugin:install"]
+description = "Install the OpenCode plugin's dependencies"
+# The OpenCode plugin pins OpenCode's Effect, so it has its own install.
+run = "bun install --cwd opencode-plugin --frozen-lockfile"
 
 [tasks.test]
 description = "Run notes tests"
@@ -55,7 +58,8 @@ run = "bun test"
 
 [tasks.lint]
 description = "Lint source with the shared Oxlint rules"
-depends = ["install", "capture:sync", "docs:install"]
+# Type-aware lint covers opencode-plugin/, so its dependencies must be installed.
+depends = ["install", "capture:sync", "docs:install", "plugin:install"]
 run = "bun run lint"
 
 [tasks.format]
