@@ -5,7 +5,11 @@ import {
   HttpServerRequest,
   HttpServerResponse,
 } from "effect/http";
-import { getRepositories, postCapture } from "./api/captures.js";
+import {
+  getRepositories,
+  postCapture,
+  requireVersion,
+} from "./api/captures.js";
 import { CaptureConfig } from "./capture/config.js";
 import { AccessMiddleware } from "./capture/services/AccessAuth.js";
 import { GitHubIssues } from "./capture/services/GitHubIssues.js";
@@ -27,8 +31,12 @@ function makeApp(env: Env) {
 
   return Layer.mergeAll(
     Layer.mergeAll(
-      HttpRouter.add("POST", "/api/captures", postCapture),
-      HttpRouter.add("GET", "/api/repositories", getRepositories),
+      HttpRouter.add("POST", "/api/captures", requireVersion(postCapture)),
+      HttpRouter.add(
+        "GET",
+        "/api/repositories",
+        requireVersion(getRepositories),
+      ),
     ).pipe(HttpRouter.provideRequest(services)),
     HttpRouter.add("*", "/*", serveAsset),
     AccessMiddleware.pipe(Layer.provide(services)),

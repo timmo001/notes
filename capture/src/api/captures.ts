@@ -8,6 +8,7 @@ import {
   type RepositoryOption,
 } from "../capture/repositories.js";
 import { CaptureInput } from "../capture/schema.js";
+import { version, versionHeader } from "../capture/version.js";
 import {
   GitHubIssues,
   type CreatedIssue,
@@ -46,6 +47,24 @@ function json(data: CaptureResponseBody, status: number) {
     headers: { "cache-control": "no-store" },
   });
 }
+
+/**
+ * Refuses a page from another build than the Worker's with 426, so it reloads
+ * onto the current one. A request that doesn't say its version is let through.
+ */
+export const requireVersion = <E, R>(
+  handler: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
+) =>
+  Effect.gen(function* () {
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const client = request.headers[versionHeader];
+
+    if (client !== undefined && client !== version) {
+      return json({ error: CAPTURE_ERRORS.updated }, 426);
+    }
+
+    return yield* handler;
+  });
 
 function respondWithFailure(
   message: string,

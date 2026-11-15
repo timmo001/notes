@@ -7,6 +7,7 @@ export const CAPTURE_ERRORS = {
   invalidConfiguration: "Capture is not configured correctly",
   invalidRepository: "Invalid capture repository",
   queueFailed: "The capture could not be queued",
+  updated: "Capture was updated on the server",
 } as const;
 
 export type CaptureError = (typeof CAPTURE_ERRORS)[keyof typeof CAPTURE_ERRORS];
