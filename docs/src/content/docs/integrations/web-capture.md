@@ -13,6 +13,12 @@ When `CAPTURE_REPOSITORIES` is configured, the form also provides a searchable t
 
 Submitting always creates an issue in the private queue repository configured by `GITHUB_OWNER/GITHUB_REPO`, with the fixed `agent:ready` label. The issue records the target repository, request identifier, typed capture source, and timestamp for later local processing.
 
+## Install and updates
+
+The page is an installable PWA: it offers an install banner until you turn it down once, and an Install button stays in the header. It can also receive shares: share text or a link to Capture from another app and it is added to the note, never replacing what is already written.
+
+Each build has a version. The page sends it with every API call, and the Worker answers `426` to a page from another build. The page then reloads once onto the new build, keeping the note, or shows a banner asking for a reload if that didn't help.
+
 ## Development
 
 The PWA is a separate application under `capture/` so the Starlight documentation deployment remains static and independent. A Lit form is built by Vite and served as static assets by a Cloudflare Worker, whose Effect `HttpRouter` handles the Access check and the `/api/repositories` and `/api/captures` routes. The Worker runs first for every request, so the page itself stays behind Cloudflare Access.

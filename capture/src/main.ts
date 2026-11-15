@@ -1,9 +1,4 @@
 /// <reference types="vite/client" />
 import "./styles/global.css";
+import "./pwa/pwa.js";
 import "./components/CaptureForm.js";
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("/service-worker.js");
-  });
-}

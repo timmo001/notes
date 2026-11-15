@@ -9,6 +9,7 @@
     "src/env.d.ts",
     "src/main.ts",
     "src/components",
+    "src/pwa",
     "src/theme"
   ],
   "exclude": ["dist", "node_modules"]

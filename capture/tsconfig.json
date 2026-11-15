@@ -38,6 +38,7 @@
     "vite.config.ts",
     "src/main.ts",
     "src/components",
+    "src/pwa",
     "src/theme"
   ]
 }
