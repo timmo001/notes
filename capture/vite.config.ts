@@ -40,7 +40,15 @@ export default defineConfig({
       // beside them
       name: "pwa",
       transformIndexHtml: (html) =>
-        html.replace("<!-- pwa:head -->", headTags(config)),
+        // Access guards the manifest too, and a browser fetches it without
+        // cookies unless the link says to send them
+        html.replace(
+          "<!-- pwa:head -->",
+          headTags(config).replace(
+            '<link rel="manifest"',
+            '<link rel="manifest" crossorigin="use-credentials"',
+          ),
+        ),
       async writeBundle(options) {
         if (this.environment.name !== "client" || options.dir === undefined) {
           return;
