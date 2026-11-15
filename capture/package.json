@@ -18,7 +18,7 @@
     "prepare": "effect-tsgo patch --force=false"
   },
   "dependencies": {
-    "@timmo001/groundwork-pwa": "0.47.0",
+    "@timmo001/groundwork-pwa": "0.49.0",
     "@timmo001/groundwork-tokens": "0.47.0",
     "@timmo001/groundwork-ui": "0.47.0",
     "effect": "4.1.4",
