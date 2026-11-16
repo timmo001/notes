@@ -18,14 +18,14 @@ permissions:
 
 jobs:
   build:
-    uses: timmo001/workflows/.github/workflows/build-bun-cli.yml@fa479eabebf26cc5f655b165c20423fb8fcc0cf4 # 20261115.0
+    uses: timmo001/workflows/.github/workflows/build-bun-cli.yml@5451f6867a5cb2b9b6318a82e00f7dd9f9fc279a # 20261116.0
     with:
       smoke-test: |-
         ./dist/notes --help
         ./dist/notes root
 
   capture:
-    uses: timmo001/workflows/.github/workflows/run-mise-task.yml@36ba6651f1296cce685ede8ac38b9574c9291028 # master
+    uses: timmo001/workflows/.github/workflows/run-mise-task.yml@5451f6867a5cb2b9b6318a82e00f7dd9f9fc279a # 20261116.0
     with:
       name: Build capture PWA
       task: capture:build
