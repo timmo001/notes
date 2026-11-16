@@ -40,8 +40,12 @@ Capture type-checking runs the Effect-patched TypeScript 7 compiler with plain `
 
 Local development bypasses Cloudflare Access and requires `GITHUB_TOKEN` in `capture/.dev.vars` to exercise issue creation. Never commit that file.
 
-Copy `capture/.dev.vars.example` to `capture/.dev.vars` for local configuration. Production deployment configuration stays outside this public repository: configure the Worker custom domain, `ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`, `GITHUB_OWNER`, `GITHUB_REPO`, optional `CAPTURE_REPOSITORIES`, and `QUEUE_LABEL` in Cloudflare, and store `GITHUB_TOKEN` as a Worker secret.
+Copy `capture/.dev.vars.example` to `capture/.dev.vars` for local configuration. Production configuration stays outside this public repository.
 
-Use `capture/wrangler.example.jsonc` for public validation. Keep the production values in ignored `capture/wrangler.local.jsonc`; the deploy scripts select it only while building the production Worker, and `wrangler deploy` then picks up the built configuration.
+## Deployment
 
-`dot notes capture sync` reconciles that local file from the active Worker's non-secret settings, generates picker options from notification-watched repositories, and deploys when the live picker differs. The generated configuration uses `keep_vars`, so Workers Builds triggered by later Git pushes preserve the runtime picker variable and dashboard-managed secrets.
+[`capture/alchemy.run.ts`](https://github.com/timmo001/notes/blob/main/capture/alchemy.run.ts) is the Worker's [Alchemy](https://alchemy.run) stack: the `notes-capture` Worker, its custom domain, the Vite build's assets and the plain `ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`, `GITHUB_OWNER`, `GITHUB_REPO`, `CAPTURE_REPOSITORIES` and `QUEUE_LABEL` vars. The Deploy capture workflow runs `mise run capture:deploy` on pushes to `main` that touch `capture/`. `GITHUB_TOKEN` is a Worker secret set in Cloudflare, outside the stack, and deploys leave it alone.
+
+The stack reads the vars as `CAPTURE_*` names (`CAPTURE_GITHUB_REPO` for `GITHUB_REPO`, and so on). CI gets them from the repository's secrets and variables; locally they come from the ignored `capture/.env.prod`, not `.env`, which Wrangler would load as dev vars. `mise run docs:deploy:github` writes that file's values into the repository, so change a var there, deploy the github stack, then deploy capture. `mise run capture:plan` shows what a deploy would change.
+
+`capture/wrangler.example.jsonc` only gives the Vite plugin and `wrangler types` the Worker's shape for development and the build.

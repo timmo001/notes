@@ -7,7 +7,8 @@ This repo contains the standalone `notes` CLI and MCP server.
 - Runtime and package manager: Bun.
 - Language: TypeScript.
 - Effects and services: Effect v4.
-- Docs: Blume and docs-kit under `docs/`, deployed by Cloudflare Workers Builds.
+- Docs: Blume and docs-kit under `docs/`, deployed with Alchemy (`docs/alchemy.run.ts`) by the Deploy docs workflow.
+- Capture: the PWA and Worker under `capture/`, deployed with Alchemy (`capture/alchemy.run.ts`) by the Deploy capture workflow on pushes to `main`. `docs/stacks/github.ts` writes CI's Cloudflare token and the capture vars into the repository's secrets and variables.
 - Task runner: mise.
 
 ## Rules

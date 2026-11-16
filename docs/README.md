@@ -21,4 +21,4 @@ Shared layout, components and config defaults come from [`@timmo001/docs-kit`](h
 
 The site deploys to the `notes-docs` Cloudflare Worker with Blume's Astro server bundle, which also serves the read-only docs MCP at `/mcp`. [`alchemy.run.ts`](alchemy.run.ts) is its [Alchemy](https://alchemy.run) stack: the Worker's name, custom domain and compatibility settings. The Deploy docs workflow runs `mise run docs:deploy` on pushes to `main`. Generated docs stay committed.
 
-CI's Cloudflare token and the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets come from [`stacks/github.ts`](stacks/github.ts). Deploy it once from a machine with `mise run docs:deploy:github`, and again to rotate the token.
+CI's Cloudflare token and the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets come from [`stacks/github.ts`](stacks/github.ts), which also writes the capture Worker's `CAPTURE_*` secrets and variables from the ignored `capture/.env.prod`. Deploy it once from a machine with `mise run docs:deploy:github`, and again to rotate the token or change a capture var.
