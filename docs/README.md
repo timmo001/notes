@@ -12,17 +12,13 @@ Run these from the repository root:
 - `mise run docs:check`: validate the site with Blume
 - `mise run docs:gen`: regenerate the CLI and MCP reference pages from the repository source
 - `mise run docs:brand`: regenerate `public/logo.png`, `public/apple-touch-icon.png` and the GitHub social preview from `src/assets/logo.svg`
+- `mise run docs:plan`: build the site, then show what deploying it would change
+- `mise run docs:deploy`: build the site, then deploy it
 
 Shared layout, components and config defaults come from [`@timmo001/docs-kit`](https://github.com/timmo001/groundwork/tree/main/packages/docs-kit).
 
 ## Deployment
 
-The site deploys to Cloudflare Workers with Blume's Astro server bundle, which also serves the read-only docs MCP at `/mcp`. Workers Builds uses:
+The site deploys to the `notes-docs` Cloudflare Worker with Blume's Astro server bundle, which also serves the read-only docs MCP at `/mcp`. [`alchemy.run.ts`](alchemy.run.ts) is its [Alchemy](https://alchemy.run) stack: the Worker's name, custom domain and compatibility settings. The Deploy docs workflow runs `mise run docs:deploy` on pushes to `main`. Generated docs stay committed.
 
-- Root directory: `docs`
-- Production branch: `main`
-- Build command: `bun run build`
-- Deploy command: `bun run deploy`
-- Non-production deploy command: `bun run deploy:preview`
-
-`wrangler.jsonc` owns the Worker name, compatibility settings, custom domain and observability. The Astro Cloudflare adapter writes the deployable config to `dist/server/wrangler.json`, which the deploy scripts use. The repository checkout stays available above the root directory so the generators can read `../src`. Generated docs stay committed.
+CI's Cloudflare token and the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repository secrets come from [`stacks/github.ts`](stacks/github.ts). Deploy it once from a machine with `mise run docs:deploy:github`, and again to rotate the token.
