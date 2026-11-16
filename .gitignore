@@ -4,6 +4,7 @@ dist-ts/
 docs/dist/
 docs/.astro/
 capture/.wrangler/
+capture/.alchemy/
 capture/.dev.vars
 capture/dist/
 capture/wrangler.local.jsonc

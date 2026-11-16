@@ -7,10 +7,10 @@ import config from "./pwa.config.ts";
 import { themeOptions } from "./src/theme/options.js";
 
 // Each build has its own version, which the page, the service worker and the
-// Worker share. Workers Builds sets the commit; a local build uses the time
+// Worker share. A CI build uses the commit; a local build uses the time
 const version =
   process.env.GROUNDWORK_PWA_VERSION ??
-  process.env.WORKERS_CI_COMMIT_SHA?.slice(0, 7) ??
+  process.env.GITHUB_SHA?.slice(0, 7) ??
   Date.now().toString(36);
 
 const define = {
@@ -73,9 +73,8 @@ export default defineConfig({
         });
       },
     },
-    cloudflare({
-      configPath:
-        process.env.CAPTURE_WRANGLER_CONFIG ?? "wrangler.example.jsonc",
-    }),
+    // Only the Worker's shape for dev and the build: the deployed Worker's
+    // settings come from alchemy.run.ts
+    cloudflare({ configPath: "wrangler.example.jsonc" }),
   ],
 });

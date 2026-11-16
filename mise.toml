@@ -145,6 +145,18 @@ run = "bun run build"
 description = "Test, type-check, check formatting and build the capture PWA"
 depends = ["capture:test", "capture:typecheck", "capture:format:check", "capture:build"]
 
+[tasks."capture:plan"]
+description = "Build the capture PWA, then show what deploying its prod stage would change"
+depends = ["capture:build"]
+dir = "capture"
+run = "bun run plan"
+
+[tasks."capture:deploy"]
+description = "Build the capture PWA, then deploy its prod stage with Alchemy"
+depends = ["capture:build"]
+dir = "capture"
+run = "bun run deploy"
+
 [tasks."docs:install"]
 description = "Install docs dependencies"
 dir = "docs"
