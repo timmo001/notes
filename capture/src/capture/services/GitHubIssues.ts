@@ -10,7 +10,7 @@ export interface CreatedIssue {
 
 export class GitHubIssueError extends Schema.TaggedError<GitHubIssueError>()(
   "GitHubIssueError",
-  { message: Schema.String },
+  { message: Schema.String, cause: Schema.optional(Schema.Defect()) },
 ) {}
 
 const GitHubIssueResponse = Schema.Struct({
@@ -66,9 +66,10 @@ export class GitHubIssues extends Context.Service<
           GitHubIssueResponse,
         )(response).pipe(
           Effect.mapError(
-            () =>
+            (cause) =>
               new GitHubIssueError({
                 message: "GitHub returned an invalid issue response",
+                cause,
               }),
           ),
         );

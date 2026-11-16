@@ -24,7 +24,11 @@ const MAX_RESULT_LENGTH = 20_000;
 /** Failure returned by the local OpenCode command boundary. */
 export class OpenCodeClientError extends Schema.TaggedError<OpenCodeClientError>()(
   "OpenCodeClientError",
-  { operation: Schema.String, message: Schema.String },
+  {
+    operation: Schema.String,
+    message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
 ) {}
 
 /** Local OpenCode operations required by the daemon and direct captures. */
@@ -201,10 +205,11 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
             ),
           )(line).pipe(
             Effect.mapError(
-              () =>
+              (cause) =>
                 new OpenCodeClientError({
                   operation: "command.decode",
                   message: "OpenCode returned invalid JSON events",
+                  cause,
                 }),
             ),
           );
@@ -214,10 +219,11 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
               Schema.Struct({ message: Schema.String }),
             )(event.error).pipe(
               Effect.mapError(
-                () =>
+                (cause) =>
                   new OpenCodeClientError({
                     operation: "command.decode",
                     message: "OpenCode returned an invalid error event",
+                    cause,
                   }),
               ),
             );
@@ -237,10 +243,11 @@ const processWithModel = Effect.fn("OpenCodeClient.processWithModel")(
             }),
           )(event.part).pipe(
             Effect.mapError(
-              () =>
+              (cause) =>
                 new OpenCodeClientError({
                   operation: "command.decode",
                   message: "OpenCode returned an invalid assistant event",
+                  cause,
                 }),
             ),
           );

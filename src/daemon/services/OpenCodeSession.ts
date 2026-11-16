@@ -28,7 +28,7 @@ const Session = Schema.Struct({
 /** Failure to establish a capture session's permission policy. */
 export class OpenCodeSessionError extends Schema.TaggedError<OpenCodeSessionError>()(
   "OpenCodeSessionError",
-  { message: Schema.String },
+  { message: Schema.String, cause: Schema.optional(Schema.Defect()) },
 ) {}
 
 /** Keep setup and model commands on the same launcher and process boundary. */
@@ -148,9 +148,10 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
         yield* api(["get", `/api/agent${location}`]),
       ).pipe(
         Effect.mapError(
-          () =>
+          (cause) =>
             new OpenCodeSessionError({
               message: "OpenCode returned invalid agent permissions",
+              cause,
             }),
         ),
       );
@@ -207,9 +208,10 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
       ]),
     ).pipe(
       Effect.mapError(
-        () =>
+        (cause) =>
           new OpenCodeSessionError({
             message: "OpenCode returned an invalid created session",
+            cause,
           }),
       ),
     );
@@ -218,9 +220,10 @@ export const createOpenCodeSession = Effect.fn("OpenCodeClient.createSession")(
       yield* api(["get", `/api/session/${created.data.id}`]),
     ).pipe(
       Effect.mapError(
-        () =>
+        (cause) =>
           new OpenCodeSessionError({
             message: "OpenCode returned an invalid stored session",
+            cause,
           }),
       ),
     );

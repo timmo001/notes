@@ -22,6 +22,7 @@ const CaptureFailureFields = {
   error: Schema.Literals(Object.values(CAPTURE_ERRORS)),
   requestId: Schema.optional(Schema.String),
   bytes: Schema.optional(Schema.Finite),
+  cause: Schema.optional(Schema.Defect()),
 };
 
 /** A capture the client sent in an unacceptable shape. */
@@ -131,12 +132,13 @@ export const postCapture = Effect.gen(function* () {
 
   const repositories = yield* config.repositories.pipe(
     Effect.mapError(
-      () =>
+      (cause) =>
         new CaptureFailed({
           reason: "repository-configuration",
           status: 500,
           error: CAPTURE_ERRORS.invalidConfiguration,
           requestId: capture.requestId,
+          cause,
         }),
     ),
   );
@@ -158,12 +160,13 @@ export const postCapture = Effect.gen(function* () {
     .create(buildIssuePayload(capture, config.queueLabel))
     .pipe(
       Effect.mapError(
-        () =>
+        (cause) =>
           new CaptureFailed({
             reason: "queue",
             status: 502,
             error: CAPTURE_ERRORS.queueFailed,
             requestId: capture.requestId,
+            cause,
           }),
       ),
     );
