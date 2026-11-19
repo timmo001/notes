@@ -19,7 +19,7 @@
     "gen": "bun run gen:cli && bun run gen:mcp"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "14.4.8",
+    "@astrojs/cloudflare": "14.4.9",
     "@fontsource-variable/inter": "5.3.0",
     "@timmo001/docs-kit": "0.51.0",
     "blume": "2.2.7",
