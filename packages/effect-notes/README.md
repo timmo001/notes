@@ -28,7 +28,3 @@ const notes = await Effect.runPromise(
 ```
 
 Writes (`writeNote`, `createNote`, `deleteNote`, `moveNote`, `setNotePriority`) commit to the vault and push it.
-
-## Licence
-
-Apache 2.0. See [LICENSE](https://github.com/timmo001/notes/blob/main/LICENSE).
