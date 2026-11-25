@@ -185,6 +185,13 @@ specifiers = ["1.38.0"]
 version = "2.36.0"
 backend = "packslip:github.com/jdx/pitchfork"
 specifiers = ["2.36.0"]
+unsupported_platforms = [
+    "linux-arm64-musl",
+    "linux-x64-musl",
+    "linux-x64-musl-baseline",
+    "macos-x64",
+    "macos-x64-baseline",
+]
 
 [tools.pitchfork."platforms.linux-arm64"]
 checksum = "sha256:02cabdcf64dfd91d638364d961fa92cfe1005f12038c11ef56352d63781748c5"
