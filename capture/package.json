@@ -21,14 +21,14 @@
     "@timmo001/groundwork-pwa": "0.51.1",
     "@timmo001/groundwork-tokens": "0.51.1",
     "@timmo001/groundwork-ui": "0.51.1",
-    "effect": "4.1.6",
+    "effect": "4.1.7",
     "jose": "^6.2.12",
     "lit": "^3.3.3"
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.87",
     "@cloudflare/vite-plugin": "^1.62.2",
-    "@effect/platform-bun": "4.1.6",
+    "@effect/platform-bun": "4.1.7",
     "@effect/tsgo": "0.73.7",
     "@types/bun": "^1.4.2",
     "alchemy": "2.0.0-beta.87",

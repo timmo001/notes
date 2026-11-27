@@ -8,14 +8,14 @@
         "@timmo001/groundwork-pwa": "0.51.1",
         "@timmo001/groundwork-tokens": "0.51.1",
         "@timmo001/groundwork-ui": "0.51.1",
-        "effect": "4.1.6",
+        "effect": "4.1.7",
         "jose": "^6.2.12",
         "lit": "^3.3.3",
       },
       "devDependencies": {
         "@alchemy.run/cloudflare": "2.0.0-beta.87",
         "@cloudflare/vite-plugin": "^1.62.2",
-        "@effect/platform-bun": "4.1.6",
+        "@effect/platform-bun": "4.1.7",
         "@effect/tsgo": "0.73.7",
         "@types/bun": "^1.4.2",
         "alchemy": "2.0.0-beta.87",
@@ -92,11 +92,11 @@
 
     "@distilled.cloud/s3": ["@distilled.cloud/s3@1.0.0-rc.20", "", { "dependencies": { "@distilled.cloud/aws4signer": "1.0.0-rc.20", "@distilled.cloud/core": "1.0.0-rc.20" }, "peerDependencies": { "effect": "^4.1.2" } }, "sha512-MqJlG+CVCgkIX7iPDo8hb4YlcEELYTlJFLg2Whp8TjBPieViNiiRAJR/5TtDApa38dzrTsMc69ul965Myagrdg=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.1.6", "", { "dependencies": { "@effect/platform-node-shared": "4.1.6" }, "peerDependencies": { "effect": "^4.1.6" } }, "sha512-5CINIx/JuIO/VTXbfFtKV+eCzEwXGPcUJD1nnuTQDxx7oYHPcc+g3gJylBt1oKxXrAqhwR3Gxq4oTs4n21OCRQ=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.1.7", "", { "dependencies": { "@effect/platform-node-shared": "4.1.7" }, "peerDependencies": { "effect": "^4.1.7" } }, "sha512-UWWFcWhpjtV/A1EUBaIGqCghCIAZmKaJndjV2pHdv4M7Rz/mP+jGwaX5zApX6QYc1dz0CXLO0bkhovQGJI5Zhg=="],
 
     "@effect/platform-node": ["@effect/platform-node@4.1.5", "", { "dependencies": { "@effect/platform-node-shared": "4.1.5", "undici": "^8.12.4" }, "peerDependencies": { "effect": "^4.1.5", "redis": ">=5.1.0 <7.0.0" } }, "sha512-tFnRvxF9EKc3oU17sDHj1JeLP+TL/IkaOEl3IUk2EjgMS0x7AWs0ioUXjdNKLb3Z1LdjVfMf/DxsNh9PW5FFAg=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.6", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.23.0" }, "peerDependencies": { "effect": "^4.1.6" } }, "sha512-RWKHX5TEZet2KC/NlBu5prBkZT30m6h8YTSWfJM0wIw0BNMkfEzCuH6N5HOw8mUudclWp5z1XTzsZ7xg0h+6Qw=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.1.7", "", { "dependencies": { "@types/ws": "^8.18.2", "ws": "^8.23.0" }, "peerDependencies": { "effect": "^4.1.7" } }, "sha512-EDnlB5zL6EW0ahVAeQAUtpuMHc/0yruMLKBsX3nC4Zn3PuG4McWv2A6Rvdk2OUSFM/OFTCclt3sKWNCvk3pEUw=="],
 
     "@effect/sql-d1": ["@effect/sql-d1@4.1.5", "", { "dependencies": { "@cloudflare/workers-types": "^5.20261114.1" }, "peerDependencies": { "effect": "^4.1.5" } }, "sha512-UBGAoDhy26GR2W0KvBtCASJRvYpM4Wadng1MaJbMEvwbasEbQ+KKiZpWICVe0JpSLp3vxbQTD+1l1JYzp30V2g=="],
 
@@ -438,7 +438,7 @@
 
     "dunder-proto": ["dunder-proto@1.0.1", "", { "dependencies": { "call-bind-apply-helpers": "^1.0.1", "es-errors": "^1.3.0", "gopd": "^1.2.0" } }, "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A=="],
 
-    "effect": ["effect@4.1.6", "", {}, "sha512-P3CxMsdcSCle/7/FnPILd9GJkNqGtduKam2LX9Xsb8LoOjmeQ9Kmsuh16JwtIthaxLyiTCOzUUt+PZsXIohl+A=="],
+    "effect": ["effect@4.1.7", "", {}, "sha512-8QUe2XO3auHF5r7+bfIDWxyXlLA0sso4Sia1QYP+vrYA7qb3sq1u2eJmhyXGmKc8yZ+TY2SNxPozeMdyKmWing=="],
 
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
